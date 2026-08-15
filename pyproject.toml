@@ -1,5 +1,5 @@
 [project]
-name = "misconception-aware-llm"
+name = "sensym-misconceptions-detailed"
 version = "0.2.0"
 description = "Can a small local LLM detect cybersecurity misconceptions in student responses, and does telling it what to look for help?"
 requires-python = ">=3.9"

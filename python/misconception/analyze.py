@@ -210,9 +210,14 @@ def main():
     rows = []
     all_cms = {}
 
-    for condition in config.CONDITIONS:
+    # The two pre-registered conditions are required. The decoy is analysed too
+    # if it was run, and silently skipped if it wasn't — running the placebo is
+    # optional (see DECOY_CONDITION in config.py).
+    for condition in config.ALL_CONDITIONS:
         path = config.RESULTS_DIR / f"predictions_{condition}.csv"
         if not path.exists():
+            if condition == config.DECOY_CONDITION:
+                continue
             sys.exit(f"ERROR: {path} not found. Run  python misconception/run_experiment.py  first.")
 
         df = pd.read_csv(path)

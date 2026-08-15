@@ -182,6 +182,18 @@ def main():
     parser.add_argument("--sample", action="store_true",
                         help="Use the demo answers in data/sample/ instead of your own. "
                              "Lets a fresh clone run before you've written anything.")
+    parser.add_argument("--decoy", action="store_true",
+                        help="Also run the pre-registered placebo condition: the same "
+                             "catalogue prompt, but with a catalogue of PHYSICS "
+                             "misconceptions. Answers 'did the catalogue help, or did "
+                             "any longer prompt help?'. Adds ~50%% to the run time. "
+                             "See DECOY_CONDITION in config.py.")
+    parser.add_argument("--probe", type=int, metavar="N", default=None,
+                        help="Run on only the first N responses. Use --probe 10 on your "
+                             "first ten items, BEFORE writing the other thirty: if the "
+                             "model scores 10/10 under both prompts your items are too "
+                             "easy, and you want to find that out now. See the Phase 3 "
+                             "page.")
     args = parser.parse_args()
 
     if args.mock:
@@ -199,9 +211,39 @@ def main():
     responses = load_responses(resp_path)
     print(f"Loaded {len(misconceptions)} misconceptions")
 
-    for condition in config.CONDITIONS:
+    conditions = list(config.CONDITIONS)
+    decoys = None
+    if args.decoy:
+        decoys = load_misconceptions(config.DECOY_MISCONCEPTIONS_FILE)
+        conditions.append(config.DECOY_CONDITION)
+        print(f"Loaded {len(decoys)} decoy misconceptions (placebo condition ON)")
+
+        # The placebo only controls for prompt length if the two catalogues are
+        # comparable in length. Print both so you can see it rather than assume
+        # it — and so you can say so in Methods.
+        real_len = sum(len(m) for m in misconceptions)
+        decoy_len = sum(len(d) for d in decoys)
+        ratio = decoy_len / real_len if real_len else 0
+        print(f"  catalogue size: yours {real_len} chars / {len(misconceptions)} items, "
+              f"decoy {decoy_len} chars / {len(decoys)} items  (decoy is {ratio:.2f}x)")
+        if not 0.7 <= ratio <= 1.4:
+            print("  ! The two catalogues differ noticeably in length, so the decoy is")
+            print("    not cleanly controlling for prompt length. Either even them up or")
+            print("    say so in Limitations. (Expected while your file is still short.)")
+
+    if args.probe is not None:
+        n = max(1, args.probe)
+        responses = responses.head(n)
+        print(f"\n*** PROBE MODE — first {len(responses)} responses only. ***")
+        print("    This is the early-warning check, not a result. You are looking for")
+        print("    a score that is NOT perfect. See the Phase 3 page.")
+
+    for condition in conditions:
+        # The decoy condition sees the decoy catalogue; everything else sees
+        # yours. build_prompt() doesn't know or care which file a list came from.
+        catalogue = decoys if condition == config.DECOY_CONDITION else misconceptions
         try:
-            df = run_condition(condition, responses, misconceptions, args.mock)
+            df = run_condition(condition, responses, catalogue, args.mock)
         except LLMError as e:
             sys.exit(f"\nLLM ERROR:\n{e}")
 
@@ -210,7 +252,59 @@ def main():
         print(f"Saved -> {out}")
 
     todo.report()
+
+    if args.probe is not None:
+        _probe_verdict(conditions, len(responses))
+        return
+
     print("All conditions complete. Next step:  python misconception/analyze.py")
+
+
+def _probe_verdict(conditions, n):
+    """
+    The early-warning check from Phase 3.
+
+    You run this on your FIRST TEN items, before writing the other thirty. A
+    perfect score here is bad news, not good news: it means a model with no help
+    already separates your M items from your C items, so there is no room left
+    for the misconception catalogue to show any effect. That is the ceiling
+    effect, and finding it now costs you ten items instead of forty.
+
+    This deliberately prints no metrics. It is a go / no-go signal on the
+    dataset, and turning it into a number invites you to report it, which you
+    must not do — ten items chosen by you is not a result.
+    """
+    print("\n" + "=" * 70)
+    print("PROBE RESULT")
+    print("=" * 70)
+    perfect = []
+    for condition in conditions:
+        path = config.RESULTS_DIR / f"predictions_{condition}.csv"
+        if not path.exists():
+            continue
+        df = pd.read_csv(path)
+        hits = int((df["prediction"] == df["ground_truth"]).sum())
+        print(f"  {condition:22s} {hits}/{len(df)} correct")
+        if hits == len(df):
+            perfect.append(condition)
+
+    if len(perfect) >= 2:
+        print("\n  ⚠  PERFECT UNDER MORE THAN ONE PROMPT.")
+        print("     Your items are separable without any help, so the catalogue has")
+        print("     nothing left to add and both conditions will sit at the ceiling.")
+        print("     STOP. Go and write harder items before you write the other thirty:")
+        print("       - an M that reads as reasonable and hedged")
+        print("       - a C that reads as overconfident")
+        print("     Then run this probe again.")
+    elif perfect:
+        print(f"\n  Perfect under {perfect[0]} only. Not fatal, but thin. Aim for at")
+        print("  least two or three items that SOMETHING gets wrong.")
+    else:
+        print("\n  ✓ Nothing is perfect. There is room for the catalogue to show an")
+        print("    effect. Carry on writing the remaining items in this style.")
+    print("\n  These numbers are a dataset check, NOT a result. Never report them:")
+    print(f"  {n} items chosen by you is not a sample.")
+    print("=" * 70)
 
 
 if __name__ == "__main__":

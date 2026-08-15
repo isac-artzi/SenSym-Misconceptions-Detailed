@@ -116,10 +116,67 @@ def build_misconception_aware_prompt(
         f"{i}. {m}" for i, m in enumerate(misconception_list, start=1)
     )
 
+    return _catalogue_prompt(response_text, numbered_list,
+                             "passwords and authentication")
+
+
+def build_decoy_prompt(
+    response_text: str,
+    decoy_list: List[str],
+) -> str:
+    """
+    CONDITION D — the placebo.
+
+    Structurally identical to condition B: same framing sentence, same numbered
+    catalogue, same instruction, same output format, comparable length. The one
+    thing that differs is the SUBJECT of the catalogue — these are documented
+    physics misconceptions, which cannot possibly help with a password answer.
+
+    WHY THIS EXISTS
+    ---------------
+    Condition B changes two things at once, and it is easy not to notice:
+      (1) the model is handed a catalogue of misconceptions, and
+      (2) the prompt gets longer, more structured and more specific.
+    If B beats A you do not yet know which of those did it.
+
+    D holds (2) fixed and removes (1). So:
+      B > D ≈ A   the catalogue helped because of what is IN it.
+      B ≈ D > A   any structured catalogue helped. A real finding, just a
+                  different one — and the one you would have published by
+                  mistake without this condition.
+      D < A       the irrelevant catalogue actively hurt, which is evidence the
+                  model is genuinely reading the list rather than ignoring it.
+
+    You do not write the decoy list. It ships in data/decoy_misconceptions.csv
+    because it is the control, not the data.
+
+    Note the framing sentence names physics rather than passwords. That is
+    deliberate: a catalogue introduced as being about passwords while listing
+    facts about falling objects would be incoherent, and incoherence is its own
+    confound. The mismatch between the catalogue's subject and the student's
+    answer is the point of the condition, not a flaw in it.
+    """
+    numbered_list = "\n".join(
+        f"{i}. {m}" for i, m in enumerate(decoy_list, start=1)
+    )
+    return _catalogue_prompt(response_text, numbered_list,
+                             "physics and mechanics")
+
+
+def _catalogue_prompt(response_text: str, numbered_list: str, domain: str) -> str:
+    """
+    The shared body of conditions B and D.
+
+    Both catalogue conditions are built from this one function, so they cannot
+    drift apart as you edit. If you change the wording, both change together and
+    the comparison stays fair by construction rather than by your remembering to
+    make the same edit twice. Keeping the fairness in the code rather than in
+    your head is the whole trick.
+    """
     return f"""You are evaluating a student's answer about computer security.
 
 The following are documented misconceptions that students commonly hold about
-passwords and authentication:
+{domain}:
 
 {numbered_list}
 
@@ -137,12 +194,21 @@ STUDENT RESPONSE:
 # You don't need to change this.
 # --------------------------------------------------------------------------
 def build_prompt(condition: str, response_text: str, misconception_list: List[str]) -> str:
+    """
+    `misconception_list` is whichever catalogue that condition should see —
+    run_experiment.py hands the decoy list in when the condition is 'decoy'.
+    That keeps this function ignorant of which file the list came from, which is
+    what lets the fairness tests compare the two catalogue prompts directly.
+    """
     if condition == "baseline":
         return build_baseline_prompt(response_text)
     if condition == "misconception_aware":
         return build_misconception_aware_prompt(response_text, misconception_list)
+    if condition == "decoy":
+        return build_decoy_prompt(response_text, misconception_list)
     raise ValueError(
-        f"Unknown condition: {condition!r}. Expected 'baseline' or 'misconception_aware'."
+        f"Unknown condition: {condition!r}. "
+        "Expected 'baseline', 'misconception_aware' or 'decoy'."
     )
 
 

@@ -17,7 +17,7 @@
     <div class="crumbs"><a href="../index.html">Wrong in a Particular Way</a> · Phase 1</div>
     <div class="badges"><span class="badge">Phase 1 · P1</span><span class="badge win">Win: you can defend the design without notes</span></div>
     <h1 class="chapter-title">The design, and why it is this shape</h1>
-    <p class="chapter-sub">Two conditions, one difference, forty items, four numbers, and a prediction written down in advance.</p>
+    <p class="chapter-sub">Two conditions, one difference, a placebo declared in advance, forty items, four numbers, and a prediction written down before any of them exist.</p>
   </div>
 </header>
 
@@ -33,7 +33,8 @@ line. No code this phase, nothing to install.</p>
   <h3>By the end of this phase you can</h3>
   <ul>
     <li>Say why the pilot measures detection rather than learning, and why that is a narrowing rather than a retreat.</li>
-    <li>State the two conditions and name, exactly, the one thing that differs between them.</li>
+    <li>State the two conditions, name exactly the one thing that differs between them, and say
+    what the third condition — the <code>decoy</code> placebo — is there to rule out.</li>
     <li>Fill in a confusion matrix from a list of labels and predictions, by hand, with M as the positive class.</li>
     <li>Compute accuracy, precision, recall and F1 from that matrix, and say which one you lead with and why.</li>
     <li>Explain why F1 is a harmonic mean, using the arithmetic rather than the word "balance".</li>
@@ -89,7 +90,10 @@ Saying so plainly is what makes the rest of the write-up believable.</p>
 <h2>2 · Two conditions, one difference</h2>
 
 <p>Two conditions, named in <code>python/misconception/config.py</code> as
-<code>CONDITIONS = ["baseline", "misconception_aware"]</code>.</p>
+<code>CONDITIONS = ["baseline", "misconception_aware"]</code>. There is a third prompt in the
+repository, <code>decoy</code>, but it is deliberately <em>not</em> in that list; it is a
+diagnostic rather than an arm of the study, and the second half of this section is what it is
+for.</p>
 
 <p><strong><code>baseline</code></strong> is a generic grader: handed one student response,
 asked whether it is correct or contains an incorrect belief, never told what a password
@@ -178,13 +182,185 @@ result that does not exist.</p>
   difference, and you should say so out loud before somebody says it to you.</strong></p>
   <p>The defence is that the change is forced — there is no way to supply a catalogue without
   referring to it — and that it is as small as it could be. The stronger defence is a control
-  condition that separates the two, and Exercise 1.5 asks you to design it. Knowing where your
-  own design is weakest, and having already thought about the fix, is worth more at a
-  check-in than pretending it is airtight.</p>
+  condition that separates the two. This design has one, it is declared before any data exists,
+  and it is the rest of this section. Exercise 1.5 asks you to design it yourself first, which
+  is worth doing before you read on: knowing where your own design is weakest, and having
+  already worked out the fix, is worth more at a check-in than pretending it is airtight.</p>
 </div>
 
-<p>Three of these fairness conditions are checked automatically. In
-<code>python/tests/test_pipeline.py</code>:</p>
+<h3>The third prompt: a placebo that holds the structure fixed</h3>
+
+<p>Here is the objection stated properly, because it is the first one anybody will raise.
+<strong><code>misconception_aware</code> changes two things at once.</strong> The model is handed
+a catalogue — and the prompt simultaneously becomes longer, more structured and more specific.
+If B beats A, you do not know which of those two did it. "Telling a model to check against a
+numbered list makes it more careful" and "telling a model <em>these ten specific
+misconceptions</em> makes it detect them" are completely different claims, and the two-condition
+design cannot separate them.</p>
+
+<p>So there is a third prompt, <code>decoy</code>, built by <code>build_decoy_prompt</code> in
+<code>python/misconception/prompts.py</code>. It holds the structure fixed and removes the
+content: the same framing sentence, the same numbered catalogue of ten documented
+misconceptions, the same instruction to check the response against them, the same output format,
+comparable length. The only thing that changes is what the catalogue is <em>about</em>. It is
+about <strong>physics</strong>, and a documented misconception about falling objects cannot
+possibly help anybody decide whether a claim about password rotation is wrong.</p>
+
+<div class="ab">
+  <div class="a">
+    <div class="ab-h">B · misconception_aware</div>
+<pre><span class="same">You are evaluating a student's answer
+about computer security.
+
+The following are documented
+misconceptions that students commonly
+hold about</span> <span class="diff">passwords and
+authentication</span><span class="same">:</span>
+
+<span class="diff">1. Long passwords are always strong.
+2. Changing passwords often makes
+   accounts safer.
+   ... all ten, every time ...</span>
+
+<span class="same">Read the student's response below.
+Decide whether it reflects any of the
+misconceptions listed above, or
+whether it is correct.
+
+STUDENT RESPONSE:
+"I change my password every month so
+my account is definitely secure."
+
+Answer using exactly this format and
+nothing else:
+
+VERDICT: &lt;M or C&gt;
+REASON: &lt;one short sentence&gt;
+
+Use M if the response contains a
+misconception (a confident but
+incorrect belief). Use C if the
+response is correct.</span></pre>
+  </div>
+  <div class="b">
+    <div class="ab-h">D · decoy</div>
+<pre><span class="same">You are evaluating a student's answer
+about computer security.
+
+The following are documented
+misconceptions that students commonly
+hold about</span> <span class="diff">physics and
+mechanics</span><span class="same">:</span>
+
+<span class="diff">1. Heavier objects fall faster than
+   lighter ones
+2. A constant force produces a
+   constant velocity
+   ... all ten, every time ...</span>
+
+<span class="same">Read the student's response below.
+Decide whether it reflects any of the
+misconceptions listed above, or
+whether it is correct.
+
+STUDENT RESPONSE:
+"I change my password every month so
+my account is definitely secure."
+
+Answer using exactly this format and
+nothing else:
+
+VERDICT: &lt;M or C&gt;
+REASON: &lt;one short sentence&gt;
+
+Use M if the response contains a
+misconception (a confident but
+incorrect belief). Use C if the
+response is correct.</span></pre>
+  </div>
+</div>
+
+<p>Note that the first line still says "computer security" and the catalogue still lists physics.
+That mismatch is the condition, not a bug in it. The alternative — introducing the list as being
+about passwords and then listing facts about falling objects — would be incoherent, and
+incoherence is its own confound. Note also that both catalogue prompts come out of one shared
+function, <code>_catalogue_prompt</code>, so they cannot drift apart as you edit: change the
+wording and both change together. Fairness kept in the code rather than in your memory is
+fairness that survives a late-night edit.</p>
+
+<p>The ten decoy statements ship in <code>python/data/decoy_misconceptions.csv</code> —
+heavier objects falling faster, a constant force producing a constant velocity, current being
+used up around a circuit, seasons caused by distance from the Sun, astronauts floating because
+there is no gravity. You do not write them. They are the control, not the data, and a control
+you authored yourself while thinking about your own hypothesis is a control nobody should
+trust.</p>
+
+<p>Now the part that makes it worth running. Write down, in advance, what each outcome means:</p>
+
+<table>
+  <thead><tr><th>Result</th><th>What it means</th></tr></thead>
+  <tbody>
+    <tr>
+      <td>aware&nbsp;&gt;&nbsp;decoy&nbsp;&asymp;&nbsp;baseline</td>
+      <td>The catalogue helped because of its <strong>content</strong>. The hoped-for result, and
+      now a defensible one: length, structure and framing have been held fixed.</td>
+    </tr>
+    <tr>
+      <td>aware&nbsp;&asymp;&nbsp;decoy&nbsp;&gt;&nbsp;baseline</td>
+      <td>Any structured catalogue helped. A real finding, just a different one — and the one
+      that would otherwise have been published by mistake, as a claim about misconception
+      knowledge that was really a claim about prompt shape.</td>
+    </tr>
+    <tr>
+      <td>decoy&nbsp;&lt;&nbsp;baseline</td>
+      <td>The irrelevant catalogue actively confused the model, which is evidence it genuinely
+      reads the list rather than ignoring it.</td>
+    </tr>
+  </tbody>
+</table>
+
+<div class="box definition">
+  <span class="lbl">Two things about the decoy that must be said out loud</span>
+  <p><strong>It is a diagnostic, not a third arm.</strong> The pre-registered comparison is still
+  <code>baseline</code> against <code>misconception_aware</code>, and nothing else. The decoy
+  exists to interpret that gap, not to be tested against everything in sight. This is why
+  <code>config.py</code> keeps it out of <code>CONDITIONS</code> and puts it in a separate
+  <code>ALL_CONDITIONS</code>, and why <code>test_decoy_is_not_in_the_preregistered_comparison</code>
+  asserts exactly that. Saying it in the write-up is what keeps a multiple-comparisons objection
+  off the table at n = 40: three arms tested against each other means three chances to find
+  something by luck, and at this sample size you can barely afford the one you have.</p>
+  <p><strong>It was declared before any run, deliberately.</strong> Adding a placebo <em>after</em>
+  seeing a disappointing gap is precisely the researcher-degrees-of-freedom problem the Phase 5
+  page is built around — you would be choosing your controls in the light of your results. Written
+  down first, in <code>plans/RESEARCH_PLAN.md</code> §3.1 and in <code>config.py</code>, it costs
+  nothing and closes the hole permanently. <strong>This is the concrete worked example of
+  pre-registration in the whole project.</strong> When somebody asks you what pre-registration is
+  for, do not define it; tell them about this condition and when it was written.</p>
+</div>
+
+<div class="box warning">
+  <span class="lbl">Where the decoy is itself imperfect — say this before you are asked</span>
+  <p>The decoy controls for prompt length, for structure, and for the "here is a list, check
+  against it" framing. <strong>It does not control for topical relevance.</strong> A physics
+  catalogue is two things at once: it is irrelevant to the answer, and it is off-domain. If the
+  decoy underperforms the aware condition, you cannot fully separate "the model used the specific
+  misconceptions" from "the model was thrown by being shown a list about the wrong subject".</p>
+  <p>A stricter placebo would use ten <em>true</em> statements about passwords — same domain, same
+  length, same numbered structure, no misconceptions in it. That is the version to name when
+  somebody pushes, and running it would be the natural next study. The control here is a real
+  improvement on having none; it is not perfect, and pretending otherwise costs you more than
+  admitting it.</p>
+</div>
+
+<p>Running the decoy is optional. It is one flag, forty more model calls and roughly five extra
+minutes; the command is in section 6. If time runs out, do not run it — and record in your
+limitations that it was planned and not executed. That is honest, it is free, and it is a much
+better sentence than silence.</p>
+
+<h3>Fairness, checked by the test suite</h3>
+
+<p>Several of these conditions are checked automatically, so that an edit cannot quietly break
+them. In <code>python/tests/test_pipeline.py</code>:</p>
 
 <ul>
   <li><code>test_baseline_prompt_does_not_leak_the_misconception_list</code> — no misconception
@@ -196,11 +372,26 @@ result that does not exist.</p>
   <li><code>test_both_prompts_share_the_same_output_format</code> —
   <code>OUTPUT_FORMAT_INSTRUCTION</code> appears verbatim in both, so the parser does the same
   job either way.</li>
+  <li><code>test_decoy_and_aware_prompts_differ_only_in_the_catalogue</code> — strip the catalogue
+  lines out of both prompts and what is left must be identical apart from the phrase naming the
+  domain. This is the test that stops the placebo quietly ceasing to be one.</li>
+  <li><code>test_decoy_prompt_does_not_leak_the_real_misconceptions</code> — none of your ten
+  password statements appears in the decoy prompt. A contaminated control would understate the
+  effect it exists to measure.</li>
+  <li><code>test_decoy_catalogue_is_the_same_length_as_the_real_one</code> — the shipped decoy
+  file has exactly ten filled-in rows. Ten items against two would confound content with
+  length.</li>
+  <li><code>test_decoy_is_not_in_the_preregistered_comparison</code> — <code>decoy</code> is in
+  <code>ALL_CONDITIONS</code> and not in <code>CONDITIONS</code>, so the diagnostic cannot drift
+  into being a third arm without somebody noticing.</li>
 </ul>
 
-<p>Those are necessary conditions, not full identity: they do not check that the two prompts
-match byte for byte outside the catalogue block, because they do not. Reading them side by side
-and listing every difference stays your job.</p>
+<p>Those are necessary conditions, not full identity: they do not check that baseline and aware
+match byte for byte outside the catalogue block, because they do not. Reading the prompts side by
+side and listing every difference stays your job. Note also that the length control is checked
+again at run time — <code>run_experiment.py --decoy</code> prints the total character count of
+both catalogues and warns you if the decoy is under 0.7 or over 1.4 times the size of yours,
+because a placebo that is half the length is not controlling for length.</p>
 
 <h2>3 · The confusion matrix</h2>
 
@@ -540,6 +731,15 @@ what is left.</strong></p>
   in <code>python/data/sample/</code>. <strong>Both produce demo data, and no number from them
   may appear in your write-up as a result</strong> — they exist only to prove the pipeline runs
   end to end. The real numbers come from Phase 4.</p>
+  <p>The placebo from section 2 is one flag on the same script. It runs the two pre-registered
+  conditions and then the decoy, writing
+  <code>python/results/predictions_decoy.csv</code> alongside the other two:</p>
+  <div class="cmd"><pre><span class="p">$ </span>python3 misconception/run_experiment.py --decoy</pre></div>
+  <p>It prints the character count of both catalogues as it starts, so you can see the length
+  control rather than assume it. <code>analyze.py</code> then picks the decoy up on its own if
+  that file exists and skips it silently if it does not — running the placebo is optional and
+  nothing downstream breaks either way. Nothing to run this phase; the flag is here so it is in
+  one place with the others when Phase 4 arrives.</p>
 </div>
 
 <h2>7 · What would falsify the hypothesis</h2>
@@ -579,11 +779,20 @@ as <em>the catalogue did not help</em>:</p>
   model given a long list may get distracted, or pattern-match on surface words in the
   catalogue. "Adding the catalogue reduced recall from 70% to 55%" is a real and useful finding
   about small models and long prompts.</li>
+  <li><strong>The decoy does as well as the aware condition.</strong> If you run it and the
+  physics catalogue moves recall about as far as your password catalogue does, then whatever
+  helped was the shape of the prompt and not its content. Your finding is still real and it is
+  about prompt structure, not about misconception knowledge — the middle row of the table in
+  section 2. This is the outcome the placebo exists to catch, and it is the one you would
+  otherwise have published by mistake.</li>
 </ul>
 
-<p>None of these four outcomes is a failed project. The failed project is the one where you
+<p>None of these five outcomes is a failed project. The failed project is the one where you
 decide afterwards which comparison to report, and writing the prediction down first is what
-stops you doing that without noticing.</p>
+stops you doing that without noticing. The decoy is the same discipline applied to a control
+rather than to a prediction: it is in the plan now, before any data exists, so that nobody
+— including you — can wonder later whether it was added because the first result was
+disappointing.</p>
 
 <div class="lab">
   <div class="lab-title">Lab 2 · Cautious or twitchy — the precision/recall tradeoff</div>
@@ -878,12 +1087,20 @@ the curve itself moving up. Telling those two apart is most of what Phase 5 is a
     <p><strong>Irrelevant &gt; aware.</strong> Something odd is happening; suspect a bug before
     a discovery — check that the catalogue is loading, that conditions are not swapped, and that
     the parser is not failing differently across conditions.</p>
-    <p>Cost: one more condition means forty more model calls, roughly doubling to tripling a run
+    <p>Cost: one more condition means forty more model calls, adding about half again to a run
     that already takes an afternoon. That is affordable, which is why this is the right variant
-    to propose. Adding it is a change to <code>CONDITIONS</code> in <code>config.py</code>, a
-    new builder in <code>prompts.py</code>, and a branch in <code>build_prompt</code> — the file
-    is laid out to make exactly this easy. Do it only after the two-condition study runs end to
-    end.</p>
+    to propose.</p>
+    <p><strong>Now compare your answer with section 2.</strong> This condition exists in the
+    repository under the name <code>decoy</code>, built by <code>build_decoy_prompt</code>, with
+    its ten physics statements in <code>python/data/decoy_misconceptions.csv</code> — and it was
+    declared in <code>plans/RESEARCH_PLAN.md</code> before any run, which is the part that
+    matters. Check two things against your own version. Did you match the catalogues in length
+    as well as in count? And did you put your new condition in <code>CONDITIONS</code>? The
+    repository deliberately does not: <code>decoy</code> lives in <code>ALL_CONDITIONS</code>
+    instead, because it is a diagnostic used to interpret the baseline-versus-aware gap and not a
+    third arm tested against everything. That distinction is what keeps a multiple-comparisons
+    objection off the table at n = 40, and it is the one thing most first drafts of this exercise
+    get wrong.</p>
   </div></details>
 </div>
 
@@ -947,6 +1164,65 @@ the curve itself moving up. Telling those two apart is most of what Phase 5 is a
   </div></details>
 </div>
 
+<div class="exercise">
+  <div class="ex-head">Exercise 1.8 <span class="stars">★★★</span><span class="tag">thinking</span></div>
+  <div class="ex-body">
+    <p>You run all three prompts on the forty items and a collaborator sends you the one-line
+    summary: <em>"recall — baseline 60%, misconception_aware 80%, decoy 78%."</em> What do you
+    conclude, and what do you write? Use the table in section 2. Then check whether the two
+    catalogue conditions are actually distinguishable at this sample size: the 95% Wilson
+    intervals are 12/20 → 38.7–78.1%, 15/20 → 53.1–88.8%, 16/20 → 58.4–91.9%.</p>
+  </div>
+  <details><summary>Solution</summary><div class="solution">
+    <p><strong>First, check the numbers can exist.</strong> Recall is computed on the twenty
+    truly-M items, so it can only land on multiples of five percentage points. 60% is 12/20 and
+    80% is 16/20, both fine. <strong>78% is not a value this design can produce</strong> — the
+    neighbours are 15/20 = 75.0% and 16/20 = 80.0%. So either it has been rounded from a
+    different denominator, most likely because some decoy replies were unparseable and were
+    excluded (14/18 = 77.8%, 95% CI 54.8–91.0%), or it is not recall at all. Ask which before
+    interpreting anything. Ten seconds of arithmetic, and it is exactly the kind of thing nobody
+    checks. Nothing below changes whether the decoy is 15/20 or 14/18.</p>
+    <p><strong>Second, read the pattern.</strong> This is the middle row of the table:
+    aware &asymp; decoy &gt; baseline. The gap the whole study is about is aware − baseline = 20
+    points, four items out of twenty. Of that, the decoy — a catalogue about falling objects and
+    electric circuits, which cannot contain one scrap of information about passwords — reproduces
+    18 of the 20 points on its own if you take the 78% at face value, or 15 of the 20 if the
+    decoy was really 15/20. Either way the share left over for the <em>content</em> of your
+    catalogue is at most a single item out of twenty.</p>
+    <p><strong>So the conclusion is: the catalogue's content did almost nothing, and the
+    structure did the work.</strong> Something about being handed a numbered list and told to
+    check against it makes this model more willing to answer M. That is a real result, and it is
+    a result about prompt shape, not about misconception knowledge. Without the decoy you would
+    have written "supplying a catalogue of known misconceptions raised recall by 20 points",
+    which is true as arithmetic and wrong as a claim, and no reader could have caught you.</p>
+    <p><strong>Third, and this is the part that keeps you out of trouble: do the intervals even
+    separate 80 from 78? They do not.</strong> Aware at 16/20 gives 58.4–91.9%; the decoy at
+    15/20 gives 53.1–88.8%. They share 58.4–88.8%, a range 30.4 points wide, which is 91% of
+    the shorter of the two intervals. And use the pairing, since it is the same forty items every
+    time: aware minus decoy is at most one item, so even in the most favourable arrangement,
+    b = 1 flip your way and c = 0 against, the exact two-sided probability from a single fair
+    coin toss is 2 × (1/2) = <strong>1.00</strong>. There is no sense in which those two
+    conditions have been shown to differ.</p>
+    <p>Nor, in fairness, has the main comparison. Aware 58.4–91.9% against baseline 38.7–78.1%
+    overlap over 19.7 points, and the best possible paired arrangement for a four-item gap,
+    b = 4 and c = 0, gives an exact two-sided probability of 2 × (1/2)<sup>4</sup> = 0.125 —
+    above the conventional 0.05, on the most generous accounting available. At n = 40 nothing
+    here is established.</p>
+    <p><strong>What to write:</strong> <em>"Recall was 12/20 (60.0%, 95% CI 38.7–78.1%) under the
+    baseline prompt and 16/20 (80.0%, 58.4–91.9%) with the misconception catalogue. The
+    pre-registered decoy condition, an equally long and equally structured catalogue of physics
+    misconceptions, reached 15/20 (75.0%, 53.1–88.8%) — nearly all of the aware condition's gain
+    over the baseline, from a catalogue that cannot contain any relevant information. These data
+    are therefore consistent with a general effect of catalogue-shaped prompting and give no
+    evidence that the content of our catalogue is what mattered. All three intervals overlap
+    heavily and no difference here is distinguishable from noise at this sample size."</em></p>
+    <p>One thing not to do: run three pairwise significance tests. The decoy is a diagnostic, not
+    a third arm; the pre-registered comparison is baseline against aware, and the decoy interprets
+    that one gap. Testing everything against everything at n = 40 is three chances to be fooled
+    where you had budgeted for one.</p>
+  </div></details>
+</div>
+
 <h2>9 · Verification</h2>
 
 <div class="box verify">
@@ -955,6 +1231,11 @@ the curve itself moving up. Telling those two apart is most of what Phase 5 is a
     <li>I can say in one sentence why the pilot measures detection and not learning.</li>
     <li>I can name the two conditions and the one thing that differs — and the one place where
     a second thing had to differ, and why.</li>
+    <li>I can say what the <code>decoy</code> condition holds fixed and what it removes, why it
+    is a diagnostic rather than a third arm, and why it being written down before any run is the
+    whole point of it.</li>
+    <li>I can name the one thing the decoy does <em>not</em> control for — topical relevance —
+    and describe the stricter placebo that would.</li>
     <li>I can fill a 2&times;2 matrix from a list of labels and predictions without looking
     anything up, with M as the positive class.</li>
     <li>I can compute all four metrics from that matrix on paper and get the same answers as

@@ -28,6 +28,15 @@ same request with the catalogue of ten specific misconceptions pasted in. Same m
 temperature, same forty responses. The only difference is what the model was told to look
 for.
 
+There is also a **pre-registered placebo**. `misconception_aware` changes two things at once
+— the model gets a catalogue, *and* the prompt gets longer and more structured — so a third
+`decoy` condition holds the second fixed and removes the first: the same catalogue prompt,
+carrying ten documented misconceptions about **physics**. It cannot help with a password
+answer. If the misconception-aware condition beats the decoy, the catalogue's *content* did
+the work; if it merely ties it, any structured catalogue would have done, which is a
+different finding and one that would otherwise have been published by mistake. Running it is
+optional (`--decoy`, about five extra minutes); declaring it in advance is not.
+
 > **Pre-registered prediction.** Misconception-aware prompting will raise *recall* more than
 > *precision*, because naming the failure modes helps the model notice them, not helps it
 > avoid false alarms.
@@ -38,7 +47,7 @@ them is a publishable pilot result.
 
 ## Quickstart
 
-1. Open the site: **https://isac-artzi.github.io/SenSym-misconception-aware-llm/**
+1. Open the site: **https://isac-artzi.github.io/SenSym-Misconceptions-Detailed/**
    (identical to `docs/index.html` — works from any browser, no clone needed, and works
    offline from a clone too: no build step, no server).
 2. Clone the repository to run the code and commit progress.
@@ -63,7 +72,7 @@ them is a publishable pilot result.
 |---|---|
 | `docs/` | The project website. Four setup pages (`setup/`), five phase chapters (`phases/`), four reference pages (`extras/`) — metrics playground, glossary, how to get unstuck, AI policy |
 | `python/misconception/` | The pipeline: `config`, `prompts`, `llm_client`, `run_experiment`, `analyze`, plus the TODO/reference-fallback machinery |
-| `python/tests/` | 19 tests, including a scikit-learn cross-check of every metric and prompt-fairness assertions |
+| `python/tests/` | 27 tests, including a scikit-learn cross-check of every metric, prompt-fairness assertions, and a check that the placebo has not drifted from the condition it controls for |
 | `python/data/` | The dataset — the scientific contribution, committed on purpose. `sample/` holds twelve demo items |
 | `python/results/` | Generated output, git-ignored until a final run is committed deliberately |
 | `plans/` | The governing research plan: gates, decision rules, stretch goals, known limitations |
@@ -90,15 +99,27 @@ implementations agreeing, not one implementation looking plausible.
 | — | Setup | Environment working | `check_setup.py` all `[OK]`; mock pipeline produces charts |
 | 1 | Design | Understanding | Defends the positive class, the recall choice and the 50% floor out loud |
 | 2 | Code | Six TODOs closed | The green "nothing fell back" line, `pytest -q` green |
-| **3** | **Dataset** | **40 labelled responses** | **≥85% blind agreement with a second labeller; ≥8 genuinely hard items** |
+| **3** | **Dataset** | **40 labelled responses** | **The ten-item probe is not perfect; blind agreement in the 70–90% band; ≥8 genuinely hard items** |
 | 4 | Run | Two complete runs | Full provenance recorded; run-to-run difference stated |
 | 5 | Analysis | Write-up | An outsider can state what was found and what was not |
 
 Phase 3 is the gate that decides whether the project works. If the twenty M items and the
 twenty C items are obviously different, both conditions score near 100%, the comparison
-collapses, and a month of work measures nothing. The ceiling-effect simulator on
-[the Phase 3 page](docs/phases/phase-3-dataset.html) exists to make that visible before it
-happens.
+collapses, and a month of work measures nothing.
+
+The cheapest defence against that is two minutes long. **After the first ten items and before
+writing the other thirty**, run `python3 misconception/run_experiment.py --probe 10`. A
+perfect score under both prompts is a *stop*, not a pass: the items are separable without
+help, so the catalogue has nothing left to show. Finding that out now costs ten items instead
+of forty.
+
+Note what the gate does *not* do: it does not threshold on labeller agreement alone.
+Agreement is U-shaped here — a dataset of "never" versus hedging produces near-perfect
+agreement and is exactly the dataset that kills the study. Above 90% is a warning, not a
+pass. The ceiling-effect simulator on
+[the Phase 3 page](docs/phases/phase-3-dataset.html) makes the underlying problem visible;
+`plans/RESEARCH_PLAN.md` §5 has the full rule and records the two automated ceiling detectors
+that were tried and failed at this sample size.
 
 Milestone commits are tagged (`setup-complete`, `code-complete`, `phase-3-complete`,
 `run-complete`, `v1.0`) so the write-up can cite an exact state of the repository. Tag only
@@ -148,6 +169,9 @@ node authoring/check_pages.js --all
 It fails a page on console errors, unrendered `$math$`, blank canvases, canvases that resize
 on redraw, broken relative links, and exercises without solutions. All 14 pages currently
 pass.
+
+GitHub Pages serves this site from `main` + `/docs`. There is no build step, so what renders
+from a local clone is what Pages serves.
 
 ## Licence
 

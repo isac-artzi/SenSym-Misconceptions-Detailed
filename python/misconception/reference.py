@@ -21,9 +21,12 @@ from typing import List
 # ── TODO 2 / 3 / 4a ────────────────────────────────────────────────────────
 def build_prompt(condition: str, response_text: str, misconception_list: List[str]) -> str:
     """TODO 4a — pick the right prompt builder for this condition."""
-    from prompts import build_baseline_prompt, build_misconception_aware_prompt
+    from prompts import (build_baseline_prompt, build_misconception_aware_prompt,
+                         build_decoy_prompt)
     if condition == "baseline":
         return build_baseline_prompt(response_text)
+    if condition == "decoy":
+        return build_decoy_prompt(response_text, misconception_list)
     return build_misconception_aware_prompt(response_text, misconception_list)
 
 

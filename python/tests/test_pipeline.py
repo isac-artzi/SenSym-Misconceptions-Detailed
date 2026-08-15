@@ -151,6 +151,84 @@ def test_unknown_condition_is_rejected_loudly():
 
 
 # ─────────────────────────────────────────────────────────────────────────────
+# The decoy (placebo) condition.
+#
+# The decoy only works as a control if it is structurally identical to the
+# misconception-aware prompt and differs ONLY in the catalogue's subject. These
+# tests are what stop the two drifting apart while you edit prompts.py — which
+# is exactly how a placebo quietly stops being one.
+# ─────────────────────────────────────────────────────────────────────────────
+DECOY = ["Heavier objects fall faster than lighter ones",
+         "Electric current is used up as it travels around a circuit"]
+
+
+def test_decoy_prompt_contains_every_decoy_item():
+    p = prompts.build_decoy_prompt("my password is 24 characters", DECOY)
+    for d in DECOY:
+        assert d in p
+
+
+def test_decoy_prompt_does_not_leak_the_real_misconceptions():
+    """
+    The whole point of the placebo is that it carries no information about
+    passwords. If a real misconception leaked in, the control would be
+    contaminated and B-vs-D would understate the effect.
+    """
+    p = prompts.build_decoy_prompt("my password is 24 characters", DECOY)
+    for m in MISC:
+        assert m.lower() not in p.lower()
+
+
+def test_decoy_and_aware_prompts_differ_only_in_the_catalogue():
+    """
+    Strip the catalogue out of each prompt and what remains must be identical
+    apart from the one word naming the domain. If this test fails, an edit has
+    made the two catalogue conditions differ in something other than content,
+    and any B-vs-D difference is confounded.
+    """
+    aware = prompts.build_misconception_aware_prompt("x", MISC)
+    decoy = prompts.build_decoy_prompt("x", DECOY)
+
+    def skeleton(prompt, items, domain):
+        for line in prompt.splitlines():
+            if any(i in line for i in items):
+                prompt = prompt.replace(line + "\n", "")
+        return prompt.replace(domain, "<DOMAIN>")
+
+    assert (skeleton(aware, MISC, "passwords and authentication")
+            == skeleton(decoy, DECOY, "physics and mechanics"))
+
+
+def test_decoy_catalogue_is_the_same_length_as_the_real_one():
+    """
+    A catalogue of two items against a catalogue of ten would confound content
+    with length. The shipped decoy file must match the ten-misconception design.
+    """
+    decoy = pd.read_csv(config.DECOY_MISCONCEPTIONS_FILE)
+    assert len(decoy) == 10
+    assert list(decoy.columns) == ["misconception_id", "statement",
+                                   "why_wrong", "real_world_consequence"]
+    assert not decoy["statement"].astype(str).str.startswith("<").any(), \
+        "the decoy file ships filled in — it is the control, not your data"
+
+
+def test_decoy_is_dispatched_by_build_prompt():
+    p = prompts.build_prompt("decoy", "x", DECOY)
+    assert p == prompts.build_decoy_prompt("x", DECOY)
+
+
+def test_decoy_is_not_in_the_preregistered_comparison():
+    """
+    The pre-registered comparison is baseline vs misconception_aware. The decoy
+    is a diagnostic used to interpret that gap, not a third arm tested against
+    everything — which is what keeps a multiple-comparisons objection off the
+    table at n = 40. If someone adds it to CONDITIONS, that framing breaks.
+    """
+    assert config.DECOY_CONDITION not in config.CONDITIONS
+    assert config.DECOY_CONDITION in config.ALL_CONDITIONS
+
+
+# ─────────────────────────────────────────────────────────────────────────────
 # The TODO fallback machinery
 # ─────────────────────────────────────────────────────────────────────────────
 def test_pending_uses_your_value_when_you_have_filled_it_in():
@@ -176,6 +254,14 @@ def test_full_pipeline_runs_on_a_fresh_clone(tmp_path, monkeypatch):
     """
     monkeypatch.setenv("MISCONCEPTION_PILOT_RESULTS", str(tmp_path))
 
+    # A fresh clone has no results at all. Clear anything an earlier test (or an
+    # earlier run of yours) left behind — in particular predictions_decoy.csv,
+    # which analyze.py picks up automatically when it is present. Without this
+    # the test passes or fails depending on what ran before it, which is the
+    # worst kind of test.
+    for stale in config.RESULTS_DIR.glob("predictions_*.csv"):
+        stale.unlink()
+
     run = subprocess.run(
         [sys.executable, str(SRC / "run_experiment.py"), "--mock", "--sample"],
         cwd=ROOT, capture_output=True, text=True,
@@ -197,3 +283,48 @@ def test_full_pipeline_runs_on_a_fresh_clone(tmp_path, monkeypatch):
     assert set(metrics["condition"]) == set(config.CONDITIONS)
     for col in ["accuracy", "precision", "recall", "f1"]:
         assert metrics[col].between(0, 1).all()
+
+
+def test_full_pipeline_runs_with_the_decoy_condition():
+    """
+    Same end-to-end check with the placebo switched on. Analyze must pick the
+    decoy up when it is present and must not have required it a moment ago.
+    """
+    run = subprocess.run(
+        [sys.executable, str(SRC / "run_experiment.py"), "--mock", "--sample", "--decoy"],
+        cwd=ROOT, capture_output=True, text=True,
+    )
+    assert run.returncode == 0, run.stdout + run.stderr
+    assert "placebo condition ON" in run.stdout
+
+    ana = subprocess.run(
+        [sys.executable, str(SRC / "analyze.py")],
+        cwd=ROOT, capture_output=True, text=True,
+    )
+    assert ana.returncode == 0, ana.stdout + ana.stderr
+
+    assert (config.RESULTS_DIR / "predictions_decoy.csv").exists()
+    metrics = pd.read_csv(config.RESULTS_DIR / "metrics.csv")
+    assert set(metrics["condition"]) == set(config.ALL_CONDITIONS)
+
+
+def test_probe_mode_runs_a_subset_and_refuses_to_report_metrics():
+    """
+    The Phase 3 early-warning check. It must run only the requested items and
+    must not print anything that looks like a reportable number — a perfect
+    score on ten self-chosen items is a warning, not a result.
+    """
+    run = subprocess.run(
+        [sys.executable, str(SRC / "run_experiment.py"), "--mock", "--sample", "--probe", "6"],
+        cwd=ROOT, capture_output=True, text=True,
+    )
+    assert run.returncode == 0, run.stdout + run.stderr
+    assert "PROBE MODE" in run.stdout
+    assert "PROBE RESULT" in run.stdout
+    assert "Never report them" in run.stdout
+
+    df = pd.read_csv(config.RESULTS_DIR / "predictions_baseline.csv")
+    assert len(df) == 6
+
+    # a probe run must never leave a metrics.csv looking like a real result
+    assert "accuracy=" not in run.stdout

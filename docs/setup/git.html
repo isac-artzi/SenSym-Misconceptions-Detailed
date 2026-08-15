@@ -314,7 +314,7 @@ entirely about what goes in the quotation marks.</p>
 <h3>4 · <code>git push</code> — send it to GitHub</h3>
 
 <div class="cmd"><pre><span class="p">$ </span>git push</pre></div>
-<div class="out">To https://github.com/isac-artzi/SenSym-misconception-aware-llm
+<div class="out">To https://github.com/isac-artzi/SenSym-Misconceptions-Detailed
    183c457..<b>6d9261d</b>  main -&gt; main</div>
 
 <p><strong>A commit that has not been pushed does not exist off your laptop.</strong> The lab in
@@ -461,11 +461,11 @@ a reader can look up.</p>
 
 <div class="box python">
   <span class="lbl">Run these — but read the next box first</span>
-  <div class="cmd"><pre><span class="p">$ </span>cd path/to/SenSym-misconception-aware-llm
+  <div class="cmd"><pre><span class="p">$ </span>cd path/to/SenSym-Misconceptions-Detailed
 <span class="p">$ </span>pytest -q
 <span class="p">$ </span>git tag phase-3-complete
 <span class="p">$ </span>git push --tags</pre></div>
-  <div class="out">To https://github.com/isac-artzi/SenSym-misconception-aware-llm
+  <div class="out">To https://github.com/isac-artzi/SenSym-Misconceptions-Detailed
  * <b>[new tag]</b>         phase-3-complete -&gt; phase-3-complete</div>
 </div>
 
@@ -545,7 +545,7 @@ write-up describes. Then Phase 5 can say, in the caption under a figure:</p>
     neither commit knows about the other. Git will not guess which order they belong in. The push
     is refused first:</p>
     <div class="out"><i> ! [rejected]        main -&gt; main (fetch first)</i>
-error: failed to push some refs to 'https://github.com/isac-artzi/SenSym-misconception-aware-llm'
+error: failed to push some refs to 'https://github.com/isac-artzi/SenSym-Misconceptions-Detailed'
 hint: Updates were rejected because the remote contains work that you do not
 hint: have locally.</div>
     <p><strong>This is git protecting your work, not rejecting it.</strong> If it had accepted the
@@ -583,7 +583,7 @@ Automatic merge failed; fix conflicts and then commit the result.</i></div>
     you can revoke without changing your password, and which can be limited to one repository.
     The error says so:</p>
     <div class="out"><i>remote: Support for password authentication was removed on August 13, 2021.
-fatal: Authentication failed for 'https://github.com/isac-artzi/SenSym-misconception-aware-llm'</i></div>
+fatal: Authentication failed for 'https://github.com/isac-artzi/SenSym-Misconceptions-Detailed'</i></div>
     <p><strong>The easy fix, and the one to do:</strong> install GitHub's own command-line tool and
     let it handle this once.</p>
     <div class="cmd"><pre><span class="p">$ </span>gh auth login</pre></div>

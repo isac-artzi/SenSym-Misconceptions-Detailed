@@ -33,12 +33,12 @@ two weeks, and expect to throw some items away.</p>
   <h3>By the end of this phase you can</h3>
   <ul>
     <li>Explain what a ceiling effect is, and say out loud why it would end this study.</li>
-    <li>Write a misconception item that is realistic, plausible, and about exactly one idea.</li>
-    <li>Recognise a "hard" item — correct-sounding but wrong, or wrong-sounding but correct — and say why those are worth ten easy ones.</li>
+    <li>Write a misconception item that is realistic, plausible, and about exactly one idea, and recognise a "hard" one — correct-sounding but wrong, or wrong-sounding but correct.</li>
     <li>Justify 20 M and 20 C, and state the majority-class baseline that balance buys you.</li>
-    <li>Run a blind second labelling, compute percentage agreement, and compute Cohen's kappa from a 2×2 table.</li>
-    <li>Fill in <code>responses.csv</code> and <code>misconceptions.csv</code> without the comma trap eating a row.</li>
-    <li>Decide, with a stated rule rather than a feeling, whether the dataset is ready for Phase 4.</li>
+    <li>Run the ten-item probe on your first ten items, and read a perfect score as a stop rather than as a pass.</li>
+    <li>Run a blind second labelling, collect the one sentence that says what decided each label, and explain why agreement is U-shaped rather than a floor.</li>
+    <li>Compute percentage agreement and Cohen's kappa from a 2×2 table, and say which of the two belongs at the gate and which belongs in the write-up.</li>
+    <li>Fill in <code>responses.csv</code> and <code>misconceptions.csv</code> without the comma trap eating a row, and decide with a stated rule rather than a feeling whether the dataset is ready for Phase 4.</li>
   </ul>
 </div>
 
@@ -253,25 +253,44 @@ write by accident at eleven at night with nine items left to go.</p>
   </tbody>
 </table>
 
-<div class="box example">
-  <span class="lbl">A diagnostic you can actually run — and it is free</span>
-  <p>The fake model in <code>--mock</code> mode is not a model at all. Open
-  <code>python/misconception/llm_client.py</code> and read <code>ask_llm_mock</code>: it looks
-  for nine words — <code>always</code>, <code>never</code>, <code>impossible</code>,
-  <code>guarantee</code>, <code>completely</code>, <code>definitely</code>,
-  <code>can't be</code>, <code>cannot be</code>, <code>safe from</code> — says M if it finds
-  one, then deliberately flips about 30% of its own answers so the confusion matrix has all
-  four boxes filled in.</p>
-  <p>So run <code>--mock</code> on <em>your</em> forty items. If the keyword rule is right on a
-  fraction $p$ of them, the mock's reported accuracy is about</p>
-  $$a_{\text{mock}} = 0.7p + 0.3(1-p) = 0.3 + 0.4p,
-    \qquad\text{so}\qquad p \approx \frac{a_{\text{mock}} - 0.3}{0.4}.$$
-  <p>A well-written dataset should leave the keyword rule near chance, $p \approx 0.5$, which
-  shows up as a mock accuracy near 50%. A mock accuracy near 70% means $p \approx 1$: nine
-  words are separating your two groups, and so will anything else.
-  <span class="status observed">observed</span> The flip is deterministic rather than random,
-  so on any particular forty items the realised rate is only near 0.3 — treat this as a smoke
-  alarm, not a measurement.</p>
+<div class="box warning">
+  <span class="lbl">Two automated ways to detect this, both of which failed
+  <span class="status observed">observed</span></span>
+  <p>It would be very convenient if a script could read your forty items and tell you whether
+  they are separable by surface features. Two such scripts were built for this project and both
+  were thrown away. The failures are recorded here so that nobody builds them a third time, and
+  because between them they are the reason the gate in section 9 is human rather than
+  statistical.</p>
+  <p><strong>Attempt one: use the mock model as a keyword detector.</strong> The fake model in
+  <code>--mock</code> mode is not a model at all. Open
+  <code>python/misconception/llm_client.py</code> and read <code>ask_llm_mock</code>: it says M
+  if the text contains one of nine words — <code>always</code>, <code>never</code>,
+  <code>impossible</code>, <code>guarantee</code>, <code>completely</code>,
+  <code>definitely</code>, <code>can't be</code>, <code>cannot be</code>,
+  <code>safe from</code> — and then flips its own verdict whenever</p>
+  $$(7L + 13E) \bmod 10 \;\lt\; 3,$$
+  <p>where $L$ is the length of the response in characters and $E$ is how many letter e's it
+  contains. That flip is a function of the <em>shape</em> of the text, not its meaning, and it
+  is what breaks the idea. On a deliberately keyword-separable eight-item set — every M
+  carrying an absolute, every C hedging — the mock scored 6/8 = 0.750. Appending trailing
+  spaces to every item, which changes no word in any of them and therefore changes nothing at
+  all about separability, moved that score around between 0.500 and 0.875. A deliberately
+  tell-free set of the same size wandered between 0.375 and 0.625 under the same treatment. The
+  two ranges overlap almost entirely. A diagnostic whose reading changes when you add
+  whitespace is not measuring what you wanted it to measure.</p>
+  <p><strong>Attempt two: train an actual classifier.</strong> A TF-IDF logistic regression
+  under four-fold cross-validation, asked to predict M or C from the words alone. If it
+  succeeds, your items are word-separable and you are in trouble. On the twelve demo items it
+  came out between 0.417 and 0.500 depending on the split, with individual folds at 0.333 —
+  at or below the 50% chance level, which is what "learned nothing" looks like. That is not
+  evidence the demo items are clean; it is evidence that nine training items per fold is too
+  few to learn from. Forty items would give it thirty, which is barely better.</p>
+  <p><strong>The conclusion to carry forward.</strong> There is no statistical separability
+  test worth trusting at $n = 40$. What replaces it is two cheap human-and-model things: the
+  ten-item probe in section 8, which asks the real model directly, and the second reader's
+  sentence about what decided each label, in section 6. Running <code>--mock</code> on your own
+  data is still worth doing — it proves the forty rows load and the counts are right — but its
+  accuracy is not a signal about your dataset and must not be read as one.</p>
 </div>
 
 <h2>3 · The hard cases are the only valuable ones</h2>
@@ -501,11 +520,18 @@ a sibling, the mentor — and have them label it blind.</p>
 
 <div class="box definition">
   <span class="lbl">How to run it properly</span>
-  <p>Take at least 10 of your 40 items, ideally with equal numbers of your M and your C.
-  Strip the <code>ground_truth</code> column. Give them the misconception catalogue and one
-  sentence of instruction: <em>"mark M if this response contains one of these misconceptions,
-  C if it does not."</em> Do not sit next to them. Do not explain any item. Collect their
-  labels, then compare.</p>
+  <p>Take at least <strong>20</strong> of your 40 items, ideally with equal numbers of your M
+  and your C. Strip the <code>ground_truth</code> column. Give them the misconception catalogue
+  and one sentence of instruction: <em>"mark M if this response contains one of these
+  misconceptions, C if it does not."</em> Do not sit next to them. Do not explain any item.</p>
+  <p>Then ask for one more thing, and this is the part that does the real work: for every item,
+  <strong>one sentence saying what decided it</strong>. Not a justification of the label, just
+  a note of what they looked at. It costs them a few extra minutes and it is the single most
+  informative thing you will collect this phase, because a column of sentences reading
+  <em>"it said never"</em>, <em>"it said guaranteed"</em>, <em>"the other one hedged"</em> is a
+  ceiling effect caught red-handed, and no agreement statistic would have caught it. A column
+  reading <em>"had to think about whether rotation actually helps here"</em> is the opposite,
+  and is the thing you are hoping for.</p>
   <p><strong>If a human cannot reliably agree with you, the model has no chance, and the
   problem is the label rather than the model.</strong> That sentence is the reason this step
   exists, and it is worth a line in your write-up whichever way it comes out.</p>
@@ -517,15 +543,30 @@ a sibling, the mentor — and have them label it blind.</p>
 
 $$p_o \;=\; \frac{\text{items you both gave the same label}}{\text{items you both labelled}}.$$
 
-<p>Say you both label 10 items and agree on 9. Then $p_o = 0.9$, and you write "the second
-rater agreed with my label on 9 of 10 items (90%)". Nothing wrong with that. The weakness is
-that it flatters you: with two labels, two people guessing at random agree about half the
-time, so 90% is really only most of the way from 50 to 100, not from 0 to 100.</p>
+<p>Say you both label 20 items and agree on 17. Then $p_o = 17/20 = 0.85$, and you write "the
+second rater agreed with my label on 17 of 20 items (85%)". Nothing wrong with that. Two
+weaknesses are worth knowing about before you lean on the number.</p>
 
-<h3>Cohen's kappa <span class="status cited">cited</span></h3>
+<p>The first is that it flatters you: with two labels, two people guessing at random agree
+about half the time, so 85% is really only most of the way from 50 to 100, not from 0 to 100.
+Cohen's kappa below is the standard fix for that.</p>
 
-<p>Cohen's kappa is the standard fix. It subtracts off the agreement you would expect by
-chance and rescales what is left, so that 0 means "no better than chance" and 1 means
+<p>The second is that it is <em>imprecise</em>, and kappa does not fix that at all. The 95%
+Wilson interval on 17/20 runs from <strong>64.0% to 94.8%</strong> — a span of nearly
+thirty-one percentage points. The same 17 agreements are compatible with a true agreement rate
+of about 64% and with one of about 95%. That is why section 9's rule is a band
+rather than a threshold: a cutoff drawn anywhere inside an interval that wide is a cutoff you
+could hit or miss by rewriting one item, which is an invitation to rewrite one item.</p>
+
+<h3>Cohen's kappa, for the write-up <span class="status cited">cited</span></h3>
+
+<p>Everything from here to the end of this section belongs in your <em>methods and results</em>
+section, not at the gate. It is worth knowing, it is worth reporting, and at $n = 20$ it is not
+worth <em>deciding</em> on — for the same reason the raw percentage is not: the interval around
+it is far too wide to separate a dataset that passes from one that does not.</p>
+
+<p>What kappa does is subtract off the agreement you would expect by
+chance and rescale what is left, so that 0 means "no better than chance" and 1 means
 "perfect". <span class="status cited">cited</span> (Cohen, 1960, <em>A Coefficient of
 Agreement for Nominal Scales</em>, <em>Educational and Psychological Measurement</em> 20(1),
 37–46.)</p>
@@ -566,25 +607,29 @@ luck alone, given how often each of them says M.</p>
 substantial, 0.81–1.00 almost perfect. <span class="status cited">cited</span> (Landis &amp;
 Koch, 1977, <em>Biometrics</em> 33(1), 159–174.) Those bands are convention, not mathematics —
 nothing computes them, people agreed on them — so quote them as a convention and not as a law.
-For this project, <strong>aim for $\kappa \geq 0.6$, which on a balanced subset means agreeing
-on at least 8 of 10</strong>.</p>
+Report your kappa alongside the raw agreement and the number of items it was computed on, and
+resist the urge to attach a verdict to it. On 20 items it is a description, not a decision.</p>
 
 <div class="box aside">
   <span class="lbl">If kappa is one step too far</span>
-  <p>Report raw percentage agreement and say so plainly: "a second rater labelled 10 of the 40
-  responses without seeing my labels; we agreed on 9 (90%)." That is honest, checkable, and
-  more than most work at this level does. What is <em>not</em> acceptable is skipping the
-  second reader and asserting that the labels are obvious. The number is small; the absence of
-  the number is not.</p>
+  <p>Report raw percentage agreement and say so plainly: "a second rater labelled 20 of the 40
+  responses without seeing my labels; we agreed on 17 (85%, 95% Wilson interval 64.0% to
+  94.8%)." That is honest, checkable, and more than most work at this level does. What is
+  <em>not</em> acceptable is skipping the second reader and asserting that the labels are
+  obvious. The number is small; the absence of the number is not.</p>
 </div>
 
 <div class="box warning">
   <span class="lbl">The result you must not misread</span>
-  <p>Perfect agreement is not automatically good news. If your reader agrees on 10 of 10
+  <p>Perfect agreement is not automatically good news. If your reader agrees on 20 of 20
   <em>and says it was easy</em>, you have evidence for the section 1 problem, not against it.
-  So ask them the second question: <em>"which ones did you have to think about?"</em> If the
-  answer is "none of them", go back and make some items harder. Write their answer down; it is
-  data.</p>
+  This is the whole logic of the gate in section 9, and it is the least intuitive idea on this
+  page: high agreement can mean your labels are clean, and it can equally mean your items are
+  giving themselves away.</p>
+  <p>The sentences settle it. Ask the second question — <em>"which ones did you have to think
+  about?"</em> — and read the "what decided it" column. If the answers are "none of them" and
+  "it said never", go back and make some items harder. Write their answers down; they are
+  data, and they go in the write-up.</p>
 </div>
 
 <h2>7 · The two files, and the comma that eats them</h2>
@@ -632,43 +677,236 @@ so a half-finished file behaves sensibly instead of crashing.</p>
   the offending <code>response_id</code> rather than running eighty model calls on garbage.</p>
 </div>
 
-<h2>8 · The gate</h2>
+<h2>8 · The ten-item probe</h2>
+
+<p>This is the single highest-leverage two minutes in the project. Everything above is advice
+about how to write items. This is the one step that <em>measures</em> whether the advice worked,
+and it does it while there is still time to act on the answer.</p>
+
+<p>Write ten items first. Not forty — ten. Five M and five C: two of your misconceptions
+complete at four items each, plus one M and one C belonging to a third. Put them in
+<code>responses.csv</code> as rows <code>R01</code> to <code>R10</code>, with those three
+misconceptions filled in properly in <code>misconceptions.csv</code>. Then, before you write
+the other thirty, hand those ten to the real model under both prompts.</p>
+
+<div class="cmd"><pre><span class="p">$ </span>cd python
+<span class="p">$ </span>python3 misconception/run_experiment.py --probe 10</pre></div>
+
+<p>Twenty calls — ten items under each of the two prompts — which on a laptop is about two
+minutes. <code>--probe N</code> takes the first N rows of your file and stops there; there is
+no <code>--mock</code> and no <code>--sample</code> on that line, because the whole point is
+to hear from <code>llama3.2:3b</code> itself rather than from a keyword rule.</p>
+
+<div class="box warning">
+  <span class="lbl">A perfect score is a stop, not a pass</span>
+  <p>Read this before you run it, so the result cannot be reinterpreted afterwards.
+  <strong>If the model scores 10/10 under both prompts, that is a failure of the dataset and
+  you stop writing items.</strong> It means your ten items are separable without any help at
+  all, so the catalogue has nothing left to contribute and both conditions will sit at the
+  ceiling — the far right-hand end of Lab 1, arrived at two weeks early and for free.</p>
+  <p>The response is not to celebrate and write thirty more in the same style. It is to go back
+  and write harder ones: an M that reads as reasonable and hedged, a C that reads as
+  overconfident. Then probe again. Finding this now costs you ten items. Finding it in Phase 5
+  costs you the study.</p>
+</div>
+
+<p>Here is what the run prints. This is the shape you do <em>not</em> want, produced on the
+demo data with the fake model so that the block below is a real terminal transcript rather
+than an invention:</p>
+
+<div class="cmd"><pre><span class="p">$ </span>python3 misconception/run_experiment.py --mock --sample --probe 2</pre></div>
+
+<div class="out">======================================================================
+PROBE RESULT
+======================================================================
+  baseline               2/2 correct
+  misconception_aware    2/2 correct
+
+<i>  ⚠  PERFECT UNDER MORE THAN ONE PROMPT.
+     Your items are separable without any help, so the catalogue has
+     nothing left to add and both conditions will sit at the ceiling.
+     STOP. Go and write harder items before you write the other thirty:
+       - an M that reads as reasonable and hedged
+       - a C that reads as overconfident
+     Then run this probe again.</i>
+
+  These numbers are a dataset check, NOT a result. Never report them:
+  2 items chosen by you is not a sample.
+======================================================================</div>
+
+<p>And here is the other branch, on six of the same demo items, this time with the whole run
+shown so you can see the per-item dots go past:</p>
+
+<div class="cmd"><pre><span class="p">$ </span>python3 misconception/run_experiment.py --mock --sample --probe 6</pre></div>
+
+<div class="out">*** MOCK MODE — these numbers are FAKE. Never report them. ***
+*** SAMPLE DATA — 12 demo answers, NOT yours. ***
+Loaded 12 answers  (6 misconception, 6 correct)
+Loaded 3 misconceptions
+
+*** PROBE MODE — first 6 responses only. ***
+    This is the early-warning check, not a result. You are looking for
+    a score that is NOT perfect. See the Phase 3 page.
+
+--- Condition: baseline ---
+..XX.X
+Done in 0.0s (0.0s per item)
+
+--- Condition: misconception_aware ---
+..XX.X
+Done in 0.0s (0.0s per item)
+
+======================================================================
+PROBE RESULT
+======================================================================
+  baseline               3/6 correct
+  misconception_aware    3/6 correct
+
+<b>  ✓ Nothing is perfect. There is room for the catalogue to show an
+    effect. Carry on writing the remaining items in this style.</b>
+
+  These numbers are a dataset check, NOT a result. Never report them:
+  6 items chosen by you is not a sample.
+======================================================================</div>
+
+<div class="box warning">
+  <span class="lbl">Those two blocks are mock output, and mock output only shows the shape</span>
+  <p><code>--mock</code> and <code>--sample</code> are there so you can see what the probe looks
+  like before you have written anything, and for no other reason. The fake model ignores the
+  prompt it was handed, so the two conditions always come out identical under
+  <code>--mock</code>; and its 3/6 is a fact about nine keywords and the length of six
+  sentences, not about the demo items.
+  <strong>Your probe runs the real model on your own ten items, with no flags:</strong>
+  <code>--probe 10</code> and nothing else.</p>
+  <p>One thing the probe does not check: a score of 3/10 is not a pass either. The probe is
+  built to catch the ceiling, which is the failure that ends the study, and it says nothing
+  about the opposite end of Lab 1 — items so ambiguous that nobody, human or model, can label
+  them. That end is what the second reader in section 6 is for. The two checks catch different
+  failures and you need both.</p>
+</div>
+
+<h3>Why it deliberately prints no metrics</h3>
+
+<p>You may have noticed what is missing. There is no accuracy, no recall, no confusion matrix,
+no Wilson interval — just two fractions and a verdict in words. That is on purpose, and
+<code>_probe_verdict()</code> in <code>run_experiment.py</code> says so in its docstring.</p>
+
+<p>Ten items that you chose, wrote and labelled yourself are not a sample of anything. A recall
+figure computed on them would be a number about your own writing, dressed up in the vocabulary
+of a result — and a number that exists gets reported. Someone will put it in a slide, and then
+in a sentence, and by the time it reaches a reader nobody remembers it came from ten items the
+author wrote. Printing "3/6 correct" and a paragraph of English instead of "recall = 0.60"
+closes that path off at the source. The probe is a go / no-go signal about the dataset, and
+turning it into a metric would make it something else.</p>
+
+<h2>9 · The gate</h2>
 
 <p>Rebuilding here is a normal outcome, not a failure, and it is far cheaper than rebuilding
 after two runs and a written-up analysis. It usually means rewriting a handful of items, not
 starting over.</p>
 
+<p>The gate has one primary criterion and five supporting ones. The primary criterion is the
+probe in section 8, because it is the only one that asks the actual model the actual question.
+The supporting criteria are checks on the thing the probe cannot see: whether the labels
+themselves hold up.</p>
+
+<div class="box warning">
+  <span class="lbl">The counterintuitive part: agreement is U-shaped, not a floor</span>
+  <p>The obvious way to write this gate would be "the second reader must agree with you on at
+  least 85% of items". That rule is worse than no rule, and it is worth understanding exactly
+  why, because the same mistake is available in every part of this project.</p>
+  <p>Consider the dataset from section 1 — the one where every M item contains
+  <em>never</em> and every C item hedges. Two labellers will agree on essentially all of it.
+  There is nothing to disagree about: the label is written on the surface of each item in plain
+  sight. So that dataset scores 100% agreement. It is also the dataset that kills the study
+  stone dead, because a model with no help whatsoever already separates it.</p>
+  <p><strong>A one-sided threshold would therefore award its highest score to the most dangerous
+  dataset you can build.</strong> Agreement is not a floor to clear; it is a diagnostic with a
+  failure mode at each end. Too low and your labels mean nothing. Too high and your items are
+  giving themselves away. What you want is the middle: a dataset where a careful second reader
+  agrees with you most of the time, and has to stop and think in order to do it.</p>
+</div>
+
+<table>
+  <thead><tr><th>Agreement on the 20 blind-labelled items</th><th>What it means</th><th>What you do</th></tr></thead>
+  <tbody>
+  <tr>
+    <td><strong>Below 70%</strong><br>(under 14 of 20)</td>
+    <td>The labels are the problem, not the model. Two people cannot agree what these items mean, so any model score would be measuring the disagreement.</td>
+    <td><strong>Stop.</strong> Do not run Phase 4. Go through the items out loud with the reader, then rewrite the ambiguous ones or drop the misconception they belong to.</td>
+  </tr>
+  <tr>
+    <td><strong>70% to 90%</strong><br>(14 to 18 of 20)</td>
+    <td>The target band. Real labels, real difficulty. Some items required thought and one or two went the other way.</td>
+    <td><strong>Proceed</strong> — once every single disagreement has been discussed to a resolution. Report the pre-resolution figure in the write-up, not the post-resolution one.</td>
+  </tr>
+  <tr>
+    <td><strong>Above 90%</strong><br>(19 or 20 of 20)</td>
+    <td>A <strong>warning, not a pass.</strong> Either your labels are unusually clean or your items are advertising their answers, and the number alone cannot tell you which.</td>
+    <td>Read the "what decided it" sentences and run the keyword audit below. Clean probe plus clean audit: acceptable. Perfect probe: your items are too easy, go back to section 8.</td>
+  </tr>
+  </tbody>
+</table>
+
+<p>The band is deliberately wide because the numbers underneath it are imprecise. The 95%
+Wilson intervals on the three boundary cases are [48.1%, 85.5%] for 14/20, [64.0%, 94.8%] for
+17/20 and [76.4%, 99.1%] for 19/20. Those overlap heavily. A sharp threshold drawn inside
+intervals that wide is a threshold you could cross by rewriting one item — which is precisely
+the invitation you do not want to hand yourself at the moment you are deciding whether your own
+dataset is good enough.</p>
+
+<div class="box example">
+  <span class="lbl">The keyword audit — crude, and it works at n = 40</span>
+  <p>Take the five absolutes: <strong>always</strong>, <strong>never</strong>,
+  <strong>impossible</strong>, <strong>guaranteed</strong>, <strong>100%</strong>. Search your
+  <code>response_text</code> column for each, and write down two counts: how many of your 20 M
+  items contain at least one, and how many of your 20 C items do.</p>
+  <p>Lopsided counts are the commonest tell there is. Eleven M items and one C item means the
+  word <em>never</em> is doing a job in your dataset that you intended the misconception to do.
+  Roughly equal counts — or near-zero on both sides — means the vocabulary is not carrying the
+  label. Do this by eye in the spreadsheet; it takes five minutes and needs no code.</p>
+  <p>It is a crude instrument and it only catches one family of tells. It is also the only
+  automated check on this page that survived contact with $n = 40$, which is more than can be
+  said for the two in section 2. If the counts come out lopsided, the fix is not to delete the
+  words: it is to move some of them into C items where they are used correctly — <em>"no
+  password is 100% safe, which is why I also turned on two-factor"</em> — so that the presence
+  of an absolute stops predicting the label.</p>
+</div>
+
 <div class="box python">
   <span class="lbl">Run these before you say you are done</span>
   <div class="cmd"><pre><span class="p">$ </span>cd python
 <span class="p">$ </span>python3 misconception/check_setup.py
+<span class="p">$ </span>python3 misconception/run_experiment.py --probe 10
 <span class="p">$ </span>python3 misconception/run_experiment.py --mock
 <span class="p">$ </span>python3 misconception/analyze.py
 <span class="p">$ </span>pytest ../ -q</pre></div>
-  <p>Note the missing <code>--sample</code>: this run uses <strong>your</strong> forty items
-  with the fake model. You are not looking at whether the numbers are good — they are fake and
-  cannot be good. You are looking for two things: that all forty rows load with the counts
-  <code>(20 misconception, 20 correct)</code>, and that the mock accuracy is near 50% rather
-  than near 70%, per the diagnostic in section 2.</p>
+  <p>The <code>--probe 10</code> line is the gate, and it belongs two weeks earlier than the
+  rest of this list — run it when you have ten items, not when you have forty.</p>
+  <p>Note the missing <code>--sample</code> on the <code>--mock</code> line: that run uses
+  <strong>your</strong> forty items with the fake model. You are not looking at its accuracy —
+  section 2 explains at length why that number tells you nothing about your dataset. You are
+  looking for one thing only: that all forty rows load and print
+  <code>(20 misconception, 20 correct)</code>, so that Phase 4 does not fall over on a typo.</p>
 </div>
 
 <div class="box verify">
   <span class="lbl">Before the check-in — the gate criteria</span>
   <ul>
+    <li><strong>The primary one.</strong> I ran <code>--probe 10</code> on my first ten items with the real model, before writing the other thirty, and it was <em>not</em> perfect under both prompts. If it was, I rewrote items and probed again, and I can say how many rounds that took.</li>
     <li><code>misconceptions.csv</code> has 10 real rows and no <code>&lt;placeholder&gt;</code> text left.</li>
-    <li><code>responses.csv</code> has 40 real rows, and the run prints <code>(20 misconception, 20 correct)</code>.</li>
-    <li>Every misconception has exactly 2 M and 2 C written about it.</li>
-    <li>Every item is one to three sentences, in a student's voice, about one misconception.</li>
-    <li>I read all forty aloud and none of them sounded like a robot or a slogan.</li>
-    <li>At least a third of the items are ones I had to think about myself.</li>
-    <li><code>--mock</code> on my own data scores near 50%, not near 70%.</li>
-    <li>A second reader labelled at least 10 items blind; I have the number, and $\kappa \geq 0.6$ or agreement $\geq 8/10$.</li>
-    <li>I asked the second reader which items were hard, and wrote down what they said.</li>
-    <li>Items where we disagreed have been rewritten, relabelled with a written reason, or cut.</li>
+    <li><code>responses.csv</code> has 40 real rows, each attributable to exactly one misconception, and the run prints <code>(20 misconception, 20 correct)</code> with 2 M and 2 C per misconception.</li>
+    <li>Every item is one to three sentences, in a student's voice, about one misconception; I read all forty aloud and none sounded like a robot or a slogan.</li>
+    <li>At least 8 of the 40 are items I genuinely had to think about myself.</li>
+    <li>A second reader blind-labelled at least <strong>20</strong> items and wrote <strong>one sentence per item on what decided it</strong>. I have read all twenty sentences.</li>
+    <li>Percentage agreement is in the <strong>70–90%</strong> band. Below 70% I stopped and fixed the labels. Above 90% I treated it as a warning, checked the sentences and the keyword audit, and can say why I proceeded anyway.</li>
+    <li>Every disagreement was discussed to a resolution, and I have written down the <em>pre</em>-resolution figure for the write-up.</li>
+    <li><strong>Keyword audit done:</strong> I have the count of M items and the count of C items containing <em>always</em>, <em>never</em>, <em>impossible</em>, <em>guaranteed</em> or <em>100%</em>, and the two counts are not lopsided.</li>
+    <li>Items where we disagreed have been rewritten, relabelled with a written reason, or cut — and the 20/20 balance survived.</li>
   </ul>
 </div>
 
-<h2>9 · Exercises</h2>
+<h2>10 · Exercises</h2>
 
 <div class="exercise">
   <div class="ex-head">Exercise 3.1 <span class="stars">★★</span><span class="tag">writing</span></div>
@@ -721,32 +959,42 @@ starting over.</p>
 
 <div class="exercise">
   <div class="ex-head">Exercise 3.3 <span class="stars">★★</span><span class="tag">thinking</span></div>
-  <div class="ex-body"><p>Your second reader labels 10 items blind. Decide, for each case, what
-  you do next and why. (a) They agree on 10 of 10 and say it took five minutes. (b) They agree
-  on 8 of 10. (c) They agree on 6 of 10. (d) They agree on 9 of 10, but the one disagreement is
-  an item you already suspected was ambiguous.</p></div>
+  <div class="ex-body"><p>Your second reader blind-labels 20 items and, as asked, writes one
+  sentence per item on what decided it. Decide, for each case, what you do next and why.
+  (a) They agree on 20 of 20, it took five minutes, and half the sentences say some version of
+  "it used an absolute word". (b) They agree on 17 of 20. (c) They agree on 12 of 20.
+  (d) They agree on 19 of 20, the sentences describe the claims rather than the wording, and the
+  single disagreement is an item you already suspected was ambiguous.</p></div>
   <details><summary>Solution</summary><div class="solution">
-    <p><strong>(a) 10/10, easy.</strong> The labels are safe and the <em>items</em> may not be.
-    Perfect effortless agreement is exactly what a ceiling-effect dataset produces. Go back and
-    ask them which items required thought; if the answer is "none", rewrite a handful of items
-    to be harder, in the style of section 3, and re-run the diagnostic in section 2. Do not
-    treat 10/10 as a green light on its own.</p>
-    <p><strong>(b) 8/10.</strong> On a balanced subset $\kappa = 2(0.8) - 1 = 0.6$, which just
-    reaches the target. Proceed, but look at both disagreements individually. For each: either
-    rewrite the item so the intended reading is unambiguous, keep the label and write down in
-    <code>notes</code> the rule that justifies it, or cut it. Report the agreement figure in
-    your methods either way.</p>
-    <p><strong>(c) 6/10.</strong> $\kappa = 2(0.6) - 1 = 0.2$ — barely above chance. Stop.
-    Do not run the experiment. Two people cannot agree what these items mean, so any model
-    score is measuring the disagreement rather than the model. Sit down with the reader, go
-    through all ten out loud, find out whether the problem is the items, the misconception
-    statements, or the one-sentence instruction you gave them, and fix that before writing
-    anything else.</p>
-    <p><strong>(d) 9/10 on a known-ambiguous item.</strong> The healthiest of the four. Your
-    own suspicion and an independent reader landed on the same item, which is evidence that
-    your judgement about difficulty is calibrated. Rewrite that one item to supply the missing
-    context, or cut it and write a replacement so the 20/20 balance survives. Report
-    $\kappa = 0.8$ and mention the rewrite.</p>
+    <p><strong>(a) 20/20, easy, sentences about wording.</strong> 100% is above the 90% line, so
+    it is a warning rather than a pass — and here the warning is confirmed by the thing that
+    actually diagnoses it. "It used an absolute word" is a reader telling you, in plain English,
+    that the vocabulary and not the claim is carrying your labels. Run the keyword audit; it
+    will almost certainly come out lopsided. Then rewrite items in the style of section 3 and
+    re-probe. The labels are safe. The <em>items</em> are the problem, and no agreement figure
+    would ever have said so.</p>
+    <p><strong>(b) 17/20 = 85%.</strong> Inside the 70–90% band, which is where you want to be.
+    Proceed — but only after going through all three disagreements individually. For each:
+    either rewrite the item so the intended reading is unambiguous, keep the label and write
+    down in <code>notes</code> the rule that justifies it, or cut it and replace it so the 20/20
+    balance survives. Report 85% as the pre-resolution figure, with its Wilson interval of
+    [64.0%, 94.8%] so the reader can see how imprecise it is, and mention that three items were
+    resolved by discussion.</p>
+    <p><strong>(c) 12/20 = 60%.</strong> Below the 70% line. Stop, and do not run Phase 4. Two
+    people cannot agree what these items mean, so any model score would be measuring the
+    disagreement rather than the model. Sit down with the reader, go through the disputed items
+    out loud, and find out whether the problem is the items, the misconception statements, or
+    the one-sentence instruction you gave them. If a whole misconception is generating the
+    confusion, drop that misconception and write four new items under a different one.</p>
+    <p><strong>(d) 19/20 with sentences about claims.</strong> The healthiest of the four, and
+    the one worth studying. 95% is above the 90% line, so the rule sends you to the evidence
+    rather than waving you through — and the evidence is good: a reader who writes "had to
+    decide whether rotation actually helps here" is reasoning about the claim, not reading the
+    surface. Combined with a non-perfect probe, that is an acceptable pass. Rewrite the one
+    disputed item to supply the missing context, or cut and replace it. Note that your own prior
+    suspicion and an independent reader landed on the same item, which is evidence your
+    judgement about difficulty is calibrated. Kappa here is $2(0.95) - 1 = 0.90$ on a balanced
+    subset — report it in the write-up, and do not let it do any deciding.</p>
   </div></details>
 </div>
 
@@ -774,38 +1022,55 @@ starting over.</p>
     <p><strong>Check.</strong> Your marginal is exactly $a = 0.5$, so the shortcut applies:
     $2p_o - 1 = 2(0.85) - 1 = 0.70$. Agreed.</p>
     <p><strong>Meaning.</strong> "Substantial" agreement on the Landis–Koch convention
-    <span class="status cited">cited</span> — comfortably past the 0.6 target, so the dataset
-    passes this criterion. Note that the raw 85% figure and the $\kappa = 0.70$ figure are the
-    same fact stated twice; kappa is not more accurate, it is just harder to oversell.</p>
+    <span class="status cited">cited</span>. Note that the raw 85% figure and the
+    $\kappa = 0.70$ figure are the same fact stated twice; kappa is not more accurate, it is
+    just harder to oversell.</p>
+    <p><strong>And where it goes.</strong> This sentence belongs in your write-up, not at the
+    gate. The gate reads the raw 85%, sees it inside the 70–90% band, and sends you to look at
+    the three disagreements and the "what decided it" sentences. Kappa is computed on the same
+    20 items and inherits the same imprecision — the Wilson interval on 17/20 is
+    [64.0%, 94.8%] — so promoting it to a decision rule would be dressing up a wide interval in
+    a decimal point. Compute it, report it, do not decide on it.</p>
   </div></details>
 </div>
 
 <div class="exercise">
-  <div class="ex-head">Exercise 3.5 <span class="stars">★★</span><span class="tag">arithmetic</span></div>
-  <div class="ex-body"><p>You run <code>run_experiment.py --mock</code> on your own forty items
-  and <code>analyze.py</code> reports an accuracy of 67.5% (27 of 40) for both conditions.
-  (a) Using the relation from section 2, roughly how many of your items does the nine-word
-  keyword rule get right? (b) What should you do? (c) Why are both conditions identical in
-  mock mode, and is that a bug?</p></div>
+  <div class="ex-head">Exercise 3.5 <span class="stars">★★</span><span class="tag">thinking</span></div>
+  <div class="ex-body"><p>A classmate reads section 2 and proposes a shortcut: "the mock model
+  is a nine-word keyword rule, so its accuracy on your forty items tells you how well nine words
+  separate them. High mock accuracy means keyword-separable, so just run <code>--mock</code> and
+  read the number." (a) Say precisely why this does not work, using the flip rule from section 2.
+  (b) They then propose training a classifier on the forty items instead. Why does that fail
+  too? (c) What replaces both, and why is it worth the two minutes?</p></div>
   <details><summary>Solution</summary><div class="solution">
-    <p><strong>(a)</strong> $p \approx (a_{\text{mock}} - 0.3)/0.4 = (0.675 - 0.3)/0.4
-    = 0.375/0.4 = 0.9375$, which on forty items is about <strong>37 or 38 of them</strong>.
-    Nine words — <code>always</code>, <code>never</code>, <code>impossible</code>,
-    <code>guarantee</code>, <code>completely</code>, <code>definitely</code>,
-    <code>can't be</code>, <code>cannot be</code>, <code>safe from</code> — are separating your
-    two groups almost perfectly.</p>
-    <p><strong>(b)</strong> Rebuild. Search your <code>response_text</code> column for those
-    nine strings, and for every hit either delete the absolute word or move it into a C item
-    where it is used correctly ("no password is <em>completely</em> safe, so I also use MFA").
-    A real model will find that vocabulary at least as easily as the keyword rule did, both
-    prompts will score in the nineties, and you will be at the right-hand end of the Lab 1
-    picture with nothing to report. Re-run the mock and aim for something near 50%.</p>
-    <p><strong>(c)</strong> Not a bug. The comment in <code>ask_llm_mock</code> says so
-    explicitly: the fake model ignores the prompt it was given and looks only at the response
-    text, so there is nothing for the two prompts to influence. Identical conditions in mock
-    mode are the expected result; conditions that diverge under <code>--mock</code> would mean
-    something was genuinely wrong. The point of the mock run is the plumbing and this
-    diagnostic, never the numbers.</p>
+    <p><strong>(a)</strong> The argument is sound right up to the point where the mock stops
+    being a keyword rule. After the nine-word lookup it flips its own verdict whenever
+    $(7L + 13E) \bmod 10 \lt 3$, where $L$ is the character count and $E$ the number of e's, so
+    a variable fraction of every run is decided by the length and letter mix of the text rather
+    than by any word in it. The measured consequence is in section 2: on a deliberately
+    keyword-separable eight-item set the mock scored 0.750, and simply appending trailing spaces
+    to every item — which cannot change how separable the wording is — moved that between 0.500
+    and 0.875, overlapping the 0.375-to-0.625 range of a deliberately tell-free set.
+    <span class="status observed">observed</span> A reading you can shift by adding whitespace
+    is not a reading of your dataset.</p>
+    <p><strong>(b)</strong> Not enough data. A TF-IDF logistic regression under four-fold
+    cross-validation on the twelve demo items came out between 0.417 and 0.500 with individual
+    folds at 0.333 — at or below chance. <span class="status observed">observed</span> That is
+    not evidence the items are clean; it is the classifier failing to learn anything from nine
+    training examples. Forty items gives it thirty, which is not a different situation in any
+    way that matters. And notice the direction of the error: a classifier that always fails
+    would report "your dataset is fine" about every dataset, including the worst one you could
+    write. A test that cannot fail is not a test.</p>
+    <p><strong>(c)</strong> The ten-item probe of section 8: the real model, your real items,
+    both prompts, twenty calls, two minutes. It sidesteps the whole problem by not trying to
+    <em>predict</em> whether the model can separate your items and simply asking it. It is also
+    the only version that is run early enough to be actionable — at ten items rather than forty
+    — which is what makes it cheap. The keyword audit in section 9 is the surviving remnant of
+    the automated idea: crude, five minutes by eye, and it catches the one family of tells that
+    actually shows up.</p>
+    <p>Worth carrying forward from this exercise: two plausible diagnostics were built and both
+    were discarded, and the honest write-up of that is more useful than a diagnostic that
+    quietly returns noise. Reporting a tool that did not work is a normal part of research.</p>
   </div></details>
 </div>
 
@@ -865,23 +1130,27 @@ R13,M03,C,"I use an app rather than SMS, because SMS codes can be intercepted.",
     coincidentally, where your second reader has to stop and think.</p>
     <p>One honest caveat worth writing in your discussion: you do not get to tune the dataset
     <em>after</em> seeing the baseline's real score and then report the difference as if it
-    were a clean prediction. Do the hardening now, on the basis of the mock diagnostic and the
-    second reader, and freeze the dataset before the run in Phase 4. Deciding what counts as
-    good data after you have seen the answer is how honest people produce dishonest results.</p>
+    were a clean prediction. Do the hardening now, on the basis of the ten-item probe and the
+    second reader, and freeze the dataset before the run in Phase 4. The probe is deliberately
+    designed to be usable this way: it runs on ten items you have not yet built a study around,
+    it prints no metric you could be tempted to report, and it happens before the other thirty
+    exist. Deciding what counts as good data after you have seen the answer is how honest people
+    produce dishonest results.</p>
   </div></details>
 </div>
 
-<h2>10 · Verification</h2>
+<h2>11 · Verification</h2>
 
 <div class="box verify">
   <span class="lbl">What to bring to the check-in</span>
   <ul>
     <li>Both CSV files, committed, with no placeholder rows left.</li>
     <li>The line from the run that reads <code>Loaded 40 answers  (20 misconception, 20 correct)</code>.</li>
-    <li>The mock accuracy on your own data, and what you concluded from it.</li>
-    <li>Your second reader's name, how many items they labelled, and the agreement figure — raw percentage at minimum, kappa if you got there.</li>
+    <li><strong>The <code>PROBE RESULT</code> block from every probe you ran</strong>, in order, and the items you rewrote between them.</li>
+    <li>Your second reader's name, how many items they labelled, the raw agreement figure with its Wilson interval, and their twenty "what decided it" sentences.</li>
+    <li>The keyword audit: two counts, M and C, and what you did about them.</li>
     <li>Two items you rewrote after the blind labelling, with the old and new versions.</li>
-    <li>One sentence answering: "if both prompts score 95%, what will you say about your dataset?"</li>
+    <li>One sentence answering: "your reader agreed with you on 20 of 20 — is that good news?"</li>
   </ul>
 </div>
 
@@ -890,7 +1159,7 @@ R13,M03,C,"I use an app rather than SMS, because SMS codes can be intercepted.",
   <p><strong>More than two readers.</strong> Cohen's kappa handles exactly two. For three or
   more, or for readers who did not all label the same items, the usual measures are Fleiss'
   kappa and Krippendorff's alpha. <span class="status cited">cited</span> You do not need
-  either here, and reaching for them on 10 items with 2 readers would be decoration. Knowing
+  either here, and reaching for them on 20 items with 2 readers would be decoration. Knowing
   the names is worth two minutes; implementing them is not.</p>
   <p><strong>Adjudication.</strong> In larger studies disagreements are not thrown out: a third
   reader settles them, and the paper reports the pre-adjudication agreement alongside the final

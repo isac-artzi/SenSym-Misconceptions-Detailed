@@ -40,9 +40,15 @@ measures it, on a laptop, with a model small enough to run for free.</p>
   <strong>misconception-aware</strong> prompt is the same request with the catalogue of ten
   specific misconceptions pasted in. Same model, same temperature, same forty responses. The
   only difference is what the model was told to look for.</p>
+  <p>And a third, which is the control: the <strong>decoy</strong> prompt is the same
+  catalogue prompt carrying ten documented misconceptions about <em>physics</em>. It cannot
+  help with a password answer. It exists because the misconception-aware prompt changes two
+  things at once — the model gets a catalogue, <em>and</em> the prompt gets longer and more
+  structured — and without the decoy there is no way to tell which of those did the work.</p>
   <p class="muted">Headline expectation, stated in advance so it can be wrong:
   <em>the misconception-aware condition improves recall more than precision, because naming
-  the failure modes helps the model notice them, not helps it avoid false alarms.</em></p>
+  the failure modes helps the model notice them, not helps it avoid false alarms — and it
+  beats the decoy, because the catalogue's content matters and not merely its bulk.</em></p>
 </div>
 
 <div class="toolbar-links">
@@ -188,7 +194,7 @@ G.lab(function () {
   <tbody>
   <tr><td>P1</td><td>Design</td><td>You can state the two conditions, the positive class, and why recall is the headline metric — without notes</td><td>You survive being asked "why not accuracy?" on a call</td></tr>
   <tr><td>—</td><td>Code</td><td>Six TODOs done; the run prints the green <em>no reference fallbacks</em> line</td><td>The line is green. There is no partial credit on this one.</td></tr>
-  <tr><td>gate</td><td>Dataset</td><td>40 responses, 20 M / 20 C, that a second reader labels the same way you did</td><td>Agreement measured, not assumed — see Phase 3</td></tr>
+  <tr><td>gate</td><td>Dataset</td><td>40 responses, 20 M / 20 C, that survive the ten-item probe and a blind second reader</td><td>The probe is not perfect and agreement lands in the 70–90% band — see Phase 3</td></tr>
   <tr><td>—</td><td>Run</td><td>Two complete runs of both conditions, and the difference between them written down</td><td>Both runs committed, with the model name and date</td></tr>
   <tr><td>P2</td><td>Analysis</td><td>Confusion matrices, four metrics with intervals, and a paragraph on what would change your mind</td><td>An outsider reads it and can say what you found and what you did not</td></tr>
   </tbody>
