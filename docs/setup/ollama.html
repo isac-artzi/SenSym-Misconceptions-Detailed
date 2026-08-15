@@ -1,0 +1,565 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Setup 2 · Ollama and the local model — Wrong in a Particular Way</title>
+<link rel="stylesheet" href="../assets/vendor/katex/katex.min.css">
+<link rel="stylesheet" href="../assets/css/style.css">
+<script src="../assets/vendor/katex/katex.min.js"></script>
+<script src="../assets/vendor/katex/auto-render.min.js"></script>
+<script src="../assets/js/detect.js"></script>
+</head>
+<body>
+
+<header class="site">
+  <div class="wrap">
+    <div class="crumbs"><a href="../index.html">Wrong in a Particular Way</a> · Setup · Step 2</div>
+    <div class="badges"><span class="badge">Setup track</span><span class="badge win">Win: a model answers you</span></div>
+    <h1 class="chapter-title">Ollama and the local model</h1>
+    <p class="chapter-sub">From "I have never heard of Ollama" to check_setup.py printing all green.</p>
+  </div>
+</header>
+
+<main class="wrap">
+
+<p class="lede">This is the page that most often costs a week, so it is written at more length
+than it deserves. Budget about thirty minutes, most of it waiting for a download. Everything
+here is free, needs no account and no API key, and nothing you type leaves your laptop.</p>
+
+<div class="objectives">
+  <h3>By the end of this page you can</h3>
+  <ul>
+    <li>Say what Ollama actually is, and why it is a server rather than an app you type into.</li>
+    <li>Explain what <code>localhost:11434</code> means and why it appears in every error.</li>
+    <li>Install Ollama on your operating system and confirm the server is running.</li>
+    <li>Choose a model size that suits your laptop, and justify the choice in a methods section.</li>
+    <li>Download a model and get a reply from it without writing any Python.</li>
+    <li>Get <code>[OK]</code> on both Ollama lines of <code>check_setup.py</code>.</li>
+    <li>Diagnose the six errors that account for nearly all of the trouble on this step.</li>
+  </ul>
+</div>
+
+<div class="os-bar">
+  <span class="lbl2">I am on:</span>
+  <span class="seg">
+    <button type="button" data-os="mac" aria-pressed="true">macOS</button>
+    <button type="button" data-os="win" aria-pressed="false">Windows</button>
+  </span>
+  <span class="muted" style="font-size:13px">Set this once. Every page on the site follows it.</span>
+</div>
+
+<h2>1 · What Ollama actually is</h2>
+
+<p>Two minutes of reading that makes every later error message make sense.</p>
+
+<p>The single most useful thing to understand: <strong>Ollama is not an app you type questions
+into.</strong> It is a small program that sits in the background running a <em>web server on
+your own computer</em>. Your Python sends it a prompt over the network — except the network is
+your laptop talking to itself — and it sends back text. There is nothing else to it.</p>
+
+<div class="lab">
+  <div class="lab-title">The whole arrangement</div>
+  <p class="lab-desc">Three components, none of which leaves the machine. Click a box to see
+  what breaks when that one is missing, and what the error looks like.</p>
+  <canvas id="arch" height="250"></canvas>
+  <div class="controls" id="archctl"></div>
+  <div class="readout" id="archout"></div>
+</div>
+
+<script>
+G.lab(function () {
+  var st = G.controls('archctl', [
+    { k: 'which', type: 'select', label: 'suppose this is missing:',
+      options: [['none', 'nothing — all three present'],
+                ['prog', 'Ollama is not installed'],
+                ['serve', 'the server is not running'],
+                ['model', 'the model is not downloaded']],
+      value: 'none' }
+  ], draw);
+
+  var BOXES = [
+    { k: 'py',    t: 'run_experiment.py', d: 'your Python' },
+    { k: 'serve', t: 'Ollama server',     d: 'localhost:11434' },
+    { k: 'model', t: 'llama3.2:3b',       d: '2.0 GB on disk' }
+  ];
+
+  function draw() {
+    var cv = G.canvas('arch'); if (!cv) return;
+    var fr = G.frame(cv.ctx, cv.w, cv.h, {
+      xmin: 0, xmax: 3, ymin: 0, ymax: 1,
+      margin: { left: 8, right: 8, top: 34, bottom: 30 }
+    });
+    fr.axes({ xticks: 0, yticks: 0, grid: false });
+
+    /* the "your laptop" boundary, with its caption inside it */
+    fr.rect(0.04, 0.06, 2.96, 0.94, { stroke: G.COL.line, width: 1.5 });
+    fr.text(0.14, 0.855, 'YOUR LAPTOP — nothing in this box leaves it',
+            { color: G.COL.muted, align: 'left' });
+
+    var dead = st.which;
+    BOXES.forEach(function (b, i) {
+      var x0 = 0.10 + i, x1 = 0.90 + i;
+      var broken = (dead === 'prog' && (b.k === 'serve' || b.k === 'model'))
+                || (dead === 'serve' && b.k === 'serve')
+                || (dead === 'model' && b.k === 'model');
+      var col = broken ? G.COL.rose : (b.k === 'serve' ? G.COL.accent : G.COL.muted);
+      fr.rect(x0, 0.34, x1, 0.68,
+              { fill: col, alpha: broken ? 0.13 : 0.07, stroke: col, width: 2 });
+      fr.text((x0 + x1) / 2, 0.565, b.t, { color: col, align: 'center' });
+      fr.text((x0 + x1) / 2, 0.435, broken ? 'MISSING' : b.d,
+              { color: broken ? G.COL.rose : G.COL.muted, align: 'center' });
+      if (i < 2) fr.text(i + 1.0, 0.51, '→', { color: G.COL.muted, align: 'center' });
+    });
+
+    var MSG = {
+      none:  'All three present. This is the working state.\n' +
+             'Python posts a prompt to http://localhost:11434/api/generate; the server loads\n' +
+             'the model, runs it, and posts text back. One HTTP round trip per student response.',
+      prog:  'Nothing is installed, so there is no server and no model.\n' +
+             'The terminal says:  command not found: ollama\n' +
+             'Fix: install it (section 2). This is the only failure that needs a download of the program itself.',
+      serve: 'Installed, model on disk, but nothing is listening at the door.\n' +
+             'Python says:  Could not reach Ollama at http://localhost:11434/api/generate\n' +
+             'Fix: open the Ollama app. Do NOT start by editing Python — this error is never your code.',
+      model: 'Server is up and answering, but the file it needs is not on disk.\n' +
+             'You get:  model \'llama3.2:3b\' not found\n' +
+             'Fix: ollama pull llama3.2:3b — or make config.py name the model you actually have.'
+    };
+    G.say('archout', MSG[st.which]);
+  }
+  draw();
+});
+</script>
+
+<p>That address — <code>localhost:11434</code> — appears in every error you will hit.
+<strong><code>localhost</code> means "this machine."</strong> <code>11434</code> is the door
+number Ollama listens at. So when <code>llm_client.py</code> reports <em>"Could not reach
+Ollama at http://localhost:11434"</em>, it is saying exactly one thing: <em>I knocked on that
+door and nobody answered.</em></p>
+
+<div class="box definition">
+  <span class="lbl">Three separate things · keep them apart</span>
+  <p><strong>Ollama the program</strong> is installed once. <strong>The server</strong> is the
+  background process that must be alive whenever your script runs. <strong>The model</strong>
+  is a large file downloaded once with <code>ollama pull</code>.</p>
+  <p>You can have the program with no model, or a model with the server stopped. Both feel
+  like "it's broken" and have completely different fixes. Nearly all the confusion on this
+  step comes from collapsing these three into one.</p>
+</div>
+
+<h2>2 · Install it</h2>
+
+<div class="os-only on" data-os="mac">
+  <p>Go to <a href="https://ollama.com/download">ollama.com/download</a>, take the macOS
+  download, unzip it, and drag <code>Ollama.app</code> into Applications. Open it. The first
+  launch asks permission to install the command-line tool — say yes; that is what makes the
+  word <code>ollama</code> work in Terminal.</p>
+  <p>A small llama icon appears in the menu bar at the top right. <strong>That icon means the
+  server is alive.</strong></p>
+  <div class="box python">
+    <span class="lbl">Good news</span>
+    <p>On macOS the app starts the server automatically and keeps it running. You do not need
+    to babysit a terminal window. But read the box in section 3 about <code>ollama serve</code>
+    before you go looking for one.</p>
+  </div>
+</div>
+
+<div class="os-only" data-os="win">
+  <p>Go to <a href="https://ollama.com/download">ollama.com/download</a>, take the Windows
+  download, and run <code>OllamaSetup.exe</code>. Click through, then launch Ollama from the
+  Start menu.</p>
+  <p>A llama icon appears in the system tray at the bottom right — possibly hidden behind the
+  <strong>^</strong> arrow. <strong>That icon means the server is alive.</strong></p>
+  <div class="box python">
+    <span class="lbl">On a school-managed laptop</span>
+    <p>The Windows installer writes into your own user folder and does not require
+    administrator rights, so it usually succeeds even on a locked-down machine. If it is
+    blocked anyway, do not lose a week over it — see section 8.</p>
+  </div>
+  <div class="box warning">
+    <span class="lbl">Ignore anything you read about WSL</span>
+    <p>Some guides tell Windows users to install Ollama inside WSL, a Linux layer. You do not
+    need that and it will make things harder, because your Python is running in Windows and
+    would then have to reach across into Linux. Use the ordinary <code>.exe</code>.</p>
+  </div>
+</div>
+
+<p>Open a terminal —
+<span class="os-only on" data-os="mac">press <code>Cmd + Space</code>, type <em>Terminal</em>, press Enter</span><span class="os-only" data-os="win">press the Windows key, type <em>PowerShell</em>, press Enter</span>
+— and check:</p>
+
+<div class="cmd"><pre><span class="p">$ </span>ollama --version</pre></div>
+<div class="out">ollama version is 0.x.x</div>
+
+<p>Any version number means you are fine. If you get
+<span class="os-only on" data-os="mac"><code>command not found: ollama</code></span><span class="os-only" data-os="win"><code>ollama : The term 'ollama' is not recognized</code></span>,
+see section 7 — it is almost always a terminal that was already open before you installed.</p>
+
+<h2>3 · Confirm the server is running</h2>
+
+<p>This is the step people skip, and then spend an hour debugging Python for no reason. The
+best test does not involve the terminal at all. Open a browser tab:</p>
+
+<div class="cmd"><pre>http://localhost:11434</pre></div>
+<div class="out"><b>Ollama is running</b></div>
+
+<p>Those three words mean everything downstream will work. If the page fails to load, open the
+Ollama app
+<span class="os-only on" data-os="mac">from Applications</span><span class="os-only" data-os="win">from the Start menu</span>
+and try again.</p>
+
+<div class="box warning">
+  <span class="lbl">About <code>ollama serve</code> — this one costs people an afternoon</span>
+  <p>Most guides on the internet tell you to run <code>ollama serve</code> and leave the window
+  open. That advice is written for Linux. <strong>On macOS and Windows the desktop app has
+  already started the server</strong>, so running the command yourself fails with:</p>
+  <div class="cmd"><pre>Error: listen tcp 127.0.0.1:11434: bind: address already in use</pre></div>
+  <p><strong>That error is good news.</strong> It says something is already listening at that
+  door, and that something is Ollama. Nothing is wrong. Close the message and carry on. Run
+  <code>ollama serve</code> only if the browser test above failed <em>and</em> you cannot find
+  the app.</p>
+</div>
+
+<h2>4 · Choose a model</h2>
+
+<p>A model is one large file of learned numbers. Bigger models are cleverer, slower, and
+hungrier for memory. The name has two parts: <code>llama3.2</code> is the family and
+<code>:3b</code> is the size — three billion parameters. Small, by current standards, which is
+exactly the point.</p>
+
+<div class="lab">
+  <div class="lab-title">Lab · which size, and what it costs you</div>
+  <p class="lab-desc">Move the slider to your laptop's memory. The bars show roughly how long
+  one full run of the study takes — forty responses under two conditions, so eighty calls to
+  the model. The red line is the point where a run stops fitting into an afternoon.</p>
+  <canvas id="pick" height="300"></canvas>
+  <div class="controls" id="pickctl"></div>
+  <div class="readout" id="pickout"></div>
+</div>
+
+<script>
+G.lab(function () {
+  /* Seconds-per-call are order-of-magnitude figures from typical laptops, not
+     measurements from a controlled benchmark. They are here to show the SHAPE
+     of the tradeoff — a 7B model is not slightly slower than a 3B one, it is
+     several times slower once it stops fitting in memory. Treat as observed. */
+  var MODELS = [
+    { name: 'llama3.2:1b',  gb: 1.3, need: 3,  base: 1.6 },
+    { name: 'llama3.2:3b',  gb: 2.0, need: 5,  base: 3.2 },
+    { name: 'mistral:7b',   gb: 4.1, need: 9,  base: 7.5 }
+  ];
+
+  var st = G.controls('pickctl', [
+    { k: 'ram', type: 'range', label: 'your laptop’s RAM',
+      min: 4, max: 32, step: 4, value: 16,
+      fmt: function (v) { return v + ' GB'; } }
+  ], draw);
+
+  function secsPerCall(m, ram) {
+    /* Once the model does not fit comfortably, the machine starts swapping to
+       disk and the penalty is large and nonlinear. */
+    var head = ram - m.need;
+    if (head >= 3) return m.base;
+    if (head >= 0) return m.base * 2.2;
+    return m.base * 7;
+  }
+
+  function draw() {
+    var cv = G.canvas('pick'); if (!cv) return;
+    var ram = st.ram;
+    var mins = MODELS.map(function (m) { return secsPerCall(m, ram) * 80 / 60; });
+
+    var fr = G.frame(cv.ctx, cv.w, cv.h, {
+      xmin: -0.6, xmax: 2.6, ymin: 0, ymax: Math.max(45, Math.ceil(Math.max.apply(null, mins) / 10) * 10 + 5),
+      margin: { left: 56, bottom: 46, top: 16, right: 14 }
+    });
+    fr.axes({ ylabel: 'minutes for one full run', xticks: 0, yticks: 5,
+              yfmt: function (v) { return v.toFixed(0); } });
+
+    MODELS.forEach(function (m, i) {
+      var fits = ram - m.need >= 3;
+      var col = fits ? G.COL.green : (ram - m.need >= 0 ? G.COL.amber : G.COL.rose);
+      fr.rect(i - 0.32, 0, i + 0.32, mins[i], { fill: col, alpha: 0.22, stroke: col, width: 2 });
+      fr.text(i, mins[i] + fr.ymax * 0.035, mins[i].toFixed(0) + ' min',
+              { color: col, align: 'center' });
+      fr.text(i, fr.ymax * 0.05, m.name, { color: G.COL.ink, align: 'center' });
+      fr.text(i, fr.ymax * 0.115, m.gb + ' GB download',
+              { color: G.COL.muted, align: 'center' });
+    });
+    fr.hline(45, { color: G.COL.rose, dash: [5, 4] });
+    fr.text(2.55, 47, 'an afternoon', { color: G.COL.rose, align: 'right' });
+
+    var rec = ram <= 8 ? MODELS[0] : MODELS[1];
+    G.say('pickout',
+      'With ' + ram + ' GB, use:  ' + rec.name + '\n' +
+      (rec.name === 'llama3.2:3b'
+        ? 'This is what python/misconception/config.py already says, so you change nothing.'
+        : 'Change MODEL_NAME in python/misconception/config.py to "' + rec.name + '" to match.') +
+      '\n\nGreen = fits with room to spare. Amber = fits, but close your browser first.\n' +
+      'Red = the model does not fit and the machine will swap to disk. That is the\n' +
+      'cliff, not a gentle slope: it is the difference between minutes and hours.');
+  }
+  draw();
+});
+</script>
+
+<div class="box aside">
+  <span class="lbl">Why a deliberately small model is the right choice here</span>
+  <p>Worth being able to defend, because someone will ask.</p>
+  <p><strong>It is the honest test case.</strong> If prompting alone lifts a three-billion
+  parameter model's detection, that is a result a school could deploy on hardware it already
+  owns. Showing that a frontier model can do it is a much weaker claim, and a much less
+  useful one.</p>
+  <p><strong>It is reproducible.</strong> A local model at temperature 0 gives you the same
+  answer twice. A hosted API changes underneath you, and in six months nobody — including you
+  — can reproduce the numbers.</p>
+  <p><strong>It is private and free.</strong> No student writing leaves the machine, no key,
+  no bill, and no rate limit when you rerun at eleven at night.</p>
+</div>
+
+<h2>5 · Download it, then talk to it</h2>
+
+<div class="cmd"><pre><span class="p">$ </span>ollama pull llama3.2:3b</pre></div>
+<div class="out">pulling manifest
+pulling dde5aa3fc5ff... 100% ▕████████████████▏ 2.0 GB
+verifying sha256 digest
+writing manifest
+<b>success</b></div>
+
+<p>About 2 GB, so use decent wifi and give it several minutes. You do this once; the file
+stays on your disk. Confirm it landed:</p>
+
+<div class="cmd"><pre><span class="p">$ </span>ollama list</pre></div>
+<div class="out">NAME              ID              SIZE      MODIFIED
+<b>llama3.2:3b</b>       a80c4f17acd5    2.0 GB    2 minutes ago</div>
+
+<div class="box warning">
+  <span class="lbl">The name must match your config exactly</span>
+  <p>Whatever appears in that <code>NAME</code> column has to match <code>MODEL_NAME</code> in
+  <code>python/misconception/config.py</code>, character for character, colon included. If you
+  pulled the 1b, change the config rather than re-downloading. Mismatched names are the single
+  most common cause of "model not found".</p>
+</div>
+
+<h3>Now get a reply, before any Python</h3>
+
+<p>Debugging your code and your model install at the same time is miserable, because you never
+know which one is broken. Confirm the model alone works:</p>
+
+<div class="cmd"><pre><span class="p">$ </span>ollama run llama3.2:3b "Say hello in five words."</pre></div>
+<div class="out">Hello, how are you today?</div>
+
+<p>The first reply may take 10–30 seconds while the model loads into memory; after that it is
+quick. Running <code>ollama run llama3.2:3b</code> with no question gives you an interactive
+chat — type <code>/bye</code> to leave.</p>
+
+<div class="box example">
+  <span class="lbl">Try this one — it is directly about your study</span>
+  <div class="cmd"><pre><span class="p">$ </span>ollama run llama3.2:3b "A student says: 'A password with symbols in it can never be cracked.' Is that a misconception? Answer M or C."</pre></div>
+  <p>Notice whether it answers with a clean <code>M</code> or wanders for a paragraph. That
+  wandering is exactly why <code>parse_verdict()</code> in <code>llm_client.py</code> has four
+  fallback strategies and can return <code>?</code> rather than guess. Seeing it happen now
+  makes the unparseable count in your Phase 5 results feel obvious rather than alarming — and
+  that count is a real finding about small-model reliability, not an embarrassment.</p>
+</div>
+
+<h2>6 · Connect it to the project</h2>
+
+<div class="box python">
+  <span class="lbl">Run these</span>
+  <div class="cmd"><pre><span class="p">$ </span>cd path/to/SenSym-misconception-aware-llm/python
+<span class="p">$ </span>python3 misconception/check_setup.py</pre></div>
+  <p class="os-only on" data-os="mac" style="margin-bottom:0">Type <code>cd </code> with a
+  space, then drag the folder from Finder onto the Terminal window and it fills in the path.</p>
+  <p class="os-only" data-os="win" style="margin-bottom:0">In File Explorer, shift-right-click
+  the folder and choose "Copy as path", then paste it after <code>cd </code>. If
+  <code>python3</code> is not recognised, use <code>python</code>.</p>
+</div>
+
+<p>The two lines you are looking for:</p>
+
+<div class="out">  <b>[OK]</b>   Ollama is running
+  <b>[OK]</b>   model 'llama3.2:3b' downloaded  (you have: llama3.2:3b)</div>
+
+<p>That is the finish line for this page. Anything still marked <code>[TODO]</code> — your two
+data files, most likely — is expected and not a problem; those are Phase 3. Only
+<code>[FIX]</code> means something is actually broken.</p>
+
+<p>Then prove the whole pipeline runs, using the fake model and the twelve demo responses, so
+it takes a second and needs nothing from you:</p>
+
+<div class="cmd"><pre><span class="p">$ </span>python3 misconception/run_experiment.py --mock --sample
+<span class="p">$ </span>python3 misconception/analyze.py</pre></div>
+
+<p>Real charts appear in <code>python/results/</code>. Numbers from <code>--mock</code> or
+<code>--sample</code> never go into your write-up; they exist to prove the plumbing works.</p>
+
+<div class="box verify">
+  <span class="lbl">Before the check-in</span>
+  <ul>
+    <li><code>ollama --version</code> prints a version.</li>
+    <li>The browser shows "Ollama is running" at <code>localhost:11434</code>.</li>
+    <li><code>ollama list</code> shows a model, and I know which one and why.</li>
+    <li><code>MODEL_NAME</code> in <code>config.py</code> matches that name exactly.</li>
+    <li>I got a reply from <code>ollama run</code>, outside Python.</li>
+    <li>Both Ollama lines of <code>check_setup.py</code> say <code>[OK]</code>.</li>
+    <li><code>--mock --sample</code> produced charts in <code>python/results/</code>.</li>
+  </ul>
+</div>
+
+<h2>7 · When it goes wrong</h2>
+
+<div class="exercise">
+  <div class="ex-head">Symptom 7.1<span class="tag">command not found</span></div>
+  <div class="ex-body"><p><code>command not found: ollama</code> or
+  <code>'ollama' is not recognized</code></p></div>
+  <details><summary>Diagnosis and fix</summary><div class="solution">
+    <p>The terminal does not know where the program lives. In order of likelihood:</p>
+    <p><strong>1. The terminal was open before you installed.</strong> A terminal learns about
+    new programs only when it starts. Close the window completely and open a fresh one. This
+    is the fix about four times out of five.</p>
+    <p><strong>2. The app has never been launched.</strong> Open Ollama itself once
+    <span class="os-only on" data-os="mac">from Applications — it installs the command-line
+    tool on first run and asks permission to do so</span><span class="os-only" data-os="win">from the Start menu</span>,
+    then reopen the terminal.</p>
+    <p class="os-only on" data-os="mac"><strong>3. Still stuck.</strong> Try the full path:
+    <code>/usr/local/bin/ollama --version</code>. If that works it is a PATH problem, which
+    takes two minutes to fix on a call.</p>
+    <p class="os-only" data-os="win"><strong>3. Still stuck.</strong> Sign out of Windows and
+    back in. That forces PowerShell to reload the PATH, which the installer changed.</p>
+  </div></details>
+</div>
+
+<div class="exercise">
+  <div class="ex-head">Symptom 7.2<span class="tag">cannot reach</span></div>
+  <div class="ex-body"><p><code>Could not reach Ollama at http://localhost:11434/api/generate</code></p></div>
+  <details><summary>Diagnosis and fix</summary><div class="solution">
+    <p>Your Python knocked and nobody answered. The server is not running. Confirm with the
+    browser test: go to <code>http://localhost:11434</code> and look for "Ollama is running".</p>
+    <p>If the page does not load, open the Ollama app
+    <span class="os-only on" data-os="mac">and confirm the llama appears in the menu bar</span><span class="os-only" data-os="win">and confirm the llama appears in the system tray, possibly behind the <strong>^</strong> arrow</span>.
+    Then rerun <code>check_setup.py</code>.</p>
+    <p><strong>Do not start by editing Python.</strong> This error is never caused by your
+    code — it is caused by there being nothing to talk to. Knowing which layer an error lives
+    in is most of what debugging is.</p>
+  </div></details>
+</div>
+
+<div class="exercise">
+  <div class="ex-head">Symptom 7.3<span class="tag">address in use</span></div>
+  <div class="ex-body"><p><code>Error: listen tcp 127.0.0.1:11434: bind: address already in use</code></p></div>
+  <details><summary>Diagnosis and fix</summary><div class="solution">
+    <p><strong>Nothing is wrong.</strong> You ran <code>ollama serve</code> while the desktop
+    app was already running the server. The message means the door is already occupied — by
+    Ollama.</p>
+    <p>Close it and move on. You never need <code>ollama serve</code> on
+    <span class="os-only on" data-os="mac">macOS</span><span class="os-only" data-os="win">Windows</span>.
+    An error that means "the thing you wanted has already happened" is worth recognising on
+    sight; you will meet the pattern again.</p>
+  </div></details>
+</div>
+
+<div class="exercise">
+  <div class="ex-head">Symptom 7.4<span class="tag">model not found</span></div>
+  <div class="ex-body"><p><code>model 'llama3.2:3b' not found</code></p></div>
+  <details><summary>Diagnosis and fix</summary><div class="solution">
+    <p>The server is up but that file is not on disk, or the name does not match. Run
+    <code>ollama list</code> and compare the <code>NAME</code> column against
+    <code>MODEL_NAME</code> in <code>python/misconception/config.py</code>. They must match
+    exactly.</p>
+    <p>If the list is empty, <code>ollama pull llama3.2:3b</code>. If you have a different
+    size, change the config to match rather than downloading a second model — there is no
+    reason to keep two.</p>
+  </div></details>
+</div>
+
+<div class="exercise">
+  <div class="ex-head">Symptom 7.5<span class="tag">slow</span></div>
+  <div class="ex-body"><p>One answer takes minutes, or the whole laptop becomes sluggish.</p></div>
+  <details><summary>Diagnosis and fix</summary><div class="solution">
+    <p>The model does not fit in memory, so the machine is swapping to disk. Drop a size:
+    <code>ollama pull llama3.2:1b</code>, then set <code>MODEL_NAME = "llama3.2:1b"</code> in
+    <code>config.py</code>.</p>
+    <p>Also close the browser. Chrome and a language model are competing for exactly the same
+    memory, and the browser usually wins. <code>ollama ps</code> shows what is currently loaded.</p>
+    <p><strong>The smaller model is not a compromise on the science.</strong> A weaker model
+    that benefits more from misconception-aware prompting is arguably the <em>more</em>
+    interesting result — a bigger effect on a smaller base is exactly what you would predict if
+    the catalogue is supplying knowledge the model lacks. You report which model you used and
+    why, which you were going to do anyway.</p>
+  </div></details>
+</div>
+
+<div class="exercise">
+  <div class="ex-head">Symptom 7.6<span class="tag">unparseable</span></div>
+  <div class="ex-body"><p>The model replies, but the predictions column is full of
+  <code>?</code>.</p></div>
+  <details><summary>Diagnosis and fix</summary><div class="solution">
+    <p>Not an install problem. The model is answering but not in the <code>VERDICT: M</code>
+    format the prompt asked for, so <code>parse_verdict()</code> declines to guess and returns
+    <code>?</code>.</p>
+    <p>Two fixes, in order: make <code>OUTPUT_FORMAT_INSTRUCTION</code> in
+    <code>prompts.py</code> blunter and more repetitive, or move up a model size.</p>
+    <p><strong>But first, write the number down.</strong> "The 3B model produced unparseable
+    output on 12% of items" is a genuine finding about small-model reliability and belongs in
+    your results. Quietly defaulting those to <code>C</code> would make your numbers look
+    better than they are, which is why the code refuses to do it.</p>
+  </div></details>
+</div>
+
+<h2>8 · If Ollama will not install at all</h2>
+
+<p>A locked-down school laptop can beat you, and it is not worth a fortnight. The thing to
+internalise: <strong>Ollama is required for exactly one step of this project.</strong></p>
+
+<table>
+  <thead><tr><th>Phase</th><th>Needs Ollama?</th></tr></thead>
+  <tbody>
+  <tr><td>Python, the repo, the first run</td><td>No</td></tr>
+  <tr><td>Phase 2 — the six code TODOs</td><td>No — mock mode covers all of it</td></tr>
+  <tr><td>Phase 3 — writing your forty responses</td><td>No</td></tr>
+  <tr><td>Testing the pipeline and the charts</td><td>No — <code>--mock --sample</code></td></tr>
+  <tr><td><strong>Phase 4 — the one real run</strong></td><td><strong>Yes</strong></td></tr>
+  <tr><td>Phase 5 — analysis and write-up</td><td>No</td></tr>
+  </tbody>
+</table>
+
+<p>So build everything in mock mode and get access to one machine for one afternoon: a home
+computer, a family member's laptop, anything. Or say so and we will sort it out. Do not let
+this block you — the dataset you write in Phase 3 is worth far more of your time than the
+install is.</p>
+
+<div class="box aside">
+  <span class="lbl">Going deeper (optional)</span>
+  <p>If you want to see what is actually going over the wire, Ollama's API is plain HTTP and
+  you can hit it with anything. This is the same request <code>llm_client.py</code> makes:</p>
+  <div class="cmd"><pre><span class="p">$ </span>curl http://localhost:11434/api/generate -d '{
+  "model": "llama3.2:3b",
+  "prompt": "Answer with one letter, M or C.",
+  "stream": false,
+  "options": {"temperature": 0}
+}'</pre></div>
+  <p>You get back JSON with a <code>response</code> field. That is the entire interface. Every
+  "AI integration" you will ever read about is, underneath, a POST like this one — which is
+  worth knowing the first time somebody tries to sell you a framework for doing it.</p>
+</div>
+
+<div class="pager">
+  <a href="python.html">← Setup 1 · Python and the repo</a>
+  <a href="git.html">Setup 3 · Git, the small version →</a>
+</div>
+
+</main>
+
+<footer class="site">
+  <div class="wrap">
+    <strong>Wrong in a Particular Way</strong> · Setup, step 2 ·
+    <a href="../index.html">index</a> ·
+    <a href="../extras/glossary.html">glossary</a> ·
+    <a href="../extras/unstuck.html">stuck?</a>
+  </div>
+</footer>
+
+</body>
+</html>

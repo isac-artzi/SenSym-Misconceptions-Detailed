@@ -1,0 +1,1209 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Glossary — Wrong in a Particular Way</title>
+<link rel="stylesheet" href="../assets/vendor/katex/katex.min.css">
+<link rel="stylesheet" href="../assets/css/style.css">
+<script src="../assets/vendor/katex/katex.min.js"></script>
+<script src="../assets/vendor/katex/auto-render.min.js"></script>
+<script src="../assets/js/detect.js"></script>
+<style>
+/* Glossary-only components. The shared stylesheet is identical across the
+   SenSym project sites and is not edited from a single page. */
+.gsearch {
+  position: sticky; top: 0; z-index: 20;
+  background: var(--paper); border-bottom: 1px solid var(--line);
+  padding: 13px 0 11px; margin: 24px 0 0;
+}
+.gsearch input {
+  width: 100%; font-family: var(--sans); font-size: 16px; color: var(--ink);
+  padding: 10px 13px; border: 1px solid var(--line);
+  border-radius: var(--radius); background: var(--wash);
+}
+.gsearch input:focus {
+  outline: 2px solid var(--accent); outline-offset: -1px; background: var(--paper);
+}
+.gcount { font-family: var(--sans); font-size: 13px; color: var(--muted); margin: 8px 0 0; }
+.gjump {
+  display: flex; flex-wrap: wrap; gap: 8px; margin: 9px 0 0;
+  font-family: var(--sans); font-size: 13.5px;
+}
+.gjump a {
+  text-decoration: none; border: 1px solid var(--line); border-radius: 999px;
+  padding: 4px 12px; color: var(--ink-2); background: var(--paper);
+}
+.gjump a:hover { border-color: var(--accent); color: var(--accent-d); }
+.ggroup h2 { scroll-margin-top: 96px; }
+.gentry {
+  border-top: 1px solid var(--line);
+  padding: 13px 0 4px; scroll-margin-top: 104px;
+}
+.gentry h3 {
+  font-family: var(--sans); font-size: 17px; font-weight: 700;
+  margin: 0 0 3px; letter-spacing: 0.01em; color: var(--ink);
+}
+.gentry p { margin: 5px 0; font-size: 16.5px; line-height: 1.55; }
+.gentry .where { font-family: var(--sans); font-size: 14.5px; color: var(--ink-2); }
+.gentry .where b { color: var(--accent-d); font-weight: 700; }
+.gempty {
+  font-family: var(--sans); font-size: 15px; color: var(--muted);
+  border: 1px dashed var(--line); border-radius: var(--radius);
+  padding: 18px; margin: 22px 0; text-align: center;
+}
+.ghide { display: none !important; }
+</style>
+</head>
+<body>
+
+<header class="site">
+  <div class="wrap">
+    <div class="crumbs"><a href="../index.html">Wrong in a Particular Way</a> · Reference</div>
+    <div class="badges"><span class="badge">Reference</span><span class="badge win">Win: you can say any of these out loud</span></div>
+    <h1 class="chapter-title">Glossary</h1>
+    <p class="chapter-sub">Every term this project uses, defined once, with the place you meet it.</p>
+  </div>
+</header>
+
+<main class="wrap">
+
+<p class="lede">This page exists so that no word on this site is ever a word you nodded past.
+Seventy-two terms in five groups, each defined in a few sentences and — where it applies —
+pinned to the exact place in the project where you meet it. Type in the box to filter; the
+groups are ordered so that reading one straight through makes sense, which is why they are not
+alphabetical.</p>
+
+<div class="objectives">
+  <h3>How to use this page</h3>
+  <ul>
+    <li>Search first. Typing three letters is faster than scrolling, and the filter matches the definitions as well as the headwords.</li>
+    <li>Follow the cross-references. Almost every term here only means something next to another one, and clicking a link clears the filter for you.</li>
+    <li>Read a whole group before a check-in. <em>Measurement</em> before Phase 5, <em>The study</em> before Phase 1, <em>Version control</em> before you first push.</li>
+    <li>Use the metric lab in group 2 whenever you catch yourself unsure which cells a metric reads. It is faster than re-deriving it.</li>
+    <li>Say the definition out loud in your own words. If it will not come out as a sentence, you have not got it yet, and that is worth ten minutes now rather than an hour on a call.</li>
+    <li>Treat anything marked <span class="status cited">cited</span> as a result from the literature that this project uses rather than establishes.</li>
+  </ul>
+</div>
+
+<div class="gsearch">
+  <input type="search" id="gq" placeholder="Search 72 terms — try recall, kappa, port, tag…"
+         autocomplete="off" spellcheck="false" aria-label="Filter glossary terms">
+  <p class="gcount" id="gcount">Showing all 72 entries.</p>
+  <div class="gjump">
+    <a href="#g-study">1 · The study</a>
+    <a href="#g-measure">2 · Measurement</a>
+    <a href="#g-models">3 · Language models</a>
+    <a href="#g-tools">4 · The tools</a>
+    <a href="#g-git">5 · Version control</a>
+  </div>
+</div>
+
+<p class="gempty ghide" id="gnone">Nothing matches that. Try a shorter word — the filter is a
+plain substring match, so <code>recal</code> finds recall but <code>recalls</code> finds
+nothing.</p>
+
+<!-- ============================ 1 · THE STUDY ============================ -->
+<section class="ggroup" id="g-study">
+<h2>1 · The study</h2>
+
+<div class="gentry" id="t-misconception">
+  <h3>misconception</h3>
+  <p>A wrong belief that is stable, confident and shared by many people — not a slip of the pen
+  but a rule someone has built and applies consistently. "Changing my password every month keeps
+  me safe" is a misconception; typing your password into the username box is a mistake. The
+  difference matters because a misconception is predictable, and anything predictable can be
+  catalogued and looked for.</p>
+  <p class="where">In this project: ten of them live in
+  <code>python/data/misconceptions.csv</code>. You meet them in <b>Phase 3</b>, where you write
+  two <a href="#t-label">M</a> and two C responses for each.</p>
+</div>
+
+<div class="gentry" id="t-mis-aware">
+  <h3>misconception-aware prompting</h3>
+  <p>Handing the model the catalogue of known misconceptions inside the
+  <a href="#t-prompt">prompt</a>, before asking it to judge a response. It is the whole
+  intervention this study tests, and it is named <code>misconception_aware</code> in
+  <code>CONDITIONS</code>. The idea being tested is that naming a failure mode helps a model
+  notice that failure mode — which would show up as <a href="#t-recall">recall</a> rising more
+  than <a href="#t-precision">precision</a>.</p>
+  <p class="where">You meet this in <b>Phase 1</b>, where the two prompts are set side by side
+  and every difference between them is listed.</p>
+</div>
+
+<div class="gentry" id="t-baseline">
+  <h3>baseline condition</h3>
+  <p>The arm you compare against: same model, same temperature, same forty responses, same
+  output format, but a prompt that never mentions any specific misconception. It stands in for
+  an ordinary chatbot. Without it, "recall was 70%" is a number with nothing to be measured
+  against, and therefore not a result.</p>
+  <p class="where">Named <code>baseline</code> in <code>config.py</code>. A test called
+  <code>test_baseline_prompt_does_not_leak_the_misconception_list</code> in
+  <code>python/tests/test_pipeline.py</code> checks that the plain condition really is plain.</p>
+</div>
+
+<div class="gentry" id="t-condition">
+  <h3>condition</h3>
+  <p>One of the versions being compared in an experiment. This study has exactly two:
+  <a href="#t-baseline">baseline</a> and <a href="#t-mis-aware">misconception-aware</a>. The
+  rule that makes a comparison mean anything is that <em>exactly one thing</em> differs between
+  conditions; when two things differ, the result is confounded, which is not a weak result but
+  no result at all.</p>
+</div>
+
+<div class="gentry" id="t-positive-class">
+  <h3>positive class</h3>
+  <p>The category the detector is trying to find, and the one that
+  <a href="#t-precision">precision</a>, <a href="#t-recall">recall</a> and <a href="#t-f1">F1</a>
+  are computed with respect to. Here it is <strong>M</strong>, "this response contains a
+  misconception", set as <code>POSITIVE_LABEL = LABEL_MISCONCEPTION</code>. "Positive" does not
+  mean good — a smoke alarm's positive class is smoke. A metric quoted without its positive
+  class stated is meaningless, so state it every single time.</p>
+  <p class="where">Flip the choice to C and every one of those three numbers changes; see
+  <a href="#t-specificity">specificity</a> for what recall becomes when you do.</p>
+</div>
+
+<div class="gentry" id="t-ground-truth">
+  <h3>ground truth</h3>
+  <p>The labels you have decided are correct, against which the model's answers are scored. It
+  is not truth handed down by the universe: here it is your own reading of forty responses you
+  wrote, which is exactly why it has to be checked by somebody else. Ground truth that no second
+  person can reproduce is an opinion with a confident name.</p>
+  <p class="where">You build it in <b>Phase 3</b> and defend it with
+  <a href="#t-blind">blind second labelling</a> and
+  <a href="#t-agreement">inter-rater agreement</a>.</p>
+</div>
+
+<div class="gentry" id="t-label">
+  <h3>label</h3>
+  <p>The single letter attached to a response: <code>M</code> for contains a misconception,
+  <code>C</code> for correct. Set once in <code>config.py</code> as
+  <code>LABEL_MISCONCEPTION = "M"</code> and <code>LABEL_CORRECT = "C"</code> so the strings
+  cannot drift apart across files. Your label is <a href="#t-ground-truth">ground truth</a>; the
+  model's letter is a <em>prediction</em>. Keeping those two words apart saves a great deal of
+  confusion in Phase 5.</p>
+</div>
+
+<div class="gentry" id="t-pilot">
+  <h3>pilot study</h3>
+  <p>A small study run to find out whether a method works and what a full version would need,
+  rather than to settle the question. At <a href="#t-n">n = 40</a> this one can detect a large
+  effect and cannot detect a small one. Calling it a pilot in the write-up is accurate rather
+  than modest, and it is what licenses the honest framing: here is a method, here is what it
+  showed at this scale, here is what a larger version would need.</p>
+</div>
+
+<div class="gentry" id="t-ceiling">
+  <h3>ceiling effect</h3>
+  <p>When a task is so easy that every condition scores near the maximum, so the difference you
+  are looking for has no room to appear. If the <a href="#t-baseline">baseline</a> prompt already
+  catches all twenty misconceptions, the aware prompt cannot beat it, and you have measured
+  nothing about prompting — only that your items were obvious.</p>
+  <p class="where">You meet this in <b>Phase 3</b>, and it is the reason your M responses have to
+  be plausibly wrong rather than cartoonishly wrong. It is the single most common way a small
+  study destroys itself before it runs.</p>
+</div>
+
+<div class="gentry" id="t-rdf">
+  <h3>researcher degrees of freedom</h3>
+  <p>All the small choices left open after the data arrives — which metric to lead with, which
+  items to drop as ambiguous, whether to count an unparseable reply as wrong — each of which can
+  be made in the direction that helps. Nobody has to be dishonest for this to produce a result
+  that is not there; making twenty reasonable-looking choices is enough.</p>
+  <p class="where">The fix is to spend the freedom in advance: see
+  <a href="#t-prereg">pre-registration</a>. This is why the Phase 1 prediction is written and
+  committed before Phase 4 runs.</p>
+</div>
+
+<div class="gentry" id="t-prereg">
+  <h3>pre-registration</h3>
+  <p>Writing down the hypothesis, the primary metric and the analysis plan <em>before</em>
+  collecting the data, somewhere dated that you cannot quietly edit later. It does not stop you
+  changing your mind; it stops you changing your mind invisibly. Anything you decide afterwards
+  is still reportable, labelled as exploratory.</p>
+  <p class="where">Yours is the prediction in
+  <a href="../phases/phase-1-design.html">Phase 1</a> — recall rises more than precision —
+  committed to the repository before the real run. The
+  <a href="#t-hash">commit hash</a> and its date are the evidence.</p>
+</div>
+
+<div class="gentry" id="t-provenance">
+  <h3>provenance</h3>
+  <p>The record of where a number came from: which model, which prompt, which data file, which
+  date, which commit. A number without provenance cannot be defended, because you cannot answer
+  the first question anyone asks about it. Numbers produced by <code>--mock</code> or
+  <code>--sample</code> are demo data and may never be reported as results, which is a
+  provenance rule rather than a matter of taste.</p>
+  <p class="where">Phase 4 has you record the model tag, the date and the commit next to every
+  run, and <a href="#t-tag">tags</a> exist to make that cheap.</p>
+</div>
+
+<div class="gentry" id="t-repro">
+  <h3>reproducibility</h3>
+  <p>Somebody else, running your code on your data, gets your numbers. Four things buy it here:
+  a <a href="#t-local">local model</a>, <a href="#t-temperature">temperature</a> 0, the dataset
+  committed to the repository, and a test suite that cross-checks the metrics. It is a stronger
+  claim than "I wrote down what I did" and a weaker one than "the finding is true".</p>
+  <p class="where">Note the honest caveat under <a href="#t-determinism">determinism</a>: two
+  runs at temperature 0 may still differ slightly, and Phase 4 has you count the disagreements
+  rather than hide them.</p>
+</div>
+
+<div class="gentry" id="t-blind">
+  <h3>blind second labelling</h3>
+  <p>A second person labels some of your responses without seeing your labels first. The
+  blinding is the whole point: a reader who can see that you wrote M will agree with M, and you
+  will have measured politeness rather than clarity. Ten items is the minimum worth reporting on
+  this project.</p>
+  <p class="where"><b>Phase 3</b>, near the end, and it is a gate: if the second reader cannot
+  reproduce your labels, the dataset gets fixed before anything is run.</p>
+</div>
+
+<div class="gentry" id="t-agreement">
+  <h3>inter-rater agreement</h3>
+  <p>How often two independent labellers give the same label to the same item. Report the raw
+  percentage first because everyone understands it, then <a href="#t-kappa">Cohen's kappa</a>
+  because the raw percentage flatters you. Low agreement is not a fact about your reader: it
+  means the category is not well defined, and a model cannot fairly be blamed for missing a
+  distinction two humans cannot make.</p>
+</div>
+
+<div class="gentry" id="t-kappa">
+  <h3>Cohen's kappa</h3>
+  <p>Agreement between two raters after subtracting the agreement chance alone would produce:
+  \(\kappa = (p_o - p_e)/(1 - p_e)\), where \(p_o\) is observed agreement and \(p_e\) is expected
+  agreement. On a balanced two-category subset \(p_e = \tfrac12\), so the whole thing collapses
+  to \(\kappa = 2p_o - 1\) and you can check any kappa in your head. Two raters agreeing 70% of
+  the time on a coin-flip task have \(\kappa = 0.4\), which is the number telling the truth.</p>
+  <p class="where"><b>Phase 3</b> asks for \(\kappa \geq 0.6\), which on a balanced subset means
+  agreeing on at least 80% of items. Kappa handles exactly two raters
+  <span class="status cited">cited</span>.</p>
+</div>
+</section>
+
+<!-- ============================ 2 · MEASUREMENT ============================ -->
+<section class="ggroup" id="g-measure">
+<h2>2 · Measurement</h2>
+
+<p>Every number in this study is arithmetic on one 2&times;2 table, with
+<a href="#t-positive-class">M as the positive class</a> throughout:</p>
+
+$$\text{accuracy} = \frac{TP + TN}{TP + FN + FP + TN}, \qquad
+  \text{precision} = \frac{TP}{TP + FP}, \qquad
+  \text{recall} = \frac{TP}{TP + FN}$$
+
+$$\text{specificity} = \frac{TN}{TN + FP}, \qquad
+  F_1 = \frac{2 \cdot \text{precision} \cdot \text{recall}}{\text{precision} + \text{recall}}
+      = \frac{2\,TP}{2\,TP + FP + FN}$$
+
+<div class="lab">
+  <div class="lab-title">Lab · which cells does this metric actually read?</div>
+  <p class="lab-desc">The five metrics differ in exactly one way: which boxes of the table they
+  are allowed to look at. Pick one and the cells it reads light up, the cells it ignores go
+  grey. The readout gives the formula on a worked example and — the useful part — one sentence
+  on what that metric is <em>blind</em> to. Every disagreement about which metric to report is
+  really a disagreement about which blindness you can live with.</p>
+  <canvas id="cells" height="300"></canvas>
+  <div class="controls" id="cellsctl"></div>
+  <div class="readout" id="cellsout"></div>
+</div>
+
+<script>
+G.lab(function () {
+  /* One fixed example matrix, the same one used in Phase 1 so the arithmetic
+     is already familiar: of twenty truly-M items the model caught fourteen,
+     and of twenty truly-C items it wrongly flagged three. */
+  var CM = { tp: 14, fn: 6, fp: 3, tn: 17 };
+  var M = G.metrics(CM);
+
+  var CELL = {
+    tp: { x: 0, y: 1, name: 'TP', full: 'true positive',  sub: 'caught it',           col: G.COL.green },
+    fn: { x: 1, y: 1, name: 'FN', full: 'false negative', sub: 'MISSED a misconception', col: G.COL.rose },
+    fp: { x: 0, y: 0, name: 'FP', full: 'false positive', sub: 'false alarm',         col: G.COL.amber },
+    tn: { x: 1, y: 0, name: 'TN', full: 'true negative',  sub: 'correctly left alone', col: G.COL.green }
+  };
+
+  var USES = {
+    recall:      ['tp', 'fn'],
+    precision:   ['tp', 'fp'],
+    f1:          ['tp', 'fn', 'fp'],
+    accuracy:    ['tp', 'fn', 'fp', 'tn'],
+    specificity: ['tn', 'fp']
+  };
+
+  var TEXT = {
+    recall:
+      'recall = TP / (TP + FN) = 14 / (14 + 6) = 14/20 = ' + G.pct(M.rec) + '\n' +
+      'reads TP and FN — the truly-M row.   ignores FP and TN entirely.\n' +
+      'Of the misconceptions that were really there, what fraction it caught.\n' +
+      'BLIND TO: false alarms. Flag all forty items and recall is 100%, which is\n' +
+      'why recall is never reported without precision beside it. It is still the\n' +
+      'headline here, because a missed misconception is the error that costs.',
+    precision:
+      'precision = TP / (TP + FP) = 14 / (14 + 3) = 14/17 = ' + G.pct(M.prec) + '\n' +
+      'reads TP and FP — the model-said-M column.   ignores FN and TN.\n' +
+      'Of the alarms it raised, what fraction were real.\n' +
+      'BLIND TO: everything it walked straight past. A tutor that speaks once,\n' +
+      'correctly, and stays silent for the other thirty-nine has precision 100%\n' +
+      'and recall 5%. With no alarms at all precision is undefined, not zero.',
+    f1:
+      'F1 = 2TP / (2TP + FP + FN) = 28 / (28 + 3 + 6) = 28/37 = ' + G.pct(M.f1) + '\n' +
+      'reads TP, FN and FP.   ignores TN.\n' +
+      'The harmonic mean of precision and recall, pulled towards the smaller one.\n' +
+      'BLIND TO: true negatives. F1 gives no credit at all for correctly leaving\n' +
+      'a right answer alone, which is defensible when the positive class is the\n' +
+      'rare and interesting one, and worth saying out loud rather than assuming.',
+    accuracy:
+      'accuracy = (TP + TN) / 40 = (14 + 17) / 40 = 31/40 = ' + G.pct(M.acc) + '\n' +
+      'reads all four cells. Nothing is ignored — and that is the problem.\n' +
+      'BLIND TO: WHICH kind of error. Six misses with three false alarms scores\n' +
+      'exactly the same as three misses with six false alarms, and those are very\n' +
+      'different tutors. It must also be read against the 50% majority-class floor\n' +
+      'before it means anything at all.',
+    specificity:
+      'specificity = TN / (TN + FP) = 17 / (17 + 3) = 17/20 = ' + G.pct(M.spec) + '\n' +
+      'reads TN and FP — the truly-C row.   ignores TP and FN.\n' +
+      'Recall’s mirror image, computed with C as the positive class instead.\n' +
+      'BLIND TO: everything about misconceptions. Report it as a cross-check: if\n' +
+      'specificity and recall have swapped values against what you expected, you\n' +
+      'have almost certainly swapped a denominator somewhere.'
+  };
+
+  var st = G.controls('cellsctl', [
+    { k: 'metric', type: 'select', label: 'metric:',
+      options: [['recall', 'recall (the headline)'],
+                ['precision', 'precision'],
+                ['f1', 'F1'],
+                ['accuracy', 'accuracy'],
+                ['specificity', 'specificity']],
+      value: 'recall' }
+  ], draw);
+
+  function draw() {
+    var el = document.getElementById('cells');
+    if (!el || !el.clientWidth) return;          /* filtered out of view: leave it alone */
+    var cv = G.canvas('cells'); if (!cv) return; /* re-measure inside draw, every time */
+
+    var used = USES[st.metric];
+    var fr = G.frame(cv.ctx, cv.w, cv.h, {
+      xmin: 0, xmax: 2, ymin: 0, ymax: 2,
+      margin: { left: 80, right: 14, top: 40, bottom: 32 }
+    });
+    fr.axes({ xticks: 0, yticks: 0, grid: false,
+              xlabel: 'positive class M · worked example: TP 14, FN 6, FP 3, TN 17' });
+
+    fr.text(0.5, 2, 'model said M', { color: G.COL.muted, align: 'center', dy: -11 });
+    fr.text(1.5, 2, 'model said C', { color: G.COL.muted, align: 'center', dy: -11 });
+    fr.text(0, 1.5, 'truly M', { color: G.COL.muted, align: 'right', dx: -10, baseline: 'middle' });
+    fr.text(0, 0.5, 'truly C', { color: G.COL.muted, align: 'right', dx: -10, baseline: 'middle' });
+
+    Object.keys(CELL).forEach(function (k) {
+      var c = CELL[k], on = used.indexOf(k) !== -1;
+      var col = on ? c.col : G.COL.line;
+      var ink = on ? c.col : G.COL.muted;
+      fr.rect(c.x + 0.05, c.y + 0.09, c.x + 0.95, c.y + 0.91,
+              { fill: on ? c.col : G.COL.wash, alpha: on ? 0.15 : 0.9,
+                stroke: col, width: on ? 2.5 : 1 });
+      var mx = c.x + 0.5;
+      fr.text(mx, c.y + 0.63, c.name + ' = ' + CM[k],
+              { color: ink, align: 'center',
+                font: 'bold 19px -apple-system, Segoe UI, Roboto, sans-serif' });
+      fr.text(mx, c.y + 0.43, c.full, { color: ink, align: 'center' });
+      fr.text(mx, c.y + 0.25, on ? c.sub : 'ignored by this metric',
+              { color: on ? G.COL.muted : '#9aa5b1', align: 'center',
+                font: '11.5px -apple-system, Segoe UI, Roboto, sans-serif' });
+    });
+
+    G.say('cellsout', TEXT[st.metric]);
+  }
+  draw();
+});
+</script>
+
+<div class="gentry" id="t-confusion">
+  <h3>confusion matrix</h3>
+  <p>The 2&times;2 table that holds a whole run: rows are the truth you labelled, columns are
+  what the model said, and every item lands in exactly one of four boxes. The diagonal is
+  agreement and the off-diagonal is error. Everything in Phase 5 is arithmetic on this table, so
+  being able to fill one in by hand is worth more than being able to name any metric.</p>
+  <p class="where">Drawn for you by <code>G.matrix()</code> on this site and by
+  <code>compute_confusion()</code> in <code>python/misconception/analyze.py</code>.</p>
+</div>
+
+<div class="gentry" id="t-tp">
+  <h3>true positive (TP)</h3>
+  <p>Truly M, and the model said M: it caught a real misconception. The only cell that appears
+  in the numerator of <a href="#t-precision">precision</a>, <a href="#t-recall">recall</a> and
+  <a href="#t-f1">F1</a> alike, which is why all three are zero when it is zero.</p>
+</div>
+
+<div class="gentry" id="t-fn">
+  <h3>false negative (FN)</h3>
+  <p>Truly M, and the model said C: it <em>missed</em> one. A student held a belief like "rotating
+  my password monthly keeps me safe", the tutor read it and said nothing, and the student leaves
+  with a machine's silence as confirmation. This is the expensive error on this project, and the
+  reason <a href="#t-recall">recall</a> is the headline metric.</p>
+</div>
+
+<div class="gentry" id="t-fp">
+  <h3>false positive (FP)</h3>
+  <p>Truly C, and the model said M: a false alarm, a student corrected who was already right.
+  Genuinely bad — enough of it and the student stops trusting the tool, which eventually costs
+  you the true positives too — but nobody's account gets taken over because a tutor was
+  over-cautious. Unequal costs between FN and FP are why one metric gets to lead.</p>
+</div>
+
+<div class="gentry" id="t-tn">
+  <h3>true negative (TN)</h3>
+  <p>Truly C, and the model said C: correctly left alone. The quiet cell.
+  <a href="#t-accuracy">Accuracy</a> and <a href="#t-specificity">specificity</a> read it;
+  <a href="#t-precision">precision</a>, <a href="#t-recall">recall</a> and
+  <a href="#t-f1">F1</a> never do, because none of them is about the correct answers.</p>
+</div>
+
+<div class="gentry" id="t-accuracy">
+  <h3>accuracy</h3>
+  <p>Of all forty items, the fraction the model got right: \((TP + TN)/n\). The metric everyone
+  reaches for first and the least informative of the five, because it cannot tell six misses and
+  three false alarms from three misses and six false alarms. It is only interpretable next to the
+  <a href="#t-majority">majority-class baseline</a>.</p>
+  <p class="where">Report it, never lead with it, and never write "accuracy" when you mean
+  precision or recall — that swap is the most common error in this whole project.</p>
+</div>
+
+<div class="gentry" id="t-precision">
+  <h3>precision</h3>
+  <p>Of the alarms the model raised, the fraction that were real: \(TP/(TP + FP)\). The
+  denominator is everything the model <em>called</em> M. If the model raises no alarms at all the
+  denominator is zero and precision is <strong>undefined, not zero</strong> —
+  <code>G.metrics</code> returns <code>null</code> and <code>G.pct</code> prints
+  <code>undefined</code>, deliberately, because printing 0.00 would claim every alarm was wrong.</p>
+  <p class="where">The memory hook, worth carrying into Phase 5: <em>precision is about the
+  model's claims, recall is about the world's misconceptions.</em></p>
+</div>
+
+<div class="gentry" id="t-recall">
+  <h3>recall</h3>
+  <p>Of the misconceptions that were really there, the fraction the model caught:
+  \(TP/(TP + FN)\). The denominator is everything that truly <em>was</em> M — twenty items, by
+  construction, in this design. It is the headline metric here because a
+  <a href="#t-fn">false negative</a> is the error that actually costs something.</p>
+  <p class="where">The <a href="#t-prereg">pre-registered</a> prediction is about this number:
+  the aware condition should raise recall more than it raises
+  <a href="#t-precision">precision</a>.</p>
+</div>
+
+<div class="gentry" id="t-specificity">
+  <h3>specificity</h3>
+  <p>Of the responses that were really correct, the fraction the model left alone:
+  \(TN/(TN + FP)\). It is <a href="#t-recall">recall</a>'s mirror image, computed as though C
+  were the <a href="#t-positive-class">positive class</a>. Returned as <code>spec</code> by
+  <code>G.metrics</code>.</p>
+  <p class="where">Use it as a cross-check. Reading a result both ways round catches a swapped
+  denominator within seconds.</p>
+</div>
+
+<div class="gentry" id="t-f1">
+  <h3>F1</h3>
+  <p>One number for when you want to talk about precision and recall together: their
+  <a href="#t-harmonic">harmonic mean</a>, which also equals \(2TP/(2TP + FP + FN)\). It ignores
+  <a href="#t-tn">TN</a> completely. F1 is the summary; recall is the headline; reporting F1
+  alone hides which of the two halves is carrying it.</p>
+</div>
+
+<div class="gentry" id="t-harmonic">
+  <h3>harmonic mean</h3>
+  <p>For two positive numbers, \(2ab/(a+b)\). It is never larger than the ordinary arithmetic
+  mean, and equals it only when the two numbers are equal, so it is always pulled towards the
+  smaller one. A classifier that flags every item has recall 100% and precision 50%: the
+  arithmetic mean flatters it with 0.75, the harmonic mean gives 0.667.</p>
+  <p class="where">That single property is the entire reason <a href="#t-f1">F1</a> uses it — a
+  very high number cannot rescue a very low one.</p>
+</div>
+
+<div class="gentry" id="t-majority">
+  <h3>majority-class baseline</h3>
+  <p>The <a href="#t-accuracy">accuracy</a> you get by ignoring the input entirely and always
+  guessing whichever class is more common. On this balanced twenty-M, twenty-C design it is
+  <strong>50%</strong>; on a set of ninety M and ten C it would be 90%, and "90% accuracy" there
+  would mean precisely nothing. Returned as <code>majority</code> by <code>G.metrics</code>.</p>
+  <p class="where">Every accuracy you report is reported against this floor, in the same
+  sentence. Balancing the dataset at 20/20 is what makes the floor a clean 50%, and is one of the
+  better reasons to have balanced it.</p>
+</div>
+
+<div class="gentry" id="t-ci">
+  <h3>confidence interval</h3>
+  <p>A range of values consistent with the data you have, at a stated level. "95%" describes the
+  procedure, not the number: intervals built this way capture the true value 95% of the time in
+  repeated use. The interval is not decoration around the estimate — at
+  <a href="#t-n">n = 40</a> it is frequently the finding, because it is what turns "62.5%" into
+  "somewhere between 46% and 77%".</p>
+  <p class="where">Any page here that reports a number shows its interval. Use
+  <a href="#t-wilson">Wilson</a>, never the textbook normal approximation.</p>
+</div>
+
+<div class="gentry" id="t-wilson">
+  <h3>Wilson score interval</h3>
+  <p>The <a href="#t-ci">confidence interval</a> for a proportion that this project uses
+  everywhere, available as <code>G.wilson(k, n)</code>. The reason is concrete: the textbook
+  interval \(p \pm 1.96\sqrt{p(1-p)/n}\) gives an upper bound of 1.018 at 38 correct out of 40 —
+  an accuracy of 101.8%, which is not a thing that exists. Wilson gives 83.5% to 98.6% and never
+  leaves the unit interval by construction. <span class="status cited">cited</span></p>
+  <p class="where">Phase 1 and Phase 5 both use it; the metric tiles under every matrix on this
+  site carry Wilson intervals.</p>
+</div>
+
+<div class="gentry" id="t-mcnemar">
+  <h3>McNemar's test</h3>
+  <p>The significance test for two <a href="#t-condition">conditions</a> run on the
+  <em>same</em> items. It throws away every item the two conditions agreed on and looks only at
+  the discordant pairs: \(b\), where the aware condition was right and the baseline wrong, and
+  \(c\), the other way round. It then asks whether \(b\) and \(c\) are lopsided beyond what a
+  coin flip would produce. <span class="status cited">cited</span></p>
+  <p class="where">It is the right test here precisely because both conditions saw the same forty
+  responses, which an unpaired test would ignore and thereby waste.</p>
+</div>
+
+<div class="gentry" id="t-significance">
+  <h3>statistical significance</h3>
+  <p>A result is called significant when it would be unlikely under the assumption that there is
+  no real difference; the conventional threshold is a p-value below 0.05. Two things it does not
+  mean. "Not significant" is not "no difference" — at this sample size it usually means not
+  enough data. And significant is not the same as large: see <a href="#t-effect">effect size</a>.</p>
+</div>
+
+<div class="gentry" id="t-effect">
+  <h3>effect size</h3>
+  <p>How big the difference is, in units a reader can picture, as opposed to how confident you
+  are that it is not zero. "Recall rose from 55% to 75%" is an effect size, and it means four more
+  misconceptions caught out of twenty. Report it first and the
+  <a href="#t-significance">significance</a> second; a p-value with no effect size attached tells
+  the reader nothing they wanted to know.</p>
+</div>
+
+<div class="gentry" id="t-n">
+  <h3>sample size</h3>
+  <p>The number of items, written \(n\). Here \(n = 40\): twenty M and twenty C. It is the single
+  number that controls how wide every <a href="#t-ci">interval</a> comes out, and it improves
+  slowly — roughly, narrowing an interval by half takes four times the data.</p>
+  <p class="where">Forty is a deliberate choice: enough to detect a large effect, honestly
+  admitted as too few for a small one, and few enough that you can write all forty responses
+  carefully by hand in <b>Phase 3</b>.</p>
+</div>
+</section>
+
+<!-- ============================ 3 · LANGUAGE MODELS ============================ -->
+<section class="ggroup" id="g-models">
+<h2>3 · Language models</h2>
+
+<div class="gentry" id="t-lm">
+  <h3>language model</h3>
+  <p>A program trained on a very large amount of text to predict the next
+  <a href="#t-token">token</a>, and therefore to continue any text you give it. That is the whole
+  mechanism: it is not looking anything up, it holds no beliefs, and it has no record of being
+  right before. Everything it appears to know is a consequence of continuation being an extremely
+  demanding thing to be good at.</p>
+  <p class="where">Yours is <code>llama3.2:3b</code>, named once in <code>config.py</code> as
+  <code>MODEL_NAME</code>.</p>
+</div>
+
+<div class="gentry" id="t-parameter">
+  <h3>parameter</h3>
+  <p>One of the numbers learned during training. The <code>:3b</code> in
+  <code>llama3.2:3b</code> means three billion of them. More parameters generally means more
+  capable, slower, and hungrier for memory — the reason a 7B model on an 8 GB laptop is not
+  slightly slower than a 3B one but several times slower, because it stops fitting and the
+  machine starts swapping to disk.</p>
+</div>
+
+<div class="gentry" id="t-token">
+  <h3>token</h3>
+  <p>The chunk of text a model actually reads and writes: usually a common word, or a piece of a
+  rarer one, or a punctuation mark. Models do not see letters and they do not see whole
+  sentences. <code>MAX_TOKENS = 200</code> in <code>config.py</code> caps how long a reply is
+  allowed to be, which is plenty for one verdict and one sentence of reason.</p>
+</div>
+
+<div class="gentry" id="t-prompt">
+  <h3>prompt</h3>
+  <p>Everything you send to the model in one request: the instructions, the student response, the
+  required output format, and — in one condition only — the catalogue. In this study the prompt
+  <em>is</em> the independent variable, so the two prompts are built in
+  <code>python/misconception/prompts.py</code> and read side by side rather than tweaked by
+  feel.</p>
+</div>
+
+<div class="gentry" id="t-system-prompt">
+  <h3>system prompt</h3>
+  <p>In many chat APIs, a separate slot for standing instructions — who the model is, what rules
+  it follows — sent ahead of the user's message. Worth knowing because you will read about it
+  everywhere. This project does not use one: the request in <code>llm_client.py</code> posts a
+  single <code>prompt</code> field, so role, catalogue, response and output format all live in
+  one string, and the two conditions differ in exactly one visible place.</p>
+</div>
+
+<div class="gentry" id="t-temperature">
+  <h3>temperature</h3>
+  <p>How much randomness the model uses when choosing each next <a href="#t-token">token</a>. At
+  1.0 it samples freely and gives a different answer every time; at 0 it takes the most likely
+  option at every step. <code>TEMPERATURE = 0.0</code> here, not because deterministic output is
+  better output but because you are running a comparison: it removes one source of variation so
+  that the one you introduced on purpose is what is left.</p>
+</div>
+
+<div class="gentry" id="t-determinism">
+  <h3>determinism</h3>
+  <p>Same input, same output, every time. <a href="#t-temperature">Temperature</a> 0 aims at it
+  and does not guarantee it: floating-point addition is not associative, so the order a machine
+  happens to sum things in can flip a near-tie between two candidate tokens, and library
+  versions, batching and hardware all change that order.</p>
+  <p class="where"><b>Phase 4</b> has you run the whole thing twice and count the items where the
+  two runs disagree. That count is what tells a reader how much of any difference between
+  conditions could be run-to-run noise. <span class="status observed">observed</span></p>
+</div>
+
+<div class="gentry" id="t-inference">
+  <h3>inference</h3>
+  <p>Running a trained model to get an output, as opposed to training it. Nothing is learned
+  during inference: your forty responses do not change the model, and running them in a different
+  order does not change any individual verdict. Every call in this project is inference, which is
+  part of why it fits on a laptop.</p>
+</div>
+
+<div class="gentry" id="t-local">
+  <h3>local model</h3>
+  <p>A model whose weights are on your own disk and which runs on your own processor, rather than
+  a service you send text to over the internet. Free, no API key, no rate limit, no student
+  writing leaving the machine — and, importantly for this study, it does not change underneath
+  you between March and June the way a hosted model can.</p>
+  <p class="where">This is the argument for using a deliberately small model, and it is worth
+  being able to give: see <a href="../setup/ollama.html">the Ollama page</a>.</p>
+</div>
+
+<div class="gentry" id="t-quantisation">
+  <h3>quantisation</h3>
+  <p>Storing a model's <a href="#t-parameter">parameters</a> at lower numerical precision — say
+  four bits each instead of sixteen — so the file is smaller and the arithmetic faster, at some
+  cost in quality. It is why a three-billion-parameter model is a 2.0 GB download rather than the
+  six or so gigabytes sixteen-bit weights would need.</p>
+  <p class="where">You do not have to choose it: the builds Ollama pulls by default are already
+  quantised. Knowing the word explains the download size.</p>
+</div>
+
+<div class="gentry" id="t-context">
+  <h3>context window</h3>
+  <p>The maximum number of <a href="#t-token">tokens</a> a model can hold in view at once —
+  prompt and reply together. Text beyond it is not summarised, it is simply not there. Relevant
+  here because the <a href="#t-mis-aware">aware</a> prompt is much longer than the
+  <a href="#t-baseline">baseline</a> one: a long list of ten misconceptions plus a student
+  response is still small for a modern model, but it is the direction in which things break.</p>
+</div>
+
+<div class="gentry" id="t-hallucination">
+  <h3>hallucination</h3>
+  <p>Fluent, confident output that is simply not true. The failure mode to watch for in this
+  study is a model that quotes back a misconception from the catalogue which the student never
+  expressed — the reason each row records the model's one-sentence reason as well as its verdict.
+  A right answer for an invented reason is still worth noticing.</p>
+</div>
+
+<div class="gentry" id="t-parsing">
+  <h3>parsing</h3>
+  <p>Pulling a structured value out of unstructured text — here, extracting a single letter from
+  whatever the model wrote. <code>parse_verdict()</code> in <code>llm_client.py</code> tries four
+  strategies in order: the requested <code>VERDICT: M</code> format, a bare M or C, keyword
+  sniffing, and then giving up.</p>
+  <p class="where">Giving up is a design decision, not a gap: see
+  <a href="#t-unparseable">unparseable reply</a>.</p>
+</div>
+
+<div class="gentry" id="t-unparseable">
+  <h3>unparseable reply</h3>
+  <p>A reply from which no verdict can be extracted, recorded as <code>?</code> rather than
+  guessed. Quietly defaulting those to C would make your numbers look better than they are, so the
+  code refuses to. The count is a real finding about small-model reliability: "the 3B model
+  produced unparseable output on 12% of items" belongs in your results.</p>
+  <p class="where">If the count is high, blunt the output-format instruction in
+  <code>prompts.py</code> first, and move up a model size second — but write the number down
+  before you change anything.</p>
+</div>
+</section>
+
+<!-- ============================ 4 · THE TOOLS ============================ -->
+<section class="ggroup" id="g-tools">
+<h2>4 · The tools</h2>
+
+<div class="gentry" id="t-ollama">
+  <h3>Ollama</h3>
+  <p>The program that runs a <a href="#t-local">local model</a> for you and exposes it as a small
+  web <a href="#t-server">server</a> on your own machine. It is not an app you type questions
+  into. Three separate things have to be right — the program installed, the server running, the
+  model downloaded — and collapsing them into one is where nearly all of the confusion on that
+  step comes from.</p>
+  <p class="where"><a href="../setup/ollama.html">Setup step 2</a>, which is the page most likely
+  to cost you a week if you skim it.</p>
+</div>
+
+<div class="gentry" id="t-localhost">
+  <h3>localhost</h3>
+  <p>A name that means "this machine" — the computer talking to itself over the network without
+  the network ever being involved. It always resolves to the address 127.0.0.1. When an error says
+  it could not reach <code>http://localhost:11434</code>, it is saying exactly one thing: I
+  knocked on that door and nobody answered.</p>
+</div>
+
+<div class="gentry" id="t-port">
+  <h3>port</h3>
+  <p>A numbered door on a machine, so that many programs can listen at the same address without
+  colliding. Ollama's is <strong>11434</strong>. This is why <code>ollama serve</code> can fail
+  with "address already in use": something is already listening at that door, and that something
+  is Ollama. That error means the thing you wanted has already happened.</p>
+</div>
+
+<div class="gentry" id="t-http">
+  <h3>HTTP request</h3>
+  <p>The message format the web runs on: a method, an address, and a body. Your Python sends a
+  POST to <code>http://localhost:11434/api/generate</code> with the
+  <a href="#t-prompt">prompt</a> in the body, and gets text back. Every "AI integration" you will
+  ever read about is, underneath, a POST like this one — worth knowing the first time somebody
+  tries to sell you a framework for doing it.</p>
+</div>
+
+<div class="gentry" id="t-json">
+  <h3>JSON</h3>
+  <p>A plain-text format for data made of keys and values, readable by both people and programs.
+  The request carries <code>{"model": ..., "prompt": ..., "options": {"temperature": 0}}</code>
+  and the reply comes back as JSON with a <code>response</code> field.
+  <code>r.json().get("response", "")</code> in <code>llm_client.py</code> is the line that pulls
+  the text out.</p>
+</div>
+
+<div class="gentry" id="t-server">
+  <h3>server</h3>
+  <p>A program that sits waiting for <a href="#t-http">requests</a> and answers them. It is a
+  role, not a machine: here the server and the client are both your laptop. The practical
+  consequence is that it has to be <em>running</em> whenever your script runs, which is a
+  different condition from being installed.</p>
+</div>
+
+<div class="gentry" id="t-model-tag">
+  <h3>model tag</h3>
+  <p>The full name of a model, in two parts separated by a colon: <code>llama3.2</code> is the
+  family and <code>:3b</code> is the size. Whatever appears in the <code>NAME</code> column of
+  <code>ollama list</code> must match <code>MODEL_NAME</code> in <code>config.py</code> character
+  for character. Mismatched tags are the single most common cause of "model not found".</p>
+  <p class="where">Record the exact tag in your write-up. It is part of the
+  <a href="#t-provenance">provenance</a> of every number you report.</p>
+</div>
+
+<div class="gentry" id="t-csv">
+  <h3>CSV</h3>
+  <p>Comma-separated values: a plain text table, one record per line, with the column names on
+  the first line. Boring on purpose — it opens in a spreadsheet, in a text editor, and in Python,
+  and it is readable in twenty years. Your two data files, <code>responses.csv</code> and
+  <code>misconceptions.csv</code>, are CSV, and so are the per-item predictions a run writes to
+  <code>python/results/</code>.</p>
+</div>
+
+<div class="gentry" id="t-pandas">
+  <h3>pandas</h3>
+  <p>The Python library for handling tables of data: reading a <a href="#t-csv">CSV</a>, counting
+  rows that satisfy a condition, grouping by a column. Installed by
+  <code>pip3 install -r requirements.txt</code>. You use a small and well-signposted part of it in
+  <b>Phase 2</b>.</p>
+</div>
+
+<div class="gentry" id="t-dataframe">
+  <h3>DataFrame</h3>
+  <p><a href="#t-pandas">pandas</a>' table object: rows, named columns, and one type per column.
+  <code>df["truth"] == "M"</code> gives a column of true and false, and summing that column counts
+  the items — which is how <code>compute_confusion()</code> counts the four cells of the
+  <a href="#t-confusion">matrix</a> without a single loop.</p>
+</div>
+
+<div class="gentry" id="t-sklearn">
+  <h3>scikit-learn</h3>
+  <p>The standard Python machine-learning library. This project uses almost none of it: it is here
+  only so the test suite can compute the same metrics a second, independent way and check that
+  your arithmetic agrees. Two independent implementations agreeing is a much stronger statement
+  than one implementation looking right.</p>
+  <p class="where"><code>cross_check_with_sklearn()</code> in <code>analyze.py</code>, and the
+  tests in <code>python/tests/test_pipeline.py</code>.</p>
+</div>
+
+<div class="gentry" id="t-matplotlib">
+  <h3>matplotlib</h3>
+  <p>The Python plotting library. It draws the confusion matrices and the condition comparison
+  that <code>analyze.py</code> saves into <code>python/results/</code> as image files. Those are
+  the figures that go in your write-up, so they are produced by code rather than redrawn by hand —
+  which means they update when the data does.</p>
+</div>
+
+<div class="gentry" id="t-pytest">
+  <h3>pytest</h3>
+  <p>The test runner. <code>pytest -q</code> from the repository root executes everything in
+  <code>python/tests/</code> and prints a line of dots. A test is a small piece of code that
+  asserts something must be true; here they check that the baseline prompt never leaks the
+  catalogue, that the aware prompt contains every misconception, and that the metrics match
+  <a href="#t-sklearn">scikit-learn</a>.</p>
+  <p class="where">Run it before every <a href="#t-commit">commit</a>, and always before you
+  <a href="#t-tag">tag</a>.</p>
+</div>
+
+<div class="gentry" id="t-venv">
+  <h3>virtual environment</h3>
+  <p>A private folder holding one project's installed packages, so two projects that want
+  different versions of the same library do not fight. You will meet the term constantly in Python
+  documentation, usually as <code>venv</code>. This project deliberately does not require one —
+  the setup page installs the four libraries with <code>pip3</code> directly, because an extra
+  step that has to be re-activated in every new terminal is a good way to lose a week.</p>
+  <p class="where"><code>.venv/</code> is nonetheless listed in
+  <a href="#t-gitignore">.gitignore</a>, so that if you do create one it never gets committed.</p>
+</div>
+</section>
+
+<!-- ============================ 5 · VERSION CONTROL ============================ -->
+<section class="ggroup" id="g-git">
+<h2>5 · Version control</h2>
+
+<div class="gentry" id="t-repository">
+  <h3>repository</h3>
+  <p>A folder that git is tracking, together with its entire history. "The repo" for this project
+  means the folder containing <code>python/</code>, <code>docs/</code> and
+  <code>requirements.txt</code> — and every state it has been in since it was created. The history
+  is the part that makes it a repository rather than a folder.</p>
+</div>
+
+<div class="gentry" id="t-clone">
+  <h3>clone</h3>
+  <p>To make a local copy of a <a href="#t-repository">repository</a>, history included, with
+  <code>git clone</code>. A clone is a full copy rather than a checkout: you can work, commit and
+  read the whole history with the network switched off.</p>
+  <p class="where">This is also the operation somebody else performs when they reproduce your
+  study, which is why the dataset and the results you report get committed.</p>
+</div>
+
+<div class="gentry" id="t-commit">
+  <h3>commit</h3>
+  <p>A saved snapshot of the whole project at one moment, with a message saying what changed and
+  why. Commits are cheap and permanent — you can always come back to one. The message is written
+  for the person who reads it in three months, and that person is you.</p>
+  <p class="where"><a href="../setup/git.html">Setup step 3</a>. Commit at the end of every
+  session, and always before you try something you are not sure about.</p>
+</div>
+
+<div class="gentry" id="t-hash">
+  <h3>commit hash</h3>
+  <p>The forty-character hexadecimal identifier of a <a href="#t-commit">commit</a>, of which the
+  first seven characters are normally enough to name it unambiguously. It is the most precise way
+  to say which version of the code produced a number.</p>
+  <p class="where">Your write-up cites the hash or the <a href="#t-tag">tag</a> of the commit the
+  real run was made from. That single string is most of what
+  <a href="#t-provenance">provenance</a> means in practice.</p>
+</div>
+
+<div class="gentry" id="t-tag">
+  <h3>tag</h3>
+  <p>A readable name pinned permanently to one <a href="#t-commit">commit</a>, such as
+  <code>phase-4-complete</code>. It exists so a figure in your report can name the state of the
+  repository that produced it without anyone having to read a
+  <a href="#t-hash">hash</a> aloud. Note that <code>git push</code> and
+  <code>git push --tags</code> are separate acts.</p>
+  <p class="where">Only tag on a green <code>pytest -q</code>. A tag is a promise that this state
+  works, and a tag on a broken commit is worse than no tag because it is an assertion nobody
+  checked.</p>
+</div>
+
+<div class="gentry" id="t-gitignore">
+  <h3>.gitignore</h3>
+  <p>A file listing paths git should not track: caches, editor settings, and in this project the
+  contents of <code>results/</code>, so a half-finished run never gets committed by accident. The
+  final run you actually report is added on purpose with <code>git add -f</code>, which makes
+  committing your results a deliberate act rather than a side effect.</p>
+</div>
+
+<div class="gentry" id="t-remote">
+  <h3>remote</h3>
+  <p>A copy of the <a href="#t-repository">repository</a> living somewhere other than your laptop,
+  conventionally named <code>origin</code> and hosted on GitHub. It is what makes your work
+  survive the laptop, and what lets a mentor read the code without you emailing a zip file.</p>
+</div>
+
+<div class="gentry" id="t-push">
+  <h3>push</h3>
+  <p>Sending your <a href="#t-commit">commits</a> to the <a href="#t-remote">remote</a>. The
+  sentence to keep: <strong>a commit that has not been pushed does not exist off your laptop.</strong>
+  Everything committed since your last push is work a spilled drink can still take, and the amount
+  grows every hour you do not push.</p>
+</div>
+
+<div class="gentry" id="t-pages">
+  <h3>GitHub Pages</h3>
+  <p>GitHub's free web hosting: point it at a folder in a repository and it serves those files as
+  an ordinary website. The <code>docs/</code> folder is the conventional choice, and this page is a
+  file inside it — which is why the site is plain HTML with no build step, and why every link on it
+  is relative.</p>
+</div>
+
+<div class="gentry" id="t-continuous-integration">
+  <h3>continuous integration</h3>
+  <p>A service that runs your tests automatically every time you <a href="#t-push">push</a>. This
+  repository has one: <code>.github/workflows/ci.yml</code> starts a fresh Linux machine, clones
+  the repo onto it, and runs <a href="#t-pytest">pytest</a> on two versions of Python. Nothing to
+  turn on; a green tick or a red cross appears next to the commit.</p>
+  <p class="where">Its real value is that it proves the project runs on a machine that is
+  <em>not</em> yours. "It works on my laptop" is the most common wrong claim in software, and this
+  is how you find out within sixty seconds instead of the night before a deadline.</p>
+</div>
+</section>
+
+<script>
+/* Live filter for the glossary. G is already loaded from the head; this block
+   sits after the entries so it can index them as soon as it runs. Plain DOM,
+   no framework, and the hiding is class-based so nothing reflows twice. */
+G.ready(function () {
+  var q = document.getElementById('gq');
+  var count = document.getElementById('gcount');
+  var none = document.getElementById('gnone');
+  var groups = Array.prototype.slice.call(document.querySelectorAll('.ggroup'));
+  var entries = Array.prototype.slice.call(document.querySelectorAll('.gentry'));
+  if (!q || !entries.length) return;
+
+  /* Index once: headword first so a term match is a substring match, then the
+     whole entry so searching "swap" or "afternoon" also finds things. */
+  var idx = entries.map(function (e) {
+    var h = e.querySelector('h3');
+    return ((h ? h.textContent + ' ' : '') + e.textContent)
+      .toLowerCase().replace(/\s+/g, ' ');
+  });
+  var total = entries.length;
+
+  function apply() {
+    var needle = q.value.toLowerCase().replace(/\s+/g, ' ').trim();
+    var shown = 0, i;
+    for (i = 0; i < entries.length; i++) {
+      var hit = !needle || idx[i].indexOf(needle) !== -1;
+      entries[i].classList.toggle('ghide', !hit);
+      if (hit) shown++;
+    }
+    /* A group whose entries are all hidden hides its heading too, so the page
+       never shows a section header with nothing under it. */
+    groups.forEach(function (g) {
+      g.classList.toggle('ghide', !g.querySelector('.gentry:not(.ghide)'));
+    });
+    none.classList.toggle('ghide', shown !== 0);
+    count.textContent = !needle
+      ? 'Showing all ' + total + ' entries.'
+      : 'Showing ' + shown + ' of ' + total + ' entries matching “' + q.value.trim() + '”.'
+        + (shown ? '  Press Escape to clear.' : '');
+  }
+
+  q.addEventListener('input', apply);
+  q.addEventListener('keydown', function (ev) {
+    if (ev.key === 'Escape') { q.value = ''; apply(); }
+  });
+
+  /* Following a cross-reference while a filter is active would jump to a hidden
+     entry, so clear the filter first and let the browser do the rest. */
+  document.addEventListener('click', function (ev) {
+    var t = ev.target;
+    while (t && t !== document.body && !(t.tagName === 'A')) t = t.parentNode;
+    if (!t || t.tagName !== 'A') return;
+    var href = t.getAttribute('href') || '';
+    if (href.charAt(0) !== '#') return;
+    if (q.value) { q.value = ''; apply(); }
+  });
+
+  /* "/" focuses the box from anywhere on the page, as in every reference site
+     that expects to be searched more often than read. */
+  document.addEventListener('keydown', function (ev) {
+    if (ev.key !== '/' || ev.metaKey || ev.ctrlKey || ev.altKey) return;
+    var a = document.activeElement, tag = a ? a.tagName : '';
+    if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+    ev.preventDefault();
+    q.focus();
+    q.select();
+  });
+
+  apply();
+});
+</script>
+
+<h2>6 · Which term is this describing?</h2>
+
+<p>Four descriptions with no names attached. Each one is a situation you can actually meet on
+this project, and naming it correctly is what lets you say what to do next.</p>
+
+<div class="exercise">
+  <div class="ex-head">Exercise 6.1 <span class="stars">★</span><span class="tag">thinking</span></div>
+  <div class="ex-body"><p>You run both conditions and every single one of your twenty M responses
+  is caught by both. Recall is 100% in the baseline and 100% in the misconception-aware
+  condition. Name what has happened, say why it ends this version of the study, and say what you
+  do about it.</p></div>
+  <details><summary>Solution</summary><div class="solution">
+    <p>A <strong>ceiling effect</strong>. The measurement has hit its maximum in the baseline
+    condition, so the intervention has nowhere to show an improvement: recall cannot exceed 100%,
+    and any difference between conditions is invisible by construction.</p>
+    <p>Notice that this is a fact about your <em>items</em>, not about the model. Twenty M
+    responses that every reader and every model catch are twenty responses written too obviously
+    wrong — "I use the password <code>password</code> because nobody would guess something that
+    simple" rather than "I use a twenty-four character passphrase, so length has me covered".</p>
+    <p>The fix is in Phase 3, not Phase 4: rewrite the M items so the misconception is embedded
+    in a response that is otherwise sensible and confident. Then re-run the
+    <a href="#t-blind">blind second labelling</a>, because harder items are also items a second
+    reader may label differently — you are trading ceiling risk against
+    <a href="#t-agreement">agreement</a>, and you need to see both numbers.</p>
+  </div></details>
+</div>
+
+<div class="exercise">
+  <div class="ex-head">Exercise 6.2 <span class="stars">★★</span><span class="tag">arithmetic</span></div>
+  <div class="ex-body"><p>Both conditions ran on the same forty responses. They gave the same
+  verdict on 31 of them. Of the 9 they disagreed on, the misconception-aware condition was right
+  on 7 and the baseline was right on 2. Name the test that is designed for exactly this situation,
+  say why the paired structure matters, and — using the exact version of the test, which is a
+  two-sided binomial test on the discordant pairs — work out whether 7 against 2 is
+  <a href="#t-significance">significant</a> at the conventional 0.05 threshold.</p></div>
+  <details><summary>Solution</summary><div class="solution">
+    <p><strong>McNemar's test</strong> <span class="status cited">cited</span>. It is built for
+    two conditions measured on the <em>same</em> items, which is exactly this design: every one of
+    the forty responses went through both prompts.</p>
+    <p>The paired structure matters because the 31 items both conditions agreed on carry no
+    information about which condition is better — they were easy, or they were hard, for both. An
+    unpaired test would spend its power on those 31 and dilute the signal. McNemar throws them
+    away and looks only at the discordant pairs, here \(b = 7\) and \(c = 2\).</p>
+    <p><strong>The arithmetic.</strong> Under the null hypothesis that the two conditions are
+    equally good, each of the 9 discordant items is a coin flip, so the number won by the aware
+    condition is binomial with \(n = 9\) and \(p = \tfrac12\). The two-sided p-value is twice the
+    probability of a split at least as lopsided as 7–2:</p>
+    <p>\(P(X \geq 7) = \dfrac{\binom{9}{7} + \binom{9}{8} + \binom{9}{9}}{2^9}
+       = \dfrac{36 + 9 + 1}{512} = \dfrac{46}{512} = 0.0898\)</p>
+    <p>and so \(p = 2 \times 0.0898 = 0.180\). <strong>Not significant</strong> at 0.05.</p>
+    <p>The lesson is the one worth carrying: 7 against 2 <em>looks</em> lopsided, and with only 9
+    discordant pairs it is entirely ordinary — a fair coin produces a split this uneven or worse
+    about one time in five. The honest sentence is "the aware condition won 7 of the 9 items the
+    two conditions disagreed on, which at this sample size is consistent with chance". That is a
+    finding, and it is the finding a <a href="#t-pilot">pilot</a> at
+    <a href="#t-n">n = 40</a> is likely to produce.</p>
+  </div></details>
+</div>
+
+<div class="exercise">
+  <div class="ex-head">Exercise 6.3 <span class="stars">★★</span><span class="tag">by hand</span></div>
+  <div class="ex-body"><p>A draft of your results says: <em>"The misconception-aware condition
+  reached an accuracy of 62.5%, showing that the model performs well above chance."</em> Two terms
+  from this glossary are missing from that sentence, and each one, once supplied, changes what the
+  sentence is allowed to claim. Name both, and rewrite the sentence.</p></div>
+  <details><summary>Solution</summary><div class="solution">
+    <p><strong>The majority-class baseline</strong> and <strong>the confidence interval</strong>.</p>
+    <p><strong>The floor.</strong> Your dataset is twenty M and twenty C, so a classifier that
+    ignores the response entirely and answers M every time scores 20/40 = 50%. "Chance" is not 0%;
+    it is 50%. So 62.5% is 12.5 percentage points above the floor, not "well above chance".</p>
+    <p><strong>The interval.</strong> 62.5% of 40 is 25 correct. The 95%
+    <a href="#t-wilson">Wilson</a> interval for 25/40 runs from <strong>47.0% to 75.8%</strong>,
+    which <em>contains 50%</em>. So this accuracy is consistent with a model doing nothing at all,
+    and the word "showing" is not available to you.</p>
+    <p>A defensible rewrite: <em>"The misconception-aware condition reached an accuracy of 62.5%
+    (25/40, 95% Wilson interval 47.0–75.8%), against a majority-class floor of 50%. The interval
+    includes the floor, so this run does not establish that the model performs above chance-level
+    guessing."</em></p>
+    <p>Two sentences, no rhetoric, and nothing in it can be taken away from you later. Note also
+    that accuracy is the wrong headline regardless: it is
+    <a href="#t-accuracy">blind to which errors</a> were made, and recall is the number this
+    design is about.</p>
+  </div></details>
+</div>
+
+<div class="exercise">
+  <div class="ex-head">Exercise 6.4 <span class="stars">★★</span><span class="tag">writing</span></div>
+  <div class="ex-body"><p>You finish the run. Recall barely moves, but F1 is up by five points, so
+  you lead the write-up with F1. Separately, three responses were awkward to label, so you drop
+  them and report on 37 items. Neither decision felt dishonest at the time. Name what you have
+  done, name the practice that would have prevented it, and say what you can still do now that the
+  data exists.</p></div>
+  <details><summary>Solution</summary><div class="solution">
+    <p>You have spent <strong>researcher degrees of freedom</strong>: choices left open until
+    after the data arrived, each made in the direction that helped. Nobody has to intend anything
+    dishonest for this to manufacture a result — twenty reasonable-looking decisions is plenty,
+    and the reason it is dangerous is precisely that each one is defensible on its own.</p>
+    <p>The practice that prevents it is <strong>pre-registration</strong>: recall is named as the
+    primary metric, and the rule for dropping an item is written down, both before the run. Your
+    Phase 1 prediction plus the commit date is a small but real version of this.</p>
+    <p><strong>What you can still do, now that the data exists.</strong> Nothing is lost — you
+    simply report in the order you promised and label the rest as exploratory:</p>
+    <ul>
+      <li>Lead with recall on all 40 items, including the three awkward ones, because that is the
+      analysis you committed to. If recall barely moved, say so: "no detectable difference at this
+      sample size" is a finding.</li>
+      <li>Report the F1 improvement immediately afterwards, marked as exploratory, and say what
+      would test it properly — a fresh set of items, which is a sentence about future work, not an
+      excuse.</li>
+      <li>Report the three awkward items rather than deleting them. Why they were awkward is real
+      evidence about your <a href="#t-ground-truth">ground truth</a>, and reporting both the
+      40-item and 37-item numbers costs one line and settles the question for the reader.</li>
+    </ul>
+    <p>The failed project is not the one with a small effect. It is the one where the reader cannot
+    tell which decisions were made before the data and which after.</p>
+  </div></details>
+</div>
+
+<h2>7 · Keeping this page honest</h2>
+
+<div class="box python">
+  <span class="lbl">If a definition here disagrees with the code, the code wins</span>
+  <div class="cmd"><pre><span class="p">$ </span>cd python
+<span class="p">$ </span>python3 misconception/run_experiment.py --mock --sample
+<span class="p">$ </span>python3 misconception/analyze.py
+<span class="p">$ </span>pytest ../ -q</pre></div>
+  <p>Every metric defined in group 2 is implemented in <code>analyze.py</code> and cross-checked
+  against <a href="#t-sklearn">scikit-learn</a> by the tests. If a sentence on this page ever
+  contradicts what <code>pytest -q</code> reports, the page is what is wrong. Numbers from
+  <code>--mock</code> and <code>--sample</code> are <a href="#t-provenance">demo data</a> and
+  never appear in a write-up as results.</p>
+</div>
+
+<div class="box verify">
+  <span class="lbl">Before the check-in</span>
+  <ul>
+    <li>I can state the <a href="#t-positive-class">positive class</a> and why it is M, without notes.</li>
+    <li>I can write <a href="#t-recall">recall</a> and <a href="#t-precision">precision</a> as fractions and say which denominator belongs to which, in one sentence each.</li>
+    <li>I can say what a metric with a zero denominator is, and what it is not.</li>
+    <li>I know the <a href="#t-majority">majority-class floor</a> for this design and why it is 50%.</li>
+    <li>I can explain why <a href="#t-wilson">Wilson</a> rather than the textbook interval, using the 38/40 number.</li>
+    <li>I can say what <a href="#t-ceiling">a ceiling effect</a> would do to this study and how I would notice it.</li>
+    <li>I can name the three things that have to be true for <a href="#t-ollama">Ollama</a> to answer, and which error goes with each.</li>
+  </ul>
+</div>
+
+<div class="box aside">
+  <span class="lbl">Going deeper (optional)</span>
+  <p><strong>Where a definition should live.</strong> Every term in group 2 has exactly one
+  authoritative definition in this project, and it is in Python:
+  <code>python/misconception/analyze.py</code> for the metrics,
+  <code>docs/assets/js/detect.js</code> for the versions this site draws with, and
+  <code>python/tests/test_pipeline.py</code> to keep both honest against
+  <a href="#t-sklearn">scikit-learn</a>. Prose glossaries drift; test suites do not. If you add a
+  metric, add its test in the same sitting.</p>
+  <p><strong>Terms deliberately left out.</strong> ROC curves, area under the curve, calibration
+  and cross-validation all belong to the same family and none of them applies here, because your
+  model emits a verdict rather than a score — there is no threshold to sweep. If you ever get it
+  to emit a confidence, all four become available at once, and that would be a genuinely stronger
+  version of this study.</p>
+</div>
+
+<div class="pager"><a href="metrics.html">← The metrics playground</a><a href="unstuck.html">How to get unstuck →</a></div>
+
+</main>
+
+<footer class="site">
+  <div class="wrap">
+    <strong>Wrong in a Particular Way</strong> · Reference ·
+    <a href="../index.html">index</a> ·
+    <a href="../extras/glossary.html">glossary</a> ·
+    <a href="../extras/unstuck.html">stuck?</a>
+  </div>
+</footer>
+
+</body>
+</html>

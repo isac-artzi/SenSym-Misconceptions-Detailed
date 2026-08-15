@@ -1,0 +1,858 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Setup 3 · Git, the small version — Wrong in a Particular Way</title>
+<link rel="stylesheet" href="../assets/vendor/katex/katex.min.css">
+<link rel="stylesheet" href="../assets/css/style.css">
+<script src="../assets/vendor/katex/katex.min.js"></script>
+<script src="../assets/vendor/katex/auto-render.min.js"></script>
+<script src="../assets/js/detect.js"></script>
+</head>
+<body>
+
+<header class="site">
+  <div class="wrap">
+    <div class="crumbs"><a href="../index.html">Wrong in a Particular Way</a> · Setup · Step 3</div>
+    <div class="badges"><span class="badge">Setup track</span><span class="badge win">Win: a history you can cite</span></div>
+    <h1 class="chapter-title">Git, the small version</h1>
+    <p class="chapter-sub">Five commands, one file of exclusions, and a way to name the exact state of the project that produced a number.</p>
+  </div>
+</header>
+
+<main class="wrap">
+
+<p class="lede">Git is enormous and you need almost none of it. This page teaches five commands
+and one habit, and deliberately refuses to teach branches, merges, rebases or pull requests —
+you are one person working on one project, and those exist to solve a problem you do not have.
+Budget forty minutes. What you get at the end is the ability to write, in Phase 5, "these
+numbers came from commit <code>phase-4-complete</code>", and have that sentence still be true
+in a year.</p>
+
+<div class="objectives">
+  <h3>By the end of this page you can</h3>
+  <ul>
+    <li>Say what a commit is — a labelled snapshot of the whole project, not a saved file.</li>
+    <li>Run the five-command loop without looking it up: status, add, commit, push, pull.</li>
+    <li>Explain why <code>python/data/</code> is committed and <code>python/results/</code> is not, and defend that as a methodological choice rather than tidiness.</li>
+    <li>Write a commit message that says what changed <em>and</em> what it means.</li>
+    <li>Tag a milestone so a figure in your write-up can name the state that produced it.</li>
+    <li>Recognise the three things that will go wrong, and fix each without destroying work.</li>
+    <li>Say how much work you are risking at any moment, as a number.</li>
+  </ul>
+</div>
+
+<div class="os-bar">
+  <span class="lbl2">I am on:</span>
+  <span class="seg">
+    <button type="button" data-os="mac" aria-pressed="true">macOS</button>
+    <button type="button" data-os="win" aria-pressed="false">Windows</button>
+  </span>
+  <span class="muted" style="font-size:13px">Set this once. Every page on the site follows it.</span>
+</div>
+
+<h2>1 · What a commit actually is</h2>
+
+<p>Saving a file writes one file to disk and forgets what was there before. A <strong>commit</strong>
+does something different: it records the state of <em>every</em> tracked file in the project at
+one instant, gives that state a name, attaches your message, your identity and the time, and
+keeps it forever. The name is a forty-character hexadecimal string like
+<code>6d9261d1f4…</code>, and the first seven characters are usually enough to identify it.</p>
+
+<div class="box definition">
+  <span class="lbl">Commit · a labelled snapshot of the whole project</span>
+  <p>A commit is not a saved file and not a backup of one folder. It is a photograph of
+  <code>python/misconception/</code>, <code>python/data/</code>, <code>python/tests/</code> and
+  everything else that git is tracking, all at once, with a caption.</p>
+  <p>Because the photograph covers everything at once, the code and the data inside a single
+  commit are <em>guaranteed</em> to be the versions that existed together. That guarantee is the
+  entire reason this page exists.</p>
+</div>
+
+<p>Why a researcher cares is not mainly "so I don't lose my work". In Phase 5 you will write
+<em>"recall for the misconception-aware condition was 0.72"</em>, and a reader is entitled to
+ask <em>which forty responses, which labels, which prompt, which version of
+<code>analyze.py</code>?</em> Without a history the honest answer is "the files as they were
+that afternoon, which have since changed". With one, the answer is a seven-character string that
+anybody can restore and rerun. <strong>"The numbers in my write-up" and "the code that produced
+them" become the same thing, permanently.</strong> That property is called
+<em>reproducibility</em>, and it is the difference between a result and an anecdote.</p>
+
+<div class="box warning">
+  <span class="lbl">The failure this prevents is specific, and it is common</span>
+  <p>You run the experiment on a Tuesday and get recall 0.72. On Thursday you fix a labelling
+  mistake in <code>responses.csv</code> — a genuine improvement. On Sunday you write up the
+  0.72. The number in your report was produced by data that no longer exists anywhere, and
+  rerunning now gives 0.75. Neither number is wrong, but you can no longer say which one your
+  report is about.</p>
+  <p>Nothing dishonest happened. That is what makes it dangerous.</p>
+</div>
+
+<h3>How much are you risking right now?</h3>
+
+<p>The other reason to commit is duller and more immediate. The work sitting on your laptop and
+nowhere else is work you can lose, and the amount grows every hour you do not push. At roughly
+five hours a week on this project:</p>
+
+<p>$$\text{hours you can lose} = 5 \times (\text{weeks since your last push})$$</p>
+
+<div class="lab">
+  <div class="lab-title">Lab · what a gap in the history costs</div>
+  <p class="lab-desc">Pick a way of working, then move the disaster. The green band is what is
+  safely on GitHub; the red band is what only exists on your laptop and dies with it. Notice
+  what happens to the red band when the disaster lands inside Phase 3.</p>
+  <canvas id="hist" height="310"></canvas>
+  <div class="controls" id="histctl"></div>
+  <div class="readout" id="histout"></div>
+</div>
+
+<script>
+G.lab(function () {
+  /* The twelve-week shape is the plan in docs/index.html; five hours a week is
+     the stated budget in CHAPTER_GUIDE.md. Hours are therefore a planning
+     figure, not a measurement — the point of the lab is the SHAPE of the risk,
+     which is that it grows linearly with silence and is worst in Phase 3. */
+  var HPW = 5;
+  var PHASES = [
+    { name: 'Setup',   a: 0,  b: 2  },
+    { name: 'Phase 1', a: 2,  b: 4  },
+    { name: 'Phase 2', a: 4,  b: 6  },
+    { name: 'Phase 3', a: 6,  b: 9  },
+    { name: 'P4',      a: 9,  b: 10 },
+    { name: 'Phase 5', a: 10, b: 12 }
+  ];
+  var SCEN = {
+    every: { commits: [2, 4, 6, 9, 10, 12] },
+    end:   { commits: [12] },
+    never: { commits: [] }
+  };
+
+  var st = G.controls('histctl', [
+    { k: 'sc', type: 'select', label: 'how you work:',
+      options: [['every', 'commit at the end of every phase'],
+                ['end',   'commit once, at the very end'],
+                ['never', 'never commit — it just lives on the laptop']],
+      value: 'every' },
+    { k: 'day', type: 'range', label: 'the laptop dies at the end of',
+      min: 1, max: 12, step: 1, value: 8,
+      fmt: function (v) { return 'week ' + v; } }
+  ], draw);
+
+  function phasesIn(lo, hi) {
+    return PHASES.filter(function (p) { return p.b > lo && p.a < hi; })
+                 .map(function (p) { return p.name; });
+  }
+
+  function draw() {
+    var cv = G.canvas('hist'); if (!cv) return;
+    var fr = G.frame(cv.ctx, cv.w, cv.h, {
+      xmin: -0.5, xmax: 12.5, ymin: 0, ymax: 1,
+      margin: { left: 14, right: 14, top: 14, bottom: 36 }
+    });
+    fr.axes({ xticks: 0, yticks: 0, grid: false,
+              xlabel: 'week of the project, at about five hours a week' });
+
+    var commits = SCEN[st.sc].commits;
+    var dis = st.day;
+    var lastW = 0, done = 0;
+    commits.forEach(function (w) { if (w <= dis) { done++; lastW = Math.max(lastW, w); } });
+    var lost = (dis - lastW) * HPW;
+
+    /* the two bands: what survives, what does not */
+    if (done > 0 && lastW > 0) {
+      fr.rect(0, 0.12, lastW, 0.76, { fill: G.COL.green, alpha: 0.13 });
+      fr.text(lastW / 2, 0.145, 'safe on GitHub',
+              { color: G.COL.green, align: 'center' });
+    }
+    if (dis > lastW) {
+      fr.rect(lastW, 0.12, dis, 0.76,
+              { fill: G.COL.rose, alpha: 0.15, stroke: G.COL.rose, width: 1 });
+      fr.text((lastW + dis) / 2, 0.60, lost + ' hours gone',
+              { color: G.COL.rose, align: 'center' });
+    }
+
+    /* the phase strip */
+    PHASES.forEach(function (p, i) {
+      var mid = (p.a + p.b) / 2, is3 = p.name === 'Phase 3';
+      fr.rect(p.a, 0.24, p.b, 0.46,
+              { fill: G.COL.muted, alpha: i % 2 ? 0.10 : 0.05, stroke: G.COL.line, width: 1 });
+      fr.text(mid, is3 ? 0.375 : 0.335, p.name,
+              { color: is3 ? G.COL.ink : G.COL.muted, align: 'center' });
+      if (is3) fr.text(mid, 0.275, 'the forty responses',
+                       { color: G.COL.ink, align: 'center' });
+    });
+
+    /* the history line and its commits */
+    fr.line([[0, 0.70], [12, 0.70]],
+            { color: done ? G.COL.line : G.COL.line, width: 2, dash: done ? null : [5, 4] });
+    fr.text(-0.4, 0.79, done ? 'commits pushed to GitHub' : 'no history — nothing was ever pushed',
+            { color: G.COL.muted, align: 'left' });
+    commits.forEach(function (w) {
+      var live = w <= dis;
+      fr.dot(w, 0.70, { color: live ? G.COL.accent : G.COL.line, r: 5.5, ring: true });
+    });
+
+    /* the disaster — a segment, not a full vline, so it misses the week scale */
+    fr.line([[dis, 0.07], [dis, 0.775]], { color: G.COL.rose, width: 2, dash: [4, 3] });
+    fr.text(dis, 0.86, 'laptop dies',
+            { color: G.COL.rose, align: dis > 9 ? 'right' : 'left', dx: dis > 9 ? -5 : 5 });
+
+    /* week scale */
+    for (var w = 0; w <= 12; w += 2) {
+      fr.text(w, 0.02, String(w), { color: G.COL.muted, align: 'center' });
+    }
+
+    /* ----- the readout, which is the part worth remembering ----- */
+    var msg;
+    if (lost === 0) {
+      msg = 'Nothing at risk. The disaster politely waited until just after you pushed.\n' +
+            'It will not do that again — move the slider one week either way.';
+    } else {
+      var gone = phasesIn(lastW, dis);
+      var dataH = Math.max(0, Math.min(dis, 9) - Math.max(lastW, 6)) * HPW;
+      msg = (done ? 'Last push: end of week ' + lastW + '. ' : 'There is no last push. ') +
+            'Disaster: end of week ' + dis + '.\n' +
+            'Gone: ' + (dis - lastW) + ' week(s), about ' + lost + ' hours, covering ' +
+            gone.join(', ') + '.\n' +
+            (done
+              ? 'Recoverable: everything up to week ' + lastW + '. One git clone on a\n' +
+                'borrowed laptop and you are back at that commit.'
+              : 'Recoverable: nothing. There is no repository to clone from.') + '\n';
+      if (dataH > 0) {
+        msg += '\nOf those hours, ' + dataH + ' are Phase 3 — writing the forty responses.\n' +
+               'That is the part nobody can regenerate. Code can be rewritten and every\n' +
+               'chart in python/results/ rebuilds itself in seconds, but a hand-labelled\n' +
+               'dataset exists only because someone sat down and wrote it.';
+      } else {
+        msg += '\nNone of it is dataset work, so it is all rewritable — slowly, and\n' +
+               'while annoyed. Slide into weeks 6 to 9 to see the expensive case.';
+      }
+    }
+    G.say('histout', msg);
+  }
+  draw();
+});
+</script>
+
+<p>The lesson of that picture is not "commit constantly out of fear". It is that the cost of a
+gap is not constant: three silent weeks during Phase 3 costs you something you cannot buy back
+with effort, and three silent weeks during Phase 2 costs you an irritating afternoon. Commit
+according to what is at stake.</p>
+
+<h2>2 · One-time setup</h2>
+
+<p>You cloned the repository in Setup 1, so git is already installed and the project is already
+on your machine. Confirm both:</p>
+
+<div class="cmd"><pre><span class="p">$ </span>git --version</pre></div>
+<div class="out">git version 2.43.0</div>
+
+<p>If that fails,
+<span class="os-only on" data-os="mac">macOS offers to install the developer command-line tools for you — accept, and it takes a few minutes</span><span class="os-only" data-os="win">install git from <a href="https://git-scm.com/download/win">git-scm.com/download/win</a> and take every default</span>.
+Then tell git who you are, because every commit is signed with a name and an address:</p>
+
+<div class="cmd"><pre><span class="p">$ </span>git config --global user.name "Arshi Agrawal"
+<span class="p">$ </span>git config --global user.email "the-address-on-your-github-account"</pre></div>
+
+<p>Use the address your GitHub account uses, or GitHub will not connect the commits to you.
+This is a once-per-laptop job. Nothing else in git needs configuring.</p>
+
+<h2>3 · The loop</h2>
+
+<p>Five commands, always in this order, as many times a week as you sit down to work. Read the
+loop as a sentence: <em>what did I change, which of it do I mean to keep, keep it with a
+reason, send it to GitHub</em> — and pull first if anything might have changed there.</p>
+
+<h3>1 · <code>git status</code> — what have I changed?</h3>
+
+<p>Run this before anything and after everything. It is free, it changes nothing, and it is the
+only command here that can never hurt you.</p>
+
+<div class="cmd"><pre><span class="p">$ </span>git status</pre></div>
+<div class="out">On branch main
+Changes not staged for commit:
+  (use "git add &lt;file&gt;..." to update what will be committed)
+	<i>modified:   python/data/responses.csv</i>
+
+Untracked files:
+  (use "git add &lt;file&gt;..." to include in what will be committed)
+	<i>python/data/EXAMPLES.md</i>
+	python/results/
+
+no changes added to commit (use "git add" and/or "git commit -a")</div>
+
+<p>Three categories, and telling them apart is most of understanding git.
+<strong>Modified</strong> means git already knows this file and it has changed since the last
+commit. <strong>Untracked</strong> means git has never seen this file and will not save it
+unless you say so. Anything listed under neither is identical to the last commit and needs no
+attention.</p>
+
+<h3>2 · <code>git add</code> — which of it do I mean to keep?</h3>
+
+<div class="cmd"><pre><span class="p">$ </span>git add python/data/responses.csv python/data/EXAMPLES.md</pre></div>
+<div class="out">On branch main
+Changes to be committed:
+  (use "git restore --staged &lt;file&gt;..." to unstage)
+	<b>modified:   python/data/responses.csv</b>
+	<b>new file:   python/data/EXAMPLES.md</b></div>
+
+<p>Naming files one at a time is a small amount of extra typing that buys you the habit of
+looking at what you are about to save. <code>git add .</code> adds everything at once and is
+where accidental commits come from. Use the explicit form until it annoys you, and then use it
+anyway.</p>
+
+<h3>3 · <code>git commit -m</code> — keep it, with a reason</h3>
+
+<div class="cmd"><pre><span class="p">$ </span>git commit -m "Add 40 labelled responses, 20 M / 20 C"</pre></div>
+<div class="out">[main <b>6d9261d</b>] Add 40 labelled responses, 20 M / 20 C
+ 1 file changed, 2 insertions(+)</div>
+
+<p><code>6d9261d</code> is the snapshot's name. That string is what a report cites. Section 5 is
+entirely about what goes in the quotation marks.</p>
+
+<h3>4 · <code>git push</code> — send it to GitHub</h3>
+
+<div class="cmd"><pre><span class="p">$ </span>git push</pre></div>
+<div class="out">To https://github.com/isac-artzi/SenSym-misconception-aware-llm
+   183c457..<b>6d9261d</b>  main -&gt; main</div>
+
+<p><strong>A commit that has not been pushed does not exist off your laptop.</strong> The lab in
+section 1 measures exactly this: the red band is the work that is committed-but-not-pushed as
+well as the work that is not committed at all. Both die with the disk.</p>
+
+<h3>5 · <code>git pull</code> — bring down what changed there</h3>
+
+<div class="cmd"><pre><span class="p">$ </span>git pull</pre></div>
+<div class="out">Updating 183c457..8e12189
+Fast-forward
+ python/misconception/prompts.py | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)</div>
+
+<p><em>Fast-forward</em> is the word you want. It means your work and the incoming work did not
+overlap, so git simply moved you forward. Pull at the <em>start</em> of a session, not the end;
+pulling first is how you avoid the divergence in section 7.2.</p>
+
+<div class="box example">
+  <span class="lbl">The whole loop, as you will actually type it</span>
+  <div class="cmd"><pre><span class="p">$ </span>git pull
+<span class="p">$ </span>git status
+<span class="p">$ </span>git add python/data/responses.csv
+<span class="p">$ </span>git commit -m "Add R21-R28 for M06 and M07, four M and four C"
+<span class="p">$ </span>git push</pre></div>
+  <p>Roughly ninety seconds. Do it at the end of every working session, and do it twice during
+  a Phase 3 session, because Phase 3 is where the irreplaceable hours are.</p>
+</div>
+
+<h2>4 · What goes into the history, and what does not</h2>
+
+<p>Some files belong in the permanent record and some do not, and the rule is not "big files
+out, small files in". The rule is a claim about your research:</p>
+
+<div class="box theorem">
+  <span class="lbl">The rule</span>
+  <p><strong>Commit what cannot be regenerated. Exclude what can.</strong></p>
+  <p>Your dataset — forty responses in <code>python/data/responses.csv</code> and ten
+  misconception statements in <code>python/data/misconceptions.csv</code> — is the scientific
+  contribution of this project. It exists because you wrote it, and no command brings it back.
+  <strong>It goes in the history, and so does every version of it</strong>, so that "which labels
+  produced this number" always has an answer.</p>
+  <p>Everything in <code>python/results/</code> is a <em>function</em> of the data and the code:
+  given the commit, <code>analyze.py</code> rebuilds all of it. Committing it stores a derived
+  thing next to the thing it derives from, where the two can silently drift apart. And
+  <code>__pycache__/</code> is compiled bytecode Python writes for its own convenience — machine
+  output, different on every machine, meaning nothing.</p>
+</div>
+
+<p>The exclusions live in <code>.gitignore</code> at the top of the repository. The lines that
+matter here:</p>
+
+<div class="out">__pycache__/
+*.py[cod]
+.pytest_cache/
+
+results/*
+!results/.gitkeep</div>
+
+<p>A pattern ending in a slash matches a <em>directory</em>. A leading <code>!</code> means
+"except this one" — <code>.gitkeep</code> is an empty file whose only job is to make git keep an
+otherwise-empty folder, because git tracks files and has no concept of an empty directory.</p>
+
+<div class="box warning">
+  <span class="lbl">Where a pattern is anchored — this catches people, and it has caught this repository</span>
+  <p>Whether a pattern applies everywhere or only at the top depends on whether it contains a
+  slash <em>in the middle</em>. <code>__pycache__/</code> has none, so it matches at any depth.
+  <code>results/*</code> does, so git anchors it to the folder holding the
+  <code>.gitignore</code> — the repository root — and it therefore means <code>/results/*</code>
+  only. But the outputs on this project are at <code>python/results/</code>, one level down. Do
+  not take my word for which line is doing the work; ask git.
+  <span class="status observed">observed</span></p>
+  <div class="cmd"><pre><span class="p">$ </span>git check-ignore -v python/misconception/__pycache__/analyze.cpython-311.pyc</pre></div>
+  <div class="out"><b>.gitignore:2:__pycache__/</b>	python/misconception/__pycache__/analyze.cpython-311.pyc</div>
+  <div class="cmd"><pre><span class="p">$ </span>git check-ignore -v python/results/metrics.csv</pre></div>
+  <div class="out"><i>(no output, and the exit status is 1 — meaning: nothing ignores this file)</i></div>
+  <p>The fix is one word, and it is exercise 8.3. The habit is the real lesson:
+  <code>check-ignore -v</code> tells you which line of which file made the decision, which beats
+  guessing at a pattern language you use twice a year.</p>
+</div>
+
+<div class="box python">
+  <span class="lbl">The one exception, and it is the whole point of the page</span>
+  <p>When you have the <em>final</em> run that your write-up quotes, commit its outputs on
+  purpose. <code>-f</code> forces a file in past <code>.gitignore</code>:</p>
+  <div class="cmd"><pre><span class="p">$ </span>cd python
+<span class="p">$ </span>git add -f results/metrics.csv results/predictions_baseline.csv results/predictions_misconception_aware.csv
+<span class="p">$ </span>git commit -m "Final run: llama3.2:3b, temp 0, 40 items, both conditions"</pre></div>
+  <p>Now the numbers you quote and the per-item predictions behind them are in the same snapshot
+  as the data and the code. Anyone can check your arithmetic without rerunning the model — which
+  matters, because two runs at temperature 0 may still differ slightly, so "just rerun it" is not
+  a complete answer.</p>
+</div>
+
+<h2>5 · Commit messages for research</h2>
+
+<p>This is the part most git guides skip, and it is the part that pays you back. A message on a
+software team answers <em>what changed</em>. On a research project it has to answer <em>what
+changed and what it means</em>, because in Phase 5 you will read your own history as a lab
+notebook — a dated record of what you did and in what order — and "update data" tells you nothing
+about a decision you made eight weeks ago. Write in the imperative present, as if completing
+"this commit will…", and be specific with counts, identifiers and reasons.</p>
+
+<table>
+  <thead><tr><th>Not useful</th><th>Useful</th><th>What the useful one buys you in Phase 5</th></tr></thead>
+  <tbody>
+  <tr>
+    <td><code>update data</code></td>
+    <td><code>Add 40 labelled responses, 20 M / 20 C</code></td>
+    <td>You can see from the history alone that the dataset reached full size and was balanced by construction, and on what date. That balance is why the majority-class baseline is 50%.</td>
+  </tr>
+  <tr>
+    <td><code>fixed it</code></td>
+    <td><code>Fix TODO 5c — recall was dividing by TP+FP instead of TP+FN</code></td>
+    <td>Every number produced before this commit is wrong in a known way, and you can say exactly how. Without it you would have to rerun everything to find out whether it mattered.</td>
+  </tr>
+  <tr>
+    <td><code>final FINAL v2</code></td>
+    <td><code>Switch MODEL_NAME to llama3.2:1b; 3b swapped to disk on 8 GB</code></td>
+    <td>A methods section writes itself: which model, and the honest reason for it. Six weeks later you will not remember that the reason was memory rather than accuracy.</td>
+  </tr>
+  </tbody>
+</table>
+
+<p>Three rules that cover every case. <strong>Say the count</strong> — "40 responses", "R21–R28",
+"6 of 6 TODOs" — because a number is checkable and "some" is not. <strong>Say the reason when
+there was a choice</strong>, especially a choice you might be asked to defend at a check-in.
+<strong>Never write a message that would be true of a hundred other commits.</strong> If
+<code>update</code> would fit here, it fits everywhere, which means it identifies nothing.</p>
+
+<div class="box aside">
+  <span class="lbl">Commit small, commit often</span>
+  <p>A commit that changes one thing can be described in one clause; a commit that changes six
+  things gets "lots of stuff", because there is no honest short sentence for it. Message quality
+  and commit size are the same problem. Small commits also undo cleanly: undoing "add eight
+  responses" is a precise operation, and undoing "a week of work" is not an operation at all.</p>
+</div>
+
+<h2>6 · Tagging a milestone</h2>
+
+<p>Commit names like <code>6d9261d</code> are precise and unmemorable. A <strong>tag</strong> is a
+readable label you stick onto one commit, so you can refer to it by a name a human can type and
+a reader can look up.</p>
+
+<div class="box python">
+  <span class="lbl">Run these — but read the next box first</span>
+  <div class="cmd"><pre><span class="p">$ </span>cd path/to/SenSym-misconception-aware-llm
+<span class="p">$ </span>pytest -q
+<span class="p">$ </span>git tag phase-3-complete
+<span class="p">$ </span>git push --tags</pre></div>
+  <div class="out">To https://github.com/isac-artzi/SenSym-misconception-aware-llm
+ * <b>[new tag]</b>         phase-3-complete -&gt; phase-3-complete</div>
+</div>
+
+<p>Note that <code>git push</code> and <code>git push --tags</code> are separate acts. Pushing
+commits does not push tags. A tag that exists only on your laptop labels nothing that anyone
+else can see, which defeats the purpose.</p>
+
+<div class="box warning">
+  <span class="lbl">Only tag when <code>pytest -q</code> is green</span>
+  <p>Plainly: a tag is a promise that this state of the repository works. Run the tests first,
+  every time, and tag only on a clean pass.</p>
+  <div class="out"><b>.......                                    [100%]
+7 passed in 0.42s</b></div>
+  <p>A tag on a broken commit is worse than no tag, because it is an assertion you did not check
+  and someone will later rely on. If the tests fail, fix them and tag the fix.</p>
+</div>
+
+<p>Four tags are enough for the whole project: <code>phase-2-complete</code> when the six TODOs
+pass, <code>phase-3-complete</code> when the forty responses are written and locked,
+<code>phase-4-complete</code> on the real run, and <code>phase-5-final</code> on the state your
+write-up describes. Then Phase 5 can say, in the caption under a figure:</p>
+
+<div class="box example">
+  <span class="lbl">What this makes possible</span>
+  <p><em>"Figure 2 — confusion matrices for both conditions. Produced by
+  <code>python/misconception/analyze.py</code> at tag <code>phase-4-complete</code>
+  (<code>6d9261d</code>), model <code>llama3.2:3b</code>, temperature 0, n = 40."</em></p>
+  <p>Every claim in that caption is checkable by a stranger with the repository URL. Compare it
+  with "Figure 2 — confusion matrices", which asks the reader to take your word. The whole of
+  this page exists so that you can write the first caption.</p>
+</div>
+
+<h2>7 · When it goes wrong</h2>
+
+<div class="exercise">
+  <div class="ex-head">Symptom 7.1<span class="tag">committed something I shouldn't have</span></div>
+  <div class="ex-body"><p>You committed a file of private notes, a half-finished experiment, or
+  something with a password in it.</p></div>
+  <details><summary>Diagnosis and fix</summary><div class="solution">
+    <p>Nothing is lost, ever, and there is no emergency. Which fix you want depends on one
+    question: <strong>have you pushed it?</strong></p>
+    <p><strong>Not pushed yet.</strong> Undo the commit but keep the files exactly as they are on
+    disk:</p>
+    <div class="cmd"><pre><span class="p">$ </span>git reset --soft HEAD~1</pre></div>
+    <p><code>HEAD~1</code> means "one commit before the current one". <code>--soft</code> moves
+    the label back and touches nothing else, so every file is untouched and your changes are
+    staged again. Unstage the file you did not want, then recommit:</p>
+    <div class="cmd"><pre><span class="p">$ </span>git restore --staged notes.txt
+<span class="p">$ </span>git commit -m "Add R29-R32 for M08, two M and two C"</pre></div>
+    <p><strong>Already pushed.</strong> Do not rewrite the history — other copies exist. Add a new
+    commit that undoes the old one:</p>
+    <div class="cmd"><pre><span class="p">$ </span>git revert --no-edit 6d9261d</pre></div>
+    <div class="out">[main <b>8e12189</b>] Revert "oops: committed my notes"
+ 1 file changed, 1 deletion(-)
+ delete mode 100644 notes.txt</div>
+    <p>Then <code>git push</code>. The file is gone from the current state and the record shows
+    honestly that it was there and was removed — the correct outcome for a research log. To stop
+    it coming back, add it to <code>.gitignore</code> and untrack it without deleting it from
+    disk:</p>
+    <div class="cmd"><pre><span class="p">$ </span>git rm --cached notes.txt</pre></div>
+    <p><strong>Two commands can actually destroy work, and neither is on this page:</strong>
+    anything containing <code>--force</code>, and <code>git reset --hard</code>. If a page on the
+    internet tells you to run either, stop and ask first. Every other git command is recoverable.</p>
+    <p><strong>If what you committed was a real secret</strong> — a token, a password — treat it as
+    published the moment it was pushed, because it is still in the history after a revert. Change
+    the secret itself rather than trying to scrub the repository; rotating it takes two minutes and
+    actually works.</p>
+  </div></details>
+</div>
+
+<div class="exercise">
+  <div class="ex-head">Symptom 7.2<span class="tag">branch has diverged</span></div>
+  <div class="ex-body"><p><code>! [rejected] main -&gt; main (fetch first)</code>, or
+  <code>fatal: Need to specify how to reconcile divergent branches.</code></p></div>
+  <details><summary>Diagnosis and fix</summary><div class="solution">
+    <p>You committed on your laptop; someone else — me, on this project — committed to GitHub;
+    neither commit knows about the other. Git will not guess which order they belong in. The push
+    is refused first:</p>
+    <div class="out"><i> ! [rejected]        main -&gt; main (fetch first)</i>
+error: failed to push some refs to 'https://github.com/isac-artzi/SenSym-misconception-aware-llm'
+hint: Updates were rejected because the remote contains work that you do not
+hint: have locally.</div>
+    <p><strong>This is git protecting your work, not rejecting it.</strong> If it had accepted the
+    push, the other commit would have been overwritten. Do what the hint says — pull, then push:</p>
+    <div class="cmd"><pre><span class="p">$ </span>git pull --no-rebase
+<span class="p">$ </span>git push</pre></div>
+    <p>On a fresh installation the first pull may stop and ask which style you want, with
+    <code>fatal: Need to specify how to reconcile divergent branches</code>. Answer once, for this
+    laptop, and you will not be asked again:</p>
+    <div class="cmd"><pre><span class="p">$ </span>git config --global pull.rebase false</pre></div>
+    <p>That chooses <em>merge</em>, which keeps both sets of work and both sets of commits. It is
+    the right default for you: it never rewrites anything that already exists.</p>
+    <p>Usually the pull just prints <code>Fast-forward</code> and you push. Occasionally you both
+    changed the same lines and you get:</p>
+    <div class="out"><i>CONFLICT (content): Merge conflict in python/data/responses.csv
+Automatic merge failed; fix conflicts and then commit the result.</i></div>
+    <p>Open the file. Git has marked the disputed region with <code>&lt;&lt;&lt;&lt;&lt;&lt;&lt;</code>,
+    <code>=======</code> and <code>&gt;&gt;&gt;&gt;&gt;&gt;&gt;</code>. Your version is above the
+    <code>=======</code>, the incoming version below. Decide which is right — or write a third
+    thing — delete all three marker lines, then <code>git add</code> that file and
+    <code>git commit</code>. It looks far worse than it is. Ask me the first time.</p>
+    <p><strong>The prevention costs nothing:</strong> <code>git pull</code> at the start of every
+    session. A conflict is only possible in work that overlapped, and pulling first shrinks the
+    overlap to whatever happened in the last hour.</p>
+  </div></details>
+</div>
+
+<div class="exercise">
+  <div class="ex-head">Symptom 7.3<span class="tag">asked for a password</span></div>
+  <div class="ex-body"><p><code>git push</code> asks for a username and password, and your real
+  GitHub password is rejected.</p></div>
+  <details><summary>Diagnosis and fix</summary><div class="solution">
+    <p>Your password is not wrong. <strong>GitHub stopped accepting account passwords over git in
+    2021</strong> and wants a <em>personal access token</em> instead — a long generated string that
+    you can revoke without changing your password, and which can be limited to one repository.
+    The error says so:</p>
+    <div class="out"><i>remote: Support for password authentication was removed on August 13, 2021.
+fatal: Authentication failed for 'https://github.com/isac-artzi/SenSym-misconception-aware-llm'</i></div>
+    <p><strong>The easy fix, and the one to do:</strong> install GitHub's own command-line tool and
+    let it handle this once.</p>
+    <div class="cmd"><pre><span class="p">$ </span>gh auth login</pre></div>
+    <p>Choose <em>GitHub.com</em>, then <em>HTTPS</em>, then <em>Login with a web browser</em>. It
+    opens a page, you approve, and it stores a credential
+    <span class="os-only on" data-os="mac">in the macOS Keychain</span><span class="os-only" data-os="win">in the Windows Credential Manager</span>.
+    You are never asked again on that laptop. Get <code>gh</code> from
+    <a href="https://cli.github.com">cli.github.com</a>.</p>
+    <p><strong>The manual fix</strong>, if you would rather not install anything: on GitHub, go to
+    Settings → Developer settings → Personal access tokens → Fine-grained tokens, generate one
+    with read and write access to this repository only, and paste it when git asks for a
+    <em>password</em>. Copy it immediately — GitHub shows it exactly once.</p>
+    <p>A token is a password in every practical sense. Do not paste it into a file in the
+    repository, do not send it in a message, and if you ever do either, delete the token on GitHub
+    and make a new one. That takes thirty seconds and is the whole reason tokens exist rather than
+    passwords.</p>
+  </div></details>
+</div>
+
+<h2>8 · Exercises</h2>
+
+<div class="exercise">
+  <div class="ex-head">Exercise 8.1 <span class="stars">★</span><span class="tag">by hand</span></div>
+  <div class="ex-body">
+    <p>You have just written eight new responses. <code>git status</code> says:</p>
+    <div class="out"> M python/data/responses.csv
+?? python/data/notes-to-self.md
+?? python/results/</div>
+    <p>Which commands do you run, in what order, and which of those three lines do you
+    deliberately leave alone? Write the exact commands.</p>
+  </div>
+  <details><summary>Solution</summary><div class="solution">
+    <div class="cmd"><pre><span class="p">$ </span>git add python/data/responses.csv
+<span class="p">$ </span>git commit -m "Add R17-R24 for M05 and M06, four M and four C"
+<span class="p">$ </span>git push</pre></div>
+    <p><code>M</code> means modified and <code>??</code> means untracked, which is the short form
+    of the output in section 3.</p>
+    <p><strong>Leave <code>python/results/</code> alone.</strong> Those are regenerable outputs —
+    rerunning <code>analyze.py</code> rebuilds every one of them from the data and the code.
+    (Section 4 shows that on this repository the <code>.gitignore</code> line does not actually
+    reach one level down, so git is still offering them to you. Not adding them is the fix until
+    exercise 8.3 is done.)</p>
+    <p><strong>Leave <code>notes-to-self.md</code> alone</strong> unless you want it public — the
+    repository is public under <code>isac-artzi</code>. Private working notes belong outside the
+    repository, or in a filename that <code>.gitignore</code> covers.</p>
+    <p>And run <code>git status</code> again afterwards. It should show a clean tree apart from the
+    two files you chose not to add, which is how you confirm the push contained what you meant.</p>
+  </div></details>
+</div>
+
+<div class="exercise">
+  <div class="ex-head">Exercise 8.2 <span class="stars">★★</span><span class="tag">writing</span></div>
+  <div class="ex-body">
+    <p>Rewrite each of these as a message you would be glad to find in the history in Phase 5.
+    Invent whatever plausible specifics you need.</p>
+    <p>(a) <code>changes</code> &nbsp; (b) <code>fix prompt</code> &nbsp; (c) <code>results</code></p>
+    <p>Then say, in one sentence for each, what question your version answers that the original
+    does not.</p>
+  </div>
+  <details><summary>Solution</summary><div class="solution">
+    <p><strong>(a)</strong> <code>Add R33-R40 for M09 and M10; dataset now complete at 40, 20 M / 20 C</code>
+    — answers <em>when did the dataset become complete, and was it balanced?</em> The balance is
+    the fact that fixes the majority-class baseline at 50%, so it is worth having in the record
+    rather than reconstructed later from the file.</p>
+    <p><strong>(b)</strong> <code>Make OUTPUT_FORMAT_INSTRUCTION blunter; 3b was returning prose instead of VERDICT: M</code>
+    — answers <em>why is the prompt worded so repetitively?</em> Nobody would guess that the answer
+    is "because a small model ignored the polite version", and that observation is itself a finding
+    about small-model reliability.</p>
+    <p><strong>(c)</strong> <code>Final run: llama3.2:3b, temp 0, 40 items, both conditions</code>
+    — answers <em>which run is the one the write-up quotes?</em> With several runs in the history
+    this is the difference between a report you can defend and one you cannot.</p>
+    <p>The common shape: each rewrite contains at least one number or identifier, and each answers
+    a question that will actually be asked. That is the whole test. If you cannot think of a
+    question your message answers, the commit is probably doing too many things — split it.</p>
+  </div></details>
+</div>
+
+<div class="exercise">
+  <div class="ex-head">Exercise 8.3 <span class="stars">★★</span><span class="tag">code</span></div>
+  <div class="ex-body">
+    <p>Section 4 showed that <code>results/*</code> in <code>.gitignore</code> does not ignore
+    <code>python/results/metrics.csv</code>, because a pattern with an interior slash is anchored
+    to the folder holding the <code>.gitignore</code>.</p>
+    <p>Propose a one-line change that fixes it, then verify your fix with a command rather than by
+    eye. What must you be careful not to break?</p>
+  </div>
+  <details><summary>Solution</summary><div class="solution">
+    <p>Change the two lines to name the real location:</p>
+    <div class="out">python/results/*
+!python/results/.gitkeep</div>
+    <p>Verify, do not assume. From the repository root:</p>
+    <div class="cmd"><pre><span class="p">$ </span>git check-ignore -v python/results/metrics.csv</pre></div>
+    <div class="out"><b>.gitignore:27:python/results/*</b>	python/results/metrics.csv</div>
+    <p>It now names the line that made the decision. Check the exception survives too — this must
+    print nothing, because <code>.gitkeep</code> is re-included and re-included files are not
+    ignored:</p>
+    <div class="cmd"><pre><span class="p">$ </span>git check-ignore -v python/results/.gitkeep</pre></div>
+    <p><strong>What you must not break:</strong> the <code>!</code> line has to be updated in step
+    with the pattern above it. A negation only works against a pattern that matched in the first
+    place, so leaving <code>!results/.gitkeep</code> next to <code>python/results/*</code> would
+    stop the folder being kept in the repository, and a fresh clone would arrive with no
+    <code>python/results/</code> at all — at which point <code>analyze.py</code> fails on a first
+    run for a reason that looks nothing like its cause.</p>
+    <p>An alternative one-word fix is to write <code>results/</code> with no interior slash at all,
+    which matches a directory of that name at any depth. It is shorter, and it is worse: it would
+    also silently ignore a <code>results/</code> folder anywhere else in the project. Prefer the
+    explicit path.</p>
+    <p>The transferable lesson is <code>check-ignore -v</code>. It converts "I think this is
+    ignored" into "line 27 of .gitignore ignores this", and that difference is the same difference
+    the rest of this page is about.</p>
+  </div></details>
+</div>
+
+<div class="exercise">
+  <div class="ex-head">Exercise 8.4 <span class="stars">★★</span><span class="tag">thinking</span></div>
+  <div class="ex-body">
+    <p>Set the lab to "commit at the end of every phase" and move the disaster across all twelve
+    weeks. What is the worst loss, and in which week does it occur? Now explain why the answer
+    argues for committing <em>more</em> often than once a phase, and say precisely where in the
+    twelve weeks the extra commits are worth most.</p>
+  </div>
+  <details><summary>Solution</summary><div class="solution">
+    <p>Commits land at the ends of weeks 2, 4, 6, 9, 10 and 12. The gaps are 2, 2, 2, 3, 1 and 2
+    weeks. The worst case is the longest gap, so the maximum loss is a disaster at the end of week
+    8: the last push was week 6, three weeks earlier, giving
+    $3 \times 5 = 15$ hours.</p>
+    <p><strong>Why that argues for more commits.</strong> Two things coincide badly: the longest
+    gap is Phase 3, and Phase 3 is the only phase whose output cannot be regenerated. Fifteen hours
+    of Phase 2 is an annoying afternoon retyping code you understand. Fifteen hours of Phase 3 is
+    roughly twenty-four hand-labelled responses that exist nowhere else, and a second attempt would
+    produce <em>different</em> responses — not even the same dataset.</p>
+    <p><strong>The extra commits are worth most in weeks 6 to 9.</strong> Committing after every
+    batch of eight responses turns the maximum loss there from fifteen hours into about two, at
+    ninety seconds a time. Nowhere else is the ratio that good.</p>
+    <p>Which is why "commit once a week" is the wrong rule and "commit when you have made something
+    you would not want to make twice" is the right one — the same reproducible-or-not distinction
+    that decides what goes in <code>.gitignore</code>.</p>
+  </div></details>
+</div>
+
+<div class="exercise">
+  <div class="ex-head">Exercise 8.5 <span class="stars">★★</span><span class="tag">research</span></div>
+  <div class="ex-body">
+    <p>Your Phase 5 report contains the sentence: <em>"Recall for the misconception-aware
+    condition was 0.72, against 0.55 for the baseline."</em> Recall here is
+    $\text{TP} / (\text{TP} + \text{FN})$ with M — "this response contains a misconception" — as
+    the positive class.</p>
+    <p>List everything that must be true of your repository for a stranger to check that sentence
+    a year from now. Which items on your list does git provide, and which does it not?</p>
+  </div>
+  <details><summary>Solution</summary><div class="solution">
+    <p><strong>What must be true.</strong> (1) The forty responses and their ground-truth labels
+    are in the history, in the exact version used. (2) The prompt text for both conditions is in
+    that same commit — the two conditions differ <em>only</em> in the prompt, so the prompt is the
+    independent variable and not a detail. (3) The scoring code that turned predictions into
+    recall is in that commit, so its definition can be inspected rather than assumed. (4) The
+    per-item predictions are recorded, so 0.72 can be recomputed by hand from a 2×2 table without
+    running the model. (5) That commit is named in the report, by tag or by hash. (6) The model
+    name and temperature are recorded. (7) The interval is reported: with n = 20 items in the
+    positive class, 0.72 is roughly 14 of 20, and its Wilson 95% interval is wide, so a bare 0.72
+    overstates what you know. (8) The 0.55 is compared against the 50% majority-class floor, which
+    is 50% here by construction because the dataset is 20 M and 20 C.</p>
+    <p><strong>What git provides.</strong> Items 1 to 5 directly. The data, prompts and code are in
+    the snapshot; the forced commit of <code>results/predictions_*.csv</code> from section 4 covers
+    the per-item predictions; the tag from section 6 covers the naming. Item 6 is provided
+    indirectly and only if <code>MODEL_NAME</code> and the temperature are in
+    <code>config.py</code> rather than typed on a command line — which is one reason they live in a
+    file.</p>
+    <p><strong>What git does not provide.</strong> Items 7 and 8 are your judgement, not your
+    tooling. Git will faithfully preserve a commit in which you reported 0.72 with no interval and
+    no baseline, and the permanence makes that worse rather than better. Version control makes a
+    claim <em>checkable</em>; it does not make it <em>honest</em>. The second is your job, and it is
+    the harder one.</p>
+  </div></details>
+</div>
+
+<div class="exercise">
+  <div class="ex-head">Exercise 8.6 <span class="stars">★★★</span><span class="tag">research</span></div>
+  <div class="ex-body">
+    <p>You run the experiment on Monday and tag it <code>phase-4-complete</code>. On Tuesday you
+    change nothing at all, rerun at temperature 0, and one item flips: recall moves from 0.72 to
+    0.70.</p>
+    <p>This is expected on this project and gets reported rather than hidden. Design the commits
+    and tags you would make. What exactly does each one contain, what do the messages say, and what
+    do you write in the report?</p>
+  </div>
+  <details><summary>Solution</summary><div class="solution">
+    <p><strong>Do not move the tag.</strong> A tag that moves is worse than no tag: it means an
+    earlier reader and a later reader can read the same label and see different states.
+    <code>phase-4-complete</code> stays on Monday's commit forever.</p>
+    <p><strong>Commit the second run alongside the first, not over it.</strong> Save Tuesday's
+    outputs under distinct filenames so both survive in the same snapshot:</p>
+    <div class="cmd"><pre><span class="p">$ </span>cd python
+<span class="p">$ </span>git add -f results/metrics_run2.csv results/predictions_baseline_run2.csv results/predictions_misconception_aware_run2.csv
+<span class="p">$ </span>git commit -m "Add run 2: identical config, R14 flipped M to C, recall 0.72 -> 0.70"
+<span class="p">$ </span>git push
+<span class="p">$ </span>git tag phase-4-run2
+<span class="p">$ </span>git push --tags</pre></div>
+    <p>The message carries the finding, not just the file list: anyone reading the history knows a
+    rerun happened, which item moved, and what it did to the headline metric, without opening a
+    CSV. <strong>Identical filenames would be a mistake</strong> — overwriting
+    <code>metrics.csv</code> hides the difference inside a diff nobody will read, and makes the
+    working copy silently disagree with your report. Two runs are two observations; they should be
+    two rows, not one row that changed.</p>
+    <p><strong>What goes in the report.</strong> Something close to: <em>"The pipeline was run
+    twice at temperature 0 with identical configuration
+    (<code>phase-4-complete</code>, <code>phase-4-run2</code>). One of forty items changed verdict
+    between runs, moving recall for the misconception-aware condition from 0.72 to 0.70.
+    Temperature 0 makes sampling greedy but does not make a run bit-identical, so a small amount of
+    run-to-run variation is expected. The reported figures are from run 1; run 2 is in the
+    repository."</em></p>
+    <p><strong>Why this is a result and not an embarrassment.</strong> A 0.02 wobble in recall from
+    a rerun is real information about how much precision a claim on forty items can carry. It sits
+    naturally next to the Wilson interval, which is wide for the same underlying reason: n = 40 is
+    small. A write-up that reports the wobble is more credible than one that quietly reports
+    whichever run looked better — and git is what makes reporting it cost nothing, because both
+    runs are already saved.</p>
+  </div></details>
+</div>
+
+<h2>9 · Verification</h2>
+
+<div class="box verify">
+  <span class="lbl">Before the check-in</span>
+  <ul>
+    <li><code>git --version</code> prints a version, and <code>git config --global user.name</code> prints my name.</li>
+    <li>I can run the loop — status, add, commit, push — without looking it up.</li>
+    <li>The repository page on GitHub shows my commits, with messages I would be happy to read out.</li>
+    <li>Not one of my messages is <code>update</code>, <code>fix</code>, or a bare filename.</li>
+    <li><code>python/data/responses.csv</code> is in the history; nothing in <code>python/results/</code> is, except a final run added on purpose with <code>-f</code>.</li>
+    <li><code>git check-ignore -v</code> tells me which line ignores a file, and I have run it at least once.</li>
+    <li><code>pytest -q</code> passes, and only then did I run <code>git tag</code> and <code>git push --tags</code>.</li>
+    <li>I can say, out loud, what a commit is and why a tag makes a figure caption checkable.</li>
+  </ul>
+</div>
+
+<div class="box aside">
+  <span class="lbl">Going deeper (optional)</span>
+  <p>Two commands worth knowing that are not part of the loop.</p>
+  <p><code>git log --oneline --decorate</code> prints the history as a list, with tags shown
+  against the commits they name. This is your lab notebook, and it is why section 5 matters:</p>
+  <div class="out">6d9261d (HEAD -&gt; main, tag: phase-3-complete) Add 40 labelled responses, 20 M / 20 C
+2a606ee Fix TODO 5c — recall was dividing by TP+FP instead of TP+FN
+b6b338a Switch MODEL_NAME to llama3.2:1b; 3b swapped to disk on 8 GB</div>
+  <p><code>git diff</code> shows what you have changed since the last commit, line by line, before
+  you commit it. Read the diff, then commit; it catches the stray edit you made at eleven at night
+  and forgot about. It also makes an AI coding assistant safe rather than corrosive:
+  <strong>commit before you let it touch a file</strong>, and the diff shows you exactly what it
+  did while one command undoes it. You cannot review a change you cannot see, and work you cannot
+  review is work you cannot defend at a check-in.</p>
+  <p>Finally, every push runs this project's tests on a fresh machine via
+  <code>.github/workflows/ci.yml</code>, and GitHub puts a tick or a cross next to your commit. A
+  cross is information, not a telling-off — click it and find the first red line, usually a file
+  you forgot to <code>git add</code>. A tick is the cheapest check that the commit you are about
+  to tag works on a machine that is not yours.</p>
+</div>
+
+<div class="pager"><a href="ollama.html">← Setup 2 · Ollama and the local model</a><a href="../phases/phase-1-design.html">Phase 1 · The design →</a></div>
+
+</main>
+
+<footer class="site">
+  <div class="wrap">
+    <strong>Wrong in a Particular Way</strong> · Setup, step 3 ·
+    <a href="../index.html">index</a> ·
+    <a href="../extras/glossary.html">glossary</a> ·
+    <a href="../extras/unstuck.html">stuck?</a>
+  </div>
+</footer>
+
+</body>
+</html>

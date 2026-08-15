@@ -1,0 +1,845 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Setup 1 · Python, the repo, and the first run — Wrong in a Particular Way</title>
+<link rel="stylesheet" href="../assets/vendor/katex/katex.min.css">
+<link rel="stylesheet" href="../assets/css/style.css">
+<script src="../assets/vendor/katex/katex.min.js"></script>
+<script src="../assets/vendor/katex/auto-render.min.js"></script>
+<script src="../assets/js/detect.js"></script>
+</head>
+<body>
+
+<header class="site">
+  <div class="wrap">
+    <div class="crumbs"><a href="../index.html">Wrong in a Particular Way</a> · Setup · Step 1</div>
+    <div class="badges"><span class="badge">Setup track</span><span class="badge win">Win: real charts, from nothing, in half an hour</span></div>
+    <h1 class="chapter-title">Python, the repo, and the first run</h1>
+    <p class="chapter-sub">From a laptop with nothing on it to charts in python/results/, without a model and without a line of your own data.</p>
+  </div>
+</header>
+
+<main class="wrap">
+
+<p class="lede">This is the first page of the setup track and the shortest. By the end of it the
+entire pipeline of the study will have run on your machine, produced real files, and told you
+in writing which parts of it are not yours yet. Nothing here needs Ollama, an account, an API
+key, or the forty responses you have not written.</p>
+
+<div class="objectives">
+  <h3>By the end of this page you can</h3>
+  <ul>
+    <li>Open a terminal on your operating system and know which one you opened.</li>
+    <li>Say which Python you are running, and why <code>python3</code> and <code>pip3</code> sometimes disagree with each other.</li>
+    <li>Clone the repository and get into the right folder without typing a path by hand.</li>
+    <li>Install the four packages and say what each one is doing in this project.</li>
+    <li>Read <code>check_setup.py</code> line by line and tell <code>[TODO]</code> from <code>[FIX]</code> without hesitating.</li>
+    <li>Explain the reference-fallback mechanism, and why it means any crash is a real problem.</li>
+    <li>Run the whole pipeline on a fake model and demo data, and run the nineteen tests.</li>
+  </ul>
+</div>
+
+<div class="os-bar">
+  <span class="lbl2">I am on:</span>
+  <span class="seg">
+    <button type="button" data-os="mac" aria-pressed="true">macOS</button>
+    <button type="button" data-os="win" aria-pressed="false">Windows</button>
+  </span>
+  <span class="muted" style="font-size:13px">Set this once. Every page on the site follows it.</span>
+</div>
+
+<h2>1 · Open a terminal</h2>
+
+<p>A terminal is a window in which you type the name of a program and it runs. That is the
+whole idea. It looks unfriendly because it gives no hints, not because it is doing anything
+complicated.</p>
+
+<div class="os-only on" data-os="mac">
+  <p>Press <code>Cmd + Space</code>, type <em>Terminal</em>, press Enter. A window opens with a
+  line ending in <code>%</code> or <code>$</code>. That is the prompt: it means the terminal is
+  waiting for you.</p>
+</div>
+
+<div class="os-only" data-os="win">
+  <p>Press the Windows key, type <em>PowerShell</em>, press Enter. A window opens with a line
+  ending in <code>&gt;</code>. That is the prompt: it means the terminal is waiting for you.</p>
+  <p>Use <strong>PowerShell</strong>, not the older Command Prompt, and not WSL. Everything on
+  this site is written for PowerShell on Windows.</p>
+</div>
+
+<p>Throughout the site, terminal blocks look like this. The
+<span class="os-only on" data-os="mac"><code>$ </code></span><span class="os-only" data-os="win"><code>$ </code></span>at
+the start is the prompt and is not part of what you type; the <em>copy</em> button strips it
+for you.</p>
+
+<div class="cmd"><pre><span class="p">$ </span>python3 --version</pre></div>
+
+<p>Blocks on a grey background, like the one below, are <strong>output</strong> — what you
+should see back. Never type those.</p>
+
+<div class="out">Python 3.11.9</div>
+
+<h2>2 · Check your Python</h2>
+
+<p>Run the command above. You need <strong>3.9 or higher</strong>; anything from 3.9 to 3.13
+is fine and the exact number does not matter beyond that. If the command is not found, try:</p>
+
+<div class="cmd"><pre><span class="p">$ </span>python --version</pre></div>
+
+<p>If neither works, install from <a href="https://www.python.org/downloads/">python.org</a>.
+<span class="os-only" data-os="win"><strong>On Windows, tick the "Add Python to PATH" box on
+the first screen of the installer.</strong> If you miss it, the terminal will not find Python
+afterwards and the fix is to run the installer again.</span></p>
+
+<div class="box warning">
+  <span class="lbl"><code>python</code> vs <code>python3</code>, and <code>pip</code> vs <code>pip3</code></span>
+  <p>Many machines have two Pythons on them: an old one that came with the operating system,
+  and a newer one you installed. Historically <code>python</code> meant the old one and
+  <code>python3</code> meant the new one, and on a lot of machines that is still true.</p>
+  <p><strong>Everything on this site is written with <code>python3</code> and <code>pip3</code>.
+  If those are not found on your machine, use <code>python</code> and <code>pip</code>
+  instead — consistently, both of them, every time.</strong> The failure that costs an
+  afternoon is mixing them: installing a package with <code>pip3</code> and then running your
+  script with <code>python</code>, which is a different Python that cannot see it. You get
+  <code>ModuleNotFoundError: No module named 'pandas'</code> immediately after a successful
+  install, which is a genuinely confusing thing to be told.</p>
+  <p>The bulletproof form, if you ever doubt it, ties the two together explicitly:
+  <code>python3 -m pip install -r requirements.txt</code>. That says "use the pip belonging to
+  <em>this</em> Python", so they cannot disagree.</p>
+</div>
+
+<h2>3 · Get the repository</h2>
+
+<p>The project lives in a Git repository. Git is worth learning and gets its own page later;
+for now you need one command. The URL is in the project email.</p>
+
+<div class="cmd"><pre><span class="p">$ </span>git clone &lt;repo-url&gt;
+<span class="p">$ </span>cd SenSym-misconception-aware-llm</pre></div>
+
+<p>Check you are in the right place:</p>
+
+<div class="cmd"><pre><span class="p">$ </span><span class="os-only on" data-os="mac">ls</span><span class="os-only" data-os="win">dir</span></pre></div>
+<div class="out">Makefile   authoring   docs   <b>python</b>   pyproject.toml   <b>requirements.txt</b></div>
+
+<p>If you see <code>python</code> and <code>requirements.txt</code>, you are in the repository
+root, which is where the next command has to run from. If you see something else you are in
+the wrong folder, and every error after this point will be a file-not-found error that has
+nothing to do with your code.</p>
+
+<div class="box python">
+  <span class="lbl">The trick for typing paths, which you should never do by hand</span>
+  <p class="os-only on" data-os="mac">Type <code>cd </code> — with a trailing space — then drag
+  the folder from a Finder window onto the Terminal window. The full path appears, correctly
+  quoted and correctly spelled. Press Enter.</p>
+  <p class="os-only" data-os="win">In File Explorer, hold <strong>Shift</strong>, right-click
+  the folder, and choose <strong>Copy as path</strong>. Then type <code>cd </code> in
+  PowerShell and paste. The quotes come with it, which matters if any folder in the path has a
+  space in its name.</p>
+  <p style="margin-bottom:0">Typing a long path by hand is how you spend twenty minutes
+  debugging a capital letter.</p>
+</div>
+
+<h2>4 · Install the four packages</h2>
+
+<p>From the repository root:</p>
+
+<div class="cmd"><pre><span class="p">$ </span>pip3 install -r requirements.txt</pre></div>
+
+<p>That reads <code>requirements.txt</code> and installs four libraries. If you get a
+permissions error, add <code>--user</code>:
+<code>pip3 install --user -r requirements.txt</code>.</p>
+
+<table>
+  <thead><tr><th>Package</th><th>What it is doing in this project</th></tr></thead>
+  <tbody>
+  <tr><td><code>pandas</code></td><td>Tables. It reads <code>data/responses.csv</code>, keeps the forty rows with their labels and the model's predictions side by side, and writes <code>results/metrics.csv</code> back out.</td></tr>
+  <tr><td><code>requests</code></td><td>HTTP. One function call per response, sending a prompt to the local model at <code>localhost:11434</code> and getting text back. Not needed at all in mock mode.</td></tr>
+  <tr><td><code>matplotlib</code></td><td>Charts. It draws <code>confusion_matrices.png</code> and <code>comparison.png</code>, the two figures that go in your write-up.</td></tr>
+  <tr><td><code>scikit-learn</code></td><td>A second opinion. It computes the confusion matrix and the metrics independently, so your version can be checked against it. See below — this one is not what it looks like.</td></tr>
+  </tbody>
+</table>
+
+<h3>Why a machine-learning library is here when you are not doing machine learning</h3>
+
+<p>Reasonable question, and the answer is the interesting part of this section.
+<strong>scikit-learn is not doing the analysis. It is marking the analysis.</strong></p>
+
+<p>In Phase 2 you write the four counts of the confusion matrix yourself, by hand, in
+<code>compute_confusion()</code>. Those four numbers are the entire study: every metric in
+your results is arithmetic on them, with <strong>M — "this response contains a misconception"
+— as the positive class</strong>.</p>
+
+$$\text{precision} = \frac{TP}{TP + FP}, \qquad \text{recall} = \frac{TP}{TP + FN}$$
+
+<p>If one of those four counts is wrong, every number downstream is wrong, the charts are
+wrong, and nothing about the output looks unusual. That is the dangerous kind of bug: it does
+not crash, it just lies quietly.</p>
+
+<p>So the project computes the same thing twice, two different ways, and insists they agree.
+<code>analyze.py</code> prints the comparison on every run:</p>
+
+<div class="out">=== baseline ===
+  TP=4  FP=4  FN=2  TN=2  (unparseable: 0)
+  accuracy=0.5  precision=0.5  recall=0.667  f1=0.571
+  scikit-learn cross-check: <b>MATCH ✓</b>
+  sklearn precision=0.500 recall=0.667 (yours: 0.500 / 0.667)</div>
+
+<p>And the test suite does it again, more strictly. <code>test_confusion_agrees_with_sklearn</code>
+builds a small table whose answer is known by construction — seven true positives, three false
+negatives, two false positives, eight true negatives — runs your <code>compute_confusion()</code>
+over it, runs <code>sklearn.metrics.confusion_matrix</code> over it, and asserts the two
+results are identical. A separate test does the metrics by hand on paper first
+(<code>accuracy = (8+6)/20 = 0.7</code>) and asserts the code produces that.</p>
+
+<div class="box definition">
+  <span class="lbl">The habit worth stealing from this, whatever you do later</span>
+  <p>Whenever you implement something yourself, check it against an implementation that is
+  already trusted. Not instead of writing it — the writing is where the understanding comes
+  from — but alongside it. When they disagree, it is almost always you, and you find out in
+  two seconds instead of finding out from a wrong number in a paper.</p>
+  <p>This is why "just use the library" is the wrong instinct here and "only use my own code"
+  is also the wrong instinct. You want both, and you want them to argue.</p>
+</div>
+
+<h2>5 · Run the setup check</h2>
+
+<div class="box python">
+  <span class="lbl">Run these</span>
+  <div class="cmd"><pre><span class="p">$ </span>cd python
+<span class="p">$ </span>python3 misconception/check_setup.py
+<span class="p">$ </span>python3 misconception/run_experiment.py --mock --sample
+<span class="p">$ </span>python3 misconception/analyze.py
+<span class="p">$ </span>pytest ../ -q</pre></div>
+  <p style="margin-bottom:0">Everything from here on runs from inside the <code>python</code>
+  folder, so the paths in the commands stay short. The test suite is the exception and is
+  happiest from the repository root, where it is simply <code>pytest -q</code>.</p>
+</div>
+
+<p><code>check_setup.py</code> is the first thing to run and the first thing to run again
+whenever anything is confusing. It walks down a list, one item at a time, and prints one line
+per item. On a freshly cloned repository with the packages installed and no Ollama, it prints
+this:</p>
+
+<div class="out">======================================================================
+SETUP CHECK
+======================================================================
+  <b>[OK]</b>   Python 3.11 (need 3.9+)
+  <b>[OK]</b>   package: pandas
+  <b>[OK]</b>   package: requests
+  <b>[OK]</b>   package: matplotlib
+  <b>[OK]</b>   package: scikit-learn
+  [TODO] data/misconceptions.csv — 0 real row(s)
+         -&gt; Still contains only the template placeholders — expected on a fresh clone.
+         -&gt; Fill it in when you get to Phase 3 (see data/EXAMPLES.md).
+         -&gt; Meanwhile, run with --sample to use the demo dataset.
+  [TODO] data/responses.csv — 0 real row(s)
+         -&gt; Still contains only the template placeholders — expected on a fresh clone.
+         -&gt; Fill it in when you get to Phase 3 (see data/EXAMPLES.md).
+         -&gt; Meanwhile, run with --sample to use the demo dataset.
+  [TODO] Ollama is running
+         -&gt; Only needed for the REAL run — not for --mock. When you're ready:
+         -&gt;   install from https://ollama.com/download, then run
+         -&gt;   ollama serve        (leave this window open)
+         -&gt; and in a SECOND terminal:
+         -&gt;   ollama pull llama3.2:3b
+======================================================================
+<b>✓ Your environment is working.</b>
+
+3 thing(s) not done yet (marked [TODO]) — all expected on
+a fresh clone. Nothing is broken; they're just steps you haven't reached.</div>
+
+<p>That output is a pass. Read the last block again: three things are unfinished and the script
+still says your environment is working, because those two statements are about different
+things.</p>
+
+<div class="box definition">
+  <span class="lbl">The three markers · confusing two of these wastes days</span>
+  <p><code><b>[OK]</b></code> — this is present and working. Nothing to do.</p>
+  <p><code>[TODO]</code> — <strong>you have not got there yet.</strong> Nothing is broken. Your
+  two data files are still the blank template, and Ollama is not installed, and on a fresh
+  clone that is exactly the correct state of the world. These lines are a map of what is
+  ahead, not a list of faults. There are three of them at the start of the project and there
+  will be none at the end.</p>
+  <p><code><i>[FIX]</i></code> — <strong>something is genuinely broken</strong> and will stop
+  you. A missing package, a Python older than 3.9, a CSV the code could not read at all. Each
+  one prints an indented <code>-&gt;</code> line telling you the command that repairs it.</p>
+  <p>The summary line tells you which kind you have. <code>✓ Your environment is working</code>
+  means there were no <code>[FIX]</code> lines at all. <code>✗ N thing(s) are genuinely
+  broken</code> means there were, and it is the only sentence on the page you have to act on
+  today.</p>
+</div>
+
+<p>The distinction exists because both failures feel identical when you are new: something is
+red, so something is wrong, so you stop. Weeks get lost to a student trying to make a
+<code>[TODO]</code> go away in week one, and to a student ignoring a <code>[FIX]</code>
+because they assumed it was one of the expected ones. The script separates them for you so you
+never have to guess. <span class="status observed">observed</span> — this is the single most
+common way this stage goes wrong, in my experience of running it, not a measured claim.</p>
+
+<h2>6 · The ninety-second proof</h2>
+
+<p>Now run the entire study. Both conditions, all the analysis, both charts:</p>
+
+<div class="cmd"><pre><span class="p">$ </span>python3 misconception/run_experiment.py --mock --sample
+<span class="p">$ </span>python3 misconception/analyze.py</pre></div>
+
+<p><code>--mock</code> swaps the real model for a fake one that answers instantly and needs
+nothing installed. <code>--sample</code> swaps your empty data files for the twelve demo
+responses in <code>python/data/sample/</code>. Together they mean a repository you cloned four
+minutes ago runs end to end. Here is the first half:</p>
+
+<div class="out">*** MOCK MODE — these numbers are FAKE. Never report them. ***
+*** SAMPLE DATA — 12 demo answers, NOT yours. ***
+Loaded 12 answers  (6 misconception, 6 correct)
+Loaded 3 misconceptions
+
+--- Condition: baseline ---
+..XX.X..X.XX
+Done in 0.0s (0.0s per item)
+Saved -&gt; .../python/results/predictions_baseline.csv</div>
+
+<p>Each <code>.</code> is an item where the model agreed with the label and each <code>X</code>
+is one where it did not, printed live so you can see it has not frozen. In mock mode the whole
+thing takes a fraction of a second. In Phase 4, with the real model, that same row of dots
+takes several minutes and is the only way to tell the run apart from a hung terminal.</p>
+
+<h3>The reference fallback, which is the most important thing on this page</h3>
+
+<p>At the end of the run you get this:</p>
+
+<div class="out">────────────────────────────────────────────────────────────────────────
+⚠  2 TODO(s) not done — the worked versions were used.
+   The numbers above are real, but they aren't YOUR code's numbers yet.
+────────────────────────────────────────────────────────────────────────
+   TODO 4a  misconception/run_experiment.py · run_condition()
+            → build the prompt with build_prompt(...)
+   TODO 4b  misconception/run_experiment.py · run_condition()
+            → send the prompt with ask(...)</div>
+
+<p>Here is what happened. There are six places in this project where you have to write a line
+of code, and each of them is wrapped in a call to <code>todo.pending()</code> in
+<code>todo.py</code>. That function is handed whatever your line produced. If it is
+<code>None</code> — which is what the repository ships with — it quietly runs a worked version
+from <code>reference.py</code> instead, and writes down that it did so. The run completes. The
+CSVs get written. The charts come out.</p>
+
+<p>So: <strong>an unfinished TODO cannot crash this project.</strong> It produces a yellow
+warning naming the file, the function and the one thing that line was supposed to do, and then
+the program carries on. When all six are yours, the yellow block is replaced by one green
+line:</p>
+
+<div class="out"><b>✓ Nothing fell back — this run was entirely your code.</b></div>
+
+<p>The consequence is worth saying as sharply as it can be said, because it is the sentence
+that will save you the most time on this project. <strong>Any crash you see is a real problem.
+It is never "I have not got there yet."</strong> A traceback means a missing package, a wrong
+folder, a mistyped filename, or a bug in something you changed. It does not mean the TODOs are
+unfinished, because unfinished TODOs are designed not to be able to do that. If the program
+stops, stop looking at the checklist and start reading the error.</p>
+
+<div class="box warning">
+  <span class="lbl">Two warnings, then four, and it is not a bug</span>
+  <p><code>run_experiment.py</code> reports two fallbacks and <code>analyze.py</code> reports
+  four. That is because each script is its own running program, and the list of fallbacks that
+  fired lives inside one program while it runs. <code>run_experiment.py</code> only ever
+  touches TODO 4a and 4b; <code>analyze.py</code> only ever touches TODO 5a to 5d. Two plus
+  four is the six.</p>
+  <p>The other numbered TODOs on the checklist — reading the baseline prompt, deciding whether
+  the model should see all ten misconceptions or only the relevant one, and writing up what the
+  numbers mean — have no fallback because they are not lines of code. Nobody can run them for
+  you and no warning will remind you.</p>
+</div>
+
+<p>The second command, <code>analyze.py</code>, reads the two prediction files, counts the four
+cells, computes the metrics, cross-checks them against scikit-learn, and writes three files
+into <code>python/results/</code>: <code>metrics.csv</code>,
+<code>confusion_matrices.png</code> and <code>comparison.png</code>. Open the two images. They
+are the actual figures your write-up will contain, with the actual axes and the actual layout,
+five minutes into the project and with none of the work done.</p>
+
+<div class="box warning">
+  <span class="lbl">Nothing produced here may be reported</span>
+  <p>Everything from <code>--mock</code> and everything from <code>--sample</code> is
+  <strong>demo data</strong>. The twelve responses in <code>python/data/sample/</code> are
+  examples written to exercise the code; the fake model is a keyword rule with deliberate
+  noise. Their numbers exist to prove the plumbing carries water and for no other reason.
+  Not one of them may appear in your results, your slides or your abstract, even as an
+  illustration.</p>
+  <p>You will see this warning on every page where a reader could be tempted, which is most of
+  them.</p>
+</div>
+
+<h2>7 · Why the fake model is deliberately bad at its job</h2>
+
+<p>Read <code>ask_llm_mock()</code> in <code>llm_client.py</code>. It looks for overconfident
+words in the response — <em>always</em>, <em>never</em>, <em>impossible</em>,
+<em>guarantee</em> — and says <code>M</code> if it finds any. Then it does something that looks
+like sabotage: it computes a number from the length of the text and flips its own answer on
+roughly thirty per cent of items.</p>
+
+<p>That flip is the point. A mock that answered every item correctly would produce a confusion
+matrix with two of its four cells empty, and two empty cells means half of
+<code>compute_confusion()</code> is never exercised, half of the metric formulas are never
+exercised, and a mistake in either is invisible.</p>
+
+<div class="lab">
+  <div class="lab-title">Lab · how accurate should a fake model be</div>
+  <p class="lab-desc">A simplified stand-in for the mock: each of the twelve demo responses is
+  answered correctly if the model's accuracy clears a fixed per-item threshold, so the picture
+  is deterministic and moves smoothly. The four curves are the four cells of the confusion
+  matrix. Shaded columns are settings where at least one cell is empty. Drag towards
+  <strong>100%</strong> and watch what a perfect mock would give you. The figure under each
+  metric is its 95% Wilson score interval; on twelve items they are enormous, which is worth
+  seeing once before you meet the same intervals on forty.</p>
+  <canvas id="mock" height="300"></canvas>
+  <div class="controls" id="mockctl"></div>
+  <div id="mockmx" style="padding:2px 16px 0"></div>
+  <div class="metrics-row" id="mockmet" style="padding:0 16px 10px"></div>
+  <div class="readout" id="mockout"></div>
+</div>
+
+<script>
+G.lab(function () {
+  /* The twelve demo responses: six labelled M, six labelled C. Seeded, never
+     Math.random, so the picture is the same on every machine and every reload. */
+  var TRUTH = G.SAMPLE.map(function (s) { return s.truth; });
+  var U = (function () {
+    var r = G.rng(1), a = [], i;
+    for (i = 0; i < TRUTH.length; i++) a.push(r());
+    return a;
+  })();
+
+  function cells(acc) {
+    var c = { tp: 0, fn: 0, fp: 0, tn: 0 }, i, t, p;
+    for (i = 0; i < TRUTH.length; i++) {
+      t = TRUTH[i];
+      p = (U[i] < acc) ? t : (t === 'M' ? 'C' : 'M');
+      if (t === 'M') { if (p === 'M') c.tp++; else c.fn++; }
+      else { if (p === 'M') c.fp++; else c.tn++; }
+    }
+    return c;
+  }
+  function lowest(c) { return Math.min(c.tp, c.fn, c.fp, c.tn); }
+
+  var st = G.controls('mockctl', [
+    { k: 'acc', type: 'range', label: 'the fake model is right', min: 0, max: 100, step: 5,
+      value: 70, fmt: function (v) { return v + '% of the time'; } }
+  ], draw);
+
+  var SERIES = [['TP', 'tp', G.COL.green], ['FN', 'fn', G.COL.rose],
+                ['FP', 'fp', G.COL.amber], ['TN', 'tn', G.COL.teal]];
+
+  function draw() {
+    var cv = G.canvas('mock'); if (!cv) return;
+    var a = st.acc / 100, c = cells(a), k, v, pts, i;
+
+    var fr = G.frame(cv.ctx, cv.w, cv.h, {
+      xmin: 0, xmax: 1, ymin: 0, ymax: 8,
+      margin: { left: 54, bottom: 46, top: 16, right: 14 }
+    });
+    fr.axes({ xlabel: 'accuracy of the fake model', ylabel: 'responses in that cell',
+              xticks: 5, yticks: 4,
+              xfmt: function (t) { return Math.round(t * 100) + '%'; },
+              yfmt: function (t) { return t.toFixed(0); } });
+
+    /* Shade every slider position at which one of the four cells is empty. */
+    for (k = 0; k <= 20; k++) {
+      v = k / 20;
+      if (lowest(cells(v)) === 0) {
+        fr.rect(v - 0.025, 0, v + 0.025, 8, { fill: G.COL.rose, alpha: 0.09 });
+      }
+    }
+    fr.text(0.5, 0.35, 'shaded: at least one cell of the matrix is empty',
+            { color: G.COL.rose, align: 'center' });
+
+    for (i = 0; i < SERIES.length; i++) {
+      pts = [];
+      for (k = 0; k <= 200; k++) { v = k / 200; pts.push([v, cells(v)[SERIES[i][1]]]); }
+      fr.line(pts, { color: SERIES[i][2], width: 2 });
+    }
+    fr.legend(SERIES.map(function (s) { return [s[0], s[2]]; }));
+    fr.vline(a, { color: G.COL.ink, width: 1.5, dash: [4, 3] });
+
+    G.matrix('mockmx', c, { fnNote: 'MISSED a misconception' });
+
+    var m = G.metrics({ tp: c.tp, fn: c.fn, fp: c.fp, tn: c.tn });
+    /* Wilson, not the normal approximation: with twelve items the normal
+       interval runs outside [0,1] and is visibly wrong. */
+    function tile(k2, v2, num, den, lead) {
+      var ci = G.wilson(num, den);
+      return '<div class="metric' + (lead ? ' lead' : '') + '">' +
+             '<div class="mk">' + k2 + '</div><div class="mv">' + v2 + '</div>' +
+             '<div class="mci">95% CI ' + G.pct(ci[0], 0) + '–' + G.pct(ci[1], 0) + '</div></div>';
+    }
+    document.getElementById('mockmet').innerHTML =
+      tile('accuracy', G.pct(m.acc, 0), c.tp + c.tn, m.n) +
+      tile('precision', G.pct(m.prec, 0), c.tp, c.tp + c.fp) +
+      tile('recall', G.pct(m.rec, 0), c.tp, c.tp + c.fn, true);
+
+    var empties = [];
+    if (!c.tp) empties.push('TP'); if (!c.fn) empties.push('FN');
+    if (!c.fp) empties.push('FP'); if (!c.tn) empties.push('TN');
+
+    var head = 'At ' + st.acc + '% the twelve demo responses land as  TP ' + c.tp +
+               ' · FN ' + c.fn + ' · FP ' + c.fp + ' · TN ' + c.tn + '.\n';
+
+    var body;
+    if (st.acc === 100) {
+      body = 'A perfect mock. FN and FP are both empty, recall and precision are both 100%,\n' +
+             'and TODO 5b and 5c could be written backwards, or left as plain zero, without\n' +
+             'the run looking any different. A mock model that never makes a mistake tests\n' +
+             'nothing at all: it is the one setting guaranteed to teach you nothing.';
+    } else if (empties.length) {
+      body = 'Empty: ' + empties.join(' and ') + '. ' +
+             (empties.length > 1
+               ? 'The lines of compute_confusion() that fill those\ncells never run'
+               : 'The line of compute_confusion() that fills that\ncell never runs') +
+             ', so a mistake in ' + (empties.length > 1 ? 'them' : 'it') +
+             ' cannot show up, and the scikit-learn\ncross-check has nothing to disagree about there either.';
+    } else if (c.fn === c.fp) {
+      body = 'All four cells are non-empty, so every branch of compute_confusion() runs and\n' +
+             'every metric has a real denominator. But FN and FP are equal here, so writing\n' +
+             'those two counts the wrong way round would still give the same answer. Full is\n' +
+             'not quite enough: the cells have to be lopsided before a swap becomes visible.';
+    } else {
+      body = 'All four cells are non-empty, and FN and FP differ, which is what the code needs.\n' +
+             'Every branch of compute_confusion() runs, every metric has a real denominator,\n' +
+             'and swapping two of the four counts would now change the output and be caught.';
+    }
+
+    G.say('mockout', head + body +
+      '\n\nThese are demo numbers from a fake model. None of them may be reported.');
+  }
+  draw();
+});
+</script>
+
+<p>The comment in <code>llm_client.py</code> puts the fake model at about seventy per cent
+accurate. On the twelve demo responses it actually gets six of twelve right
+<span class="status observed">observed</span>, which is precisely the majority-class baseline —
+the score you would get by ignoring the text and always guessing <code>M</code>. That is a
+useful thing to have seen once: the mock is not a weak model, it is a model with no skill at
+all, and it still produces a full confusion matrix, four metrics and two charts that look
+entirely respectable. Numbers can be well-formed and mean nothing. This is why the run shouts
+<em>these numbers are FAKE</em> at you twice before it does anything.</p>
+
+<h2>8 · Run the tests</h2>
+
+<p>From the repository root:</p>
+
+<div class="cmd"><pre><span class="p">$ </span>cd ..
+<span class="p">$ </span>pytest -q</pre></div>
+<div class="out"><b>...................</b>                                                      [100%]</div>
+
+<p>Nineteen dots, one per test, and no letters. A test is a small program that checks another
+program still does what it did yesterday. These nineteen check the metric arithmetic against
+hand-worked answers, the four confusion-matrix counts against scikit-learn, the verdict parser
+against six awkward replies, the two prompts against the property that makes the comparison
+fair, the fallback machinery itself, and finally the whole pipeline end to end by running the
+two scripts exactly as you just ran them and confirming all five output files appear.</p>
+
+<p>You are not asked to write any tests. You are asked to run them after every change you
+make, because the alternative to finding out in two seconds is finding out from a wrong number
+in your results.</p>
+
+<div class="box example">
+  <span class="lbl">What a failure looks like, so it is not alarming later</span>
+  <p>A failing test prints <code>F</code> instead of <code>.</code>, then the name of the test,
+  then the line that failed and both values it compared. That is a complete diagnosis: the
+  test names what was expected, and pytest shows what it got instead. Read those two numbers
+  before changing anything.</p>
+  <p>All nineteen pass on a fresh clone, before you have written a line, because the reference
+  implementations are behind every TODO. So a failure means you broke something — which is
+  exactly the signal you want a test suite to send.</p>
+</div>
+
+<h2>9 · Exercises</h2>
+
+<div class="exercise">
+  <div class="ex-head">Exercise 1.1 <span class="stars">★★</span><span class="tag">thinking</span></div>
+  <div class="ex-body"><p>A fresh clone on a laptop running Python 3.11. The
+  <code>pip3 install</code> was interrupted partway: <code>pandas</code>, <code>requests</code>
+  and <code>scikit-learn</code> installed, <code>matplotlib</code> did not. Ollama has never
+  been installed. Neither data file has been touched.</p>
+  <p>Write down, line by line, what <code>python3 misconception/check_setup.py</code> prints —
+  the marker on each line, in order, and both summary blocks at the bottom. Then say which
+  single line you should act on today, and why the others can wait.</p></div>
+  <details><summary>Solution</summary><div class="solution">
+    <p>The script checks Python, then the four packages in the order they appear in its list,
+    then the two data files, then Ollama:</p>
+    <div class="out">  <b>[OK]</b>   Python 3.11 (need 3.9+)
+  <b>[OK]</b>   package: pandas
+  <b>[OK]</b>   package: requests
+  <i>[FIX]</i>  package: matplotlib
+         -&gt; pip install matplotlib
+  <b>[OK]</b>   package: scikit-learn
+  [TODO] data/misconceptions.csv — 0 real row(s)
+  [TODO] data/responses.csv — 0 real row(s)
+  [TODO] Ollama is running</div>
+    <p>and then both summaries, because there is one of each kind:</p>
+    <div class="out"><i>✗ 1 thing(s) are genuinely broken (marked [FIX] above).</i>
+  Fix those before going further.
+
+3 thing(s) not done yet (marked [TODO]) — all expected on
+a fresh clone. Nothing is broken; they're just steps you haven't reached.</div>
+    <p>Three details worth noticing. First, <code>scikit-learn</code> is still
+    <code><b>[OK]</b></code>: the packages are checked independently, so one failure does not
+    stop the ones after it. Second, the data-file section still runs, because it imports
+    <code>config</code> and <code>pandas</code> and has no need of matplotlib. Third, the hint
+    line says <code>pip install matplotlib</code>, without the 3 — if <code>pip3</code> is what
+    works on your machine, use that.</p>
+    <p>Act on the matplotlib line and nothing else. The two data files are Phase 3 and Ollama
+    is Setup 2; neither is a fault. But the <code>[FIX]</code> would produce a genuinely
+    confusing half-working state if you ignored it:
+    <code>run_experiment.py</code> does not import matplotlib and would run perfectly, while
+    <code>analyze.py</code> imports it at the top and would die immediately. "The first half
+    works and the second half does not" is a much harder thing to diagnose an hour later than
+    it is to read off this list now, which is the entire argument for running
+    <code>check_setup.py</code> first.</p>
+  </div></details>
+</div>
+
+<div class="exercise">
+  <div class="ex-head">Exercise 1.2 <span class="stars">★</span><span class="tag">by hand</span></div>
+  <div class="ex-body"><p><code>pip3 install -r requirements.txt</code> ended with
+  <em>Successfully installed pandas-2.2.2 ...</em> and no errors. The very next command,
+  <code>python misconception/check_setup.py</code>, dies with
+  <code>ModuleNotFoundError: No module named 'pandas'</code>.</p>
+  <p>What has happened, and what is the one command that both fixes it and prevents it
+  happening again?</p></div>
+  <details><summary>Solution</summary><div class="solution">
+    <p>There are two Pythons on the machine. <code>pip3</code> installed pandas into the newer
+    one; <code>python</code> is the older one, and it has its own separate collection of
+    packages, which does not include pandas. Both commands did exactly what they were asked.
+    Nothing is corrupted and reinstalling will not help.</p>
+    <p>The fix and the prevention are the same command:</p>
+    <div class="cmd"><pre><span class="p">$ </span>python -m pip install -r requirements.txt</pre></div>
+    <p><code>-m pip</code> means "run the pip that belongs to <em>this</em> Python". By naming
+    the interpreter once at the front, you make it impossible for the installing Python and the
+    running Python to be different. Then keep using that same word — <code>python</code> or
+    <code>python3</code>, whichever one you just used — for every command on this site.</p>
+    <p>Worth recognising the shape of this bug rather than just the fix: the error was not
+    about pandas at all. It was about which of two programs you were talking to. The Ollama
+    page has the same lesson in a different costume, where "could not reach the model" turns
+    out to be about which layer you are in rather than about your code.</p>
+  </div></details>
+</div>
+
+<div class="exercise">
+  <div class="ex-head">Exercise 1.3 <span class="stars">★★</span><span class="tag">thinking</span></div>
+  <div class="ex-body"><p>Mock mode comes before real mode everywhere in this project. Give
+  two separate arguments for that ordering: one about time, with an arithmetic estimate, and
+  one that is not about time at all and is the more important of the two.</p>
+  <p>Then describe the one thing mock mode <em>cannot</em> tell you.</p></div>
+  <details><summary>Solution</summary><div class="solution">
+    <p><strong>The time argument.</strong> The real study is forty responses under two
+    conditions, so eighty calls to the model. At roughly three seconds a call on a normal
+    laptop <span class="status observed">observed</span>, one full run is about four minutes.
+    Mock mode runs the same pipeline in well under a second. If it takes ten attempts to get
+    <code>compute_confusion()</code> right — which is a realistic number for code you are
+    writing for the first time — that is forty minutes of watching a progress bar against a
+    few seconds. And the forty minutes are not spent learning anything.</p>
+    <p><strong>The better argument: isolating the variable.</strong> If you debug your code and
+    your model install at the same time, every failure has two candidate causes and you cannot
+    tell them apart. Mock mode removes the model from the system entirely — no HTTP, no server,
+    no download, no <code>requests</code> — so any failure that remains is definitely yours.
+    When you later switch on the real model, your code is already known-good, so any new
+    failure is definitely the model or the install. Each step has exactly one thing that can be
+    wrong. That is the same instinct as the experiment itself: the baseline and
+    misconception-aware conditions differ in the prompt and in nothing else, because a
+    comparison in which two things changed tells you nothing about either.</p>
+    <p><strong>What mock mode cannot tell you.</strong> Anything about the actual research
+    question. The fake model ignores which prompt it was given, so the two conditions come out
+    byte-for-byte identical — you can see it in the output above, where both print
+    <code>TP=4 FP=4 FN=2 TN=2</code>. That is expected, not a bug: there is no real model there
+    for the prompt to influence. Mock mode proves the pipeline carries water. It cannot say
+    anything whatsoever about whether the misconception catalogue helps, and a difference
+    between conditions is the one thing you must never look for in it.</p>
+  </div></details>
+</div>
+
+<div class="exercise">
+  <div class="ex-head">Exercise 1.4 <span class="stars">★★</span><span class="tag">thinking</span></div>
+  <div class="ex-body"><p>On a fresh clone, <code>run_experiment.py --mock --sample</code>
+  reports two fallbacks and <code>analyze.py</code> reports four.</p>
+  <p>(a) Why two and four rather than six and six? (b) You then complete TODO 4a and rerun both
+  scripts. Exactly what changes in each of the two outputs? (c) What would you have to do to
+  see the green line from <code>analyze.py</code> but still see a yellow block from
+  <code>run_experiment.py</code>?</p></div>
+  <details><summary>Solution</summary><div class="solution">
+    <p><strong>(a)</strong> The record of which fallbacks fired lives in a list inside
+    <code>todo.py</code>, and that list exists only while a program is running. Each script is
+    a separate program with its own fresh copy. <code>run_experiment.py</code> only ever calls
+    <code>todo.pending()</code> for TODO 4a and 4b, in the loop in <code>run_condition()</code>;
+    <code>analyze.py</code> only ever calls it for TODO 5a to 5d, in
+    <code>compute_confusion()</code>. Neither script can report on the other's TODOs because
+    neither script executes the other's code. Two plus four is the six.</p>
+    <p><strong>(b)</strong> <code>run_experiment.py</code> now reports one fallback instead of
+    two: TODO 4b, with the same file and function and the note <em>send the prompt with
+    ask(...)</em>. <code>analyze.py</code> is unchanged and still reports four. It reads
+    prediction CSVs off the disk and does not care who built the prompts that produced
+    them.</p>
+    <p><strong>(c)</strong> Finish all four of TODO 5a to 5d and leave either 4a or 4b
+    unfinished. Then <code>analyze.py</code> prints <em>✓ Nothing fell back — this run was
+    entirely your code</em> while <code>run_experiment.py</code> still prints yellow. This is
+    not a trick: the two halves of the project are genuinely independent, and the green line
+    from one script is a statement about that script only. The finish line for Phase 2 is green
+    from <em>both</em>.</p>
+  </div></details>
+</div>
+
+<div class="exercise">
+  <div class="ex-head">Exercise 1.5 <span class="stars">★★</span><span class="tag">arithmetic</span></div>
+  <div class="ex-body"><p>In Phase 2 you write the four counts. A very common first attempt
+  writes the true positives with <code>|</code> instead of <code>&amp;</code>:</p>
+  <div class="cmd"><pre>tp = len(scored[(scored["ground_truth"] == M) | (scored["prediction"] == M)])</pre></div>
+  <p>The other three lines are correct. Run on the demo data, whose true counts are
+  <code>TP=4, FN=2, FP=4, TN=2</code> over twelve scored items: what number does that line
+  produce, what does the program do next, and is this a crash you should worry about?</p></div>
+  <details><summary>Solution</summary><div class="solution">
+    <p><code>|</code> means "or", so instead of counting the rows where the truth is M
+    <em>and</em> the prediction is M, that line counts every row where the truth is M
+    <em>or</em> the prediction is M. Three of the four cells satisfy that: the true positives
+    (both are M), the false negatives (the truth is M) and the false positives (the prediction
+    is M). Only the true negatives are excluded.</p>
+    <p>$$tp_{\text{wrong}} = TP + FN + FP = 4 + 2 + 4 = 10$$</p>
+    <p>The other three lines are right, so the four numbers are now 10, 2, 4, 2 and they sum
+    to 18. <code>compute_confusion()</code> checks that sum against the number of scored
+    items:</p>
+    <div class="out"><i>Your four counts add up to 18, but there are 12 scored items.</i>
+  -&gt; One of the conditions in TODO 5 is wrong. Check that you used &amp; (and) not | (or),
+     and that each row lands in exactly one box.</div>
+    <p>and stops. <strong>Yes, worry about it — and that is the correct response.</strong> This
+    is a stop, not a fallback, which by the rule on this page means it is a real problem in
+    your code rather than something unfinished. The guard exists because every row of the data
+    belongs in exactly one of the four boxes, so the four counts must sum to the number of
+    rows. Any arithmetic that breaks that identity is wrong, whatever else it looks like, and
+    catching it here is much cheaper than noticing a strange recall three weeks later.</p>
+    <p>Note what the guard does <em>not</em> catch: any error that leaves the total intact. See
+    the next exercise.</p>
+  </div></details>
+</div>
+
+<div class="exercise">
+  <div class="ex-head">Exercise 1.6 <span class="stars">★★</span><span class="tag">thinking</span></div>
+  <div class="ex-body"><p>Now suppose you swap TODO 5b and 5c: your <code>fn</code> line
+  counts the rows where the truth is C and the prediction is M, and your <code>fp</code> line
+  counts the rows where the truth is M and the prediction is C. Everything else is right.</p>
+  <p>(a) Does the sum check from the last exercise catch it? (b) Does the scikit-learn
+  cross-check in <code>analyze.py</code> catch it? (c) Of the two confusion-matrix tests in the
+  suite, which one catches it, and why does the other one fail to?</p></div>
+  <details><summary>Solution</summary><div class="solution">
+    <p><strong>(a) No.</strong> Each row still lands in exactly one box; two of the boxes have
+    simply exchanged labels. On the demo data you get <code>TP=4, FN=4, FP=2, TN=2</code>,
+    which still sums to 12. The guard is silent. Meanwhile recall has gone from
+    <code>4/(4+2) = 0.667</code> to <code>4/(4+4) = 0.5</code> and precision has gone the other
+    way, so the headline number of the entire study is wrong and nothing has complained.</p>
+    <p><strong>(b) Yes.</strong> <code>cross_check_with_sklearn()</code> compares your four
+    counts against <code>sklearn.metrics.confusion_matrix</code> as a tuple, so it notices as
+    soon as your FN and your FP differ from each other. On the demo data they do — 4 against 2
+    — and the line prints <code>MISMATCH ✗ — recheck TODO 5</code>. This is exactly the case
+    the second opinion is there for: an error that produces plausible, well-formed, entirely
+    wrong numbers.</p>
+    <p><strong>(c)</strong> <code>test_confusion_agrees_with_sklearn</code> catches it. It uses
+    a table with seven true positives, three false negatives, two false positives and eight
+    true negatives; three does not equal two, so the swap changes the answer and the assertion
+    fails.</p>
+    <p><code>test_confusion_counts_land_in_the_right_boxes</code> does not catch it. Its little
+    six-row table has one false negative and one false positive, and swapping two equal numbers
+    changes nothing at all. The test passes on broken code.</p>
+    <p>This is the lab's point arriving in a second costume. A test whose false negatives and
+    false positives happen to be equal is blind to any confusion between them, in exactly the
+    way a mock model that never makes a mistake is blind to both. If you want a check to be
+    able to fail, the case you feed it has to be asymmetric enough that a wrong answer looks
+    different from a right one.</p>
+  </div></details>
+</div>
+
+<div class="exercise">
+  <div class="ex-head">Exercise 1.7 <span class="stars">★★★</span><span class="tag">writing</span></div>
+  <div class="ex-body"><p>Someone reads your repository and asks a sharp question: "You import
+  scikit-learn, which computes confusion matrices in one line. Why is there a hand-written
+  version at all? Either the library is right and yours is redundant, or yours is right and the
+  library is redundant."</p>
+  <p>Answer in a short paragraph you would be happy to say out loud. Include the arithmetic
+  from <code>test_metrics_match_hand_calculation</code> as your worked example.</p></div>
+  <details><summary>Solution</summary><div class="solution">
+    <p>The question assumes the two versions are doing the same job. They are not.</p>
+    <p>The hand-written version exists because I have to be able to say what the numbers mean,
+    not just produce them. The test suite pins that down with a table I can work through on
+    paper. Take <code>TP = 8, FP = 2, FN = 4, TN = 6</code>, twenty items in total, with
+    M — "contains a misconception" — as the positive class:</p>
+    <p>$$\text{accuracy} = \frac{8+6}{20} = 0.700, \qquad \text{precision} = \frac{8}{8+2} = 0.800, \qquad \text{recall} = \frac{8}{8+4} \approx 0.667$$</p>
+    <p>$$F_1 = \frac{2 \times 0.800 \times 0.667}{0.800 + 0.667} \approx 0.727$$</p>
+    <p>Every one of those is arithmetic I can do without a computer, and each has a sentence in
+    English attached to it: of the twelve responses that really did contain a misconception, the
+    model caught eight, so recall is two-thirds. If I could only get that from a library call I
+    would not be able to defend the result, spot an implausible one, or notice that a
+    denominator had gone to zero.</p>
+    <p>scikit-learn exists for a different reason: it is a second, independently written
+    implementation, so agreement between the two is evidence that my arithmetic is right. It is
+    not redundant, because it is not the same claim. Mine says <em>I know what a false negative
+    is</em>. The cross-check says <em>and I counted them correctly</em>. Those fail separately
+    and both matter, so the project runs both on every analysis and the test suite asserts they
+    agree.</p>
+    <p>The honest limit of the argument: agreement only shows the two implementations match. If
+    I fed both of them the wrong column, or labelled twenty responses badly in Phase 3, they
+    would agree beautifully on a meaningless answer. Cross-checking protects the arithmetic. It
+    cannot protect the data, which is why Phase 3 has a second reader rather than a second
+    library.</p>
+  </div></details>
+</div>
+
+<h2>10 · Verification</h2>
+
+<div class="box verify">
+  <span class="lbl">Before the check-in</span>
+  <ul>
+    <li><code>python3 --version</code> prints 3.9 or higher, and I know whether my machine wants <code>python3</code> or <code>python</code>.</li>
+    <li>I am in the repository root when I run <code>pip3 install -r requirements.txt</code>, and it finished without errors.</li>
+    <li><code>check_setup.py</code> ends with <code>✓ Your environment is working</code> and no <code>[FIX]</code> lines anywhere above it.</li>
+    <li>I can say what each of the three remaining <code>[TODO]</code> lines is waiting for, and which phase clears it.</li>
+    <li><code>run_experiment.py --mock --sample</code> then <code>analyze.py</code> both completed, and I have opened <code>python/results/comparison.png</code> and looked at it.</li>
+    <li>I can explain, unprompted, why an unfinished TODO cannot crash the program and what that implies about any crash I do see.</li>
+    <li><code>pytest -q</code> prints nineteen dots and no letters.</li>
+    <li>I have not written down a single number from <code>--mock</code> or <code>--sample</code> anywhere I might later mistake for a result.</li>
+  </ul>
+</div>
+
+<div class="box aside">
+  <span class="lbl">Going deeper (optional)</span>
+  <p>There is a <code>Makefile</code> in the repository root, which is a list of shortcuts for
+  the commands on this page. If <code>make</code> exists on your machine:</p>
+  <div class="cmd"><pre><span class="p">$ </span>make help
+<span class="p">$ </span>make check
+<span class="p">$ </span>make demo</pre></div>
+  <p><code>make demo</code> is exactly the two commands from section 6, and <code>make
+  help</code> prints every shortcut with a one-line description. Windows usually does not have
+  <code>make</code>; nothing is lost, because you can read the recipe for any target straight
+  out of the file and paste the command in yourself. That is a good reason to open the file
+  once: a Makefile is a readable list of the real commands, and reading one is a fast way to
+  learn what a project actually does.</p>
+  <p>The other file worth opening early is <code>python/misconception/config.py</code>. Every
+  setting in the study lives in it — the model name, the temperature, the two condition names,
+  and the choice of M as the positive class, each with a comment explaining why. When somebody
+  asks "which model, at what temperature?", and somebody will, the answer is in one file rather
+  than scattered across five scripts. Design your own projects this way.</p>
+</div>
+
+<div class="pager"><a href="index.html">← The setup track</a><a href="ollama.html">Setup 2 · Ollama and the local model →</a></div>
+
+</main>
+
+<footer class="site">
+  <div class="wrap">
+    <strong>Wrong in a Particular Way</strong> · Setup, step 1 ·
+    <a href="../index.html">index</a> ·
+    <a href="../extras/glossary.html">glossary</a> ·
+    <a href="../extras/unstuck.html">stuck?</a>
+  </div>
+</footer>
+
+</body>
+</html>

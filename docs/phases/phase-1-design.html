@@ -1,0 +1,998 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Phase 1 · The design, and why it is this shape — Wrong in a Particular Way</title>
+<link rel="stylesheet" href="../assets/vendor/katex/katex.min.css">
+<link rel="stylesheet" href="../assets/css/style.css">
+<script src="../assets/vendor/katex/katex.min.js"></script>
+<script src="../assets/vendor/katex/auto-render.min.js"></script>
+<script src="../assets/js/detect.js"></script>
+</head>
+<body>
+
+<header class="site">
+  <div class="wrap">
+    <div class="crumbs"><a href="../index.html">Wrong in a Particular Way</a> · Phase 1</div>
+    <div class="badges"><span class="badge">Phase 1 · P1</span><span class="badge win">Win: you can defend the design without notes</span></div>
+    <h1 class="chapter-title">The design, and why it is this shape</h1>
+    <p class="chapter-sub">Two conditions, one difference, forty items, four numbers, and a prediction written down in advance.</p>
+  </div>
+</header>
+
+<main class="wrap">
+
+<p class="lede">This is the page you will be asked about — not the code, not the charts, the
+reasoning. Somebody will say "why only detection?", "why is recall the headline?", "why not just
+report accuracy?", and the answer has to come out of your mouth in a sentence rather than off a
+slide. Everything here is arithmetic you can do on paper or a choice you can justify in one
+line. No code this phase, nothing to install.</p>
+
+<div class="objectives">
+  <h3>By the end of this phase you can</h3>
+  <ul>
+    <li>Say why the pilot measures detection rather than learning, and why that is a narrowing rather than a retreat.</li>
+    <li>State the two conditions and name, exactly, the one thing that differs between them.</li>
+    <li>Fill in a confusion matrix from a list of labels and predictions, by hand, with M as the positive class.</li>
+    <li>Compute accuracy, precision, recall and F1 from that matrix, and say which one you lead with and why.</li>
+    <li>Explain why F1 is a harmonic mean, using the arithmetic rather than the word "balance".</li>
+    <li>State the majority-class floor for this design and refuse to report any number without it.</li>
+    <li>Say in advance what result would count as "the catalogue did not help".</li>
+  </ul>
+</div>
+
+<h2>1 · The question, and why the pilot measures detection</h2>
+
+<p>The question the project is really about is this: <strong>does a language model that knows
+the catalogue of misconceptions help someone learn more than one that does not?</strong> This
+pilot does not answer it and cannot. Answering it needs real students, two groups, a pre-test,
+a post-test, a delayed post-test weeks later, parental consent and a school sign-off — a year
+of work, most of it paperwork.</p>
+
+<p>So the pilot takes the question apart. "Misconception-aware tutoring helps learning" is a
+chain, and each link depends on the one below it:</p>
+
+<div class="box definition">
+  <span class="lbl">The chain, from the top down</span>
+  <p><strong>How much does the tutoring help someone learn?</strong> — depends on →</p>
+  <p><strong>How often does the tutor say the right thing back?</strong> — depends on →</p>
+  <p><strong>How reliably does the tutor notice the misconception at all?</strong>
+  <span class="status observed">this link, and only this link</span></p>
+</div>
+
+<p>Read the chain from the bottom. A tutor that cannot tell a confused answer from a correct
+one cannot possibly correct it: it would be congratulating the students who are wrong and
+correcting the students who are right, and no amount of eloquence downstream rescues that.
+<strong>Detection is a precondition for correction.</strong> If detection is unreliable, the
+higher links have nothing to stand on — and you have found that out in a term rather than in a
+year.</p>
+
+<p>That is what narrowing looks like when it is done properly. You are not giving up on the
+big question; you are choosing the one link in the chain that can actually be measured with a
+laptop and five hours a week. The narrowed question is:</p>
+
+<div class="box theorem">
+  <span class="lbl">The pilot question</span>
+  <p><strong>To what extent can a small local language model sort a short written answer about
+  passwords into "contains a misconception" or "correct" — and how much does handing it an
+  explicit catalogue of ten known misconceptions change that?</strong></p>
+  <p class="muted">Note the shape: <em>to what extent</em>, not <em>can it</em>. A yes-or-no
+  question either has an obvious answer or is hiding a measurement; this one forces a number,
+  and a number forces a method.</p>
+</div>
+
+<p>The honest cost, which goes in your limitations paragraph and not in a footnote:
+<em>this pilot shows nothing at all about learning.</em> It shows something about detection.
+Saying so plainly is what makes the rest of the write-up believable.</p>
+
+<h2>2 · Two conditions, one difference</h2>
+
+<p>Two conditions, named in <code>python/misconception/config.py</code> as
+<code>CONDITIONS = ["baseline", "misconception_aware"]</code>.</p>
+
+<p><strong><code>baseline</code></strong> is a generic grader: handed one student response,
+asked whether it is correct or contains an incorrect belief, never told what a password
+misconception looks like. It stands in for an ordinary chatbot.
+<strong><code>misconception_aware</code></strong> is the same request with your catalogue of ten
+misconceptions pasted in above it and an instruction to check against that list.</p>
+
+<p>Everything else is identical: same model (<code>llama3.2:3b</code>), same temperature (0),
+same forty responses in the same order, same reply-length cap, same parser. Side by side — grey
+is character-for-character the same in both, highlighted is what differs.</p>
+
+<div class="ab">
+  <div class="a">
+    <div class="ab-h">A · baseline</div>
+<pre><span class="same">You are evaluating a student's answer
+about computer security.</span>
+
+<span class="same">Read the student's response below</span> <span class="diff">and
+decide whether it is correct or
+whether it contains an incorrect
+belief.</span>
+
+<span class="same">STUDENT RESPONSE:
+"I change my password every month so
+my account is definitely secure."</span>
+
+<span class="same">Answer using exactly this format and
+nothing else:
+
+VERDICT: &lt;M or C&gt;
+REASON: &lt;one short sentence&gt;
+
+Use M if the response contains a
+misconception (a confident but
+incorrect belief). Use C if the
+response is correct.</span></pre>
+  </div>
+  <div class="b">
+    <div class="ab-h">B · misconception_aware</div>
+<pre><span class="same">You are evaluating a student's answer
+about computer security.</span>
+
+<span class="diff">The following are documented
+misconceptions that students commonly
+hold about passwords and
+authentication:
+
+1. Long passwords are always strong.
+2. Changing passwords often makes
+   accounts safer.
+   ... all ten, every time ...</span>
+
+<span class="same">Read the student's response below</span><span class="diff">.
+Decide whether it reflects any of the
+misconceptions listed above, or
+whether it is correct.</span>
+
+<span class="same">STUDENT RESPONSE:
+"I change my password every month so
+my account is definitely secure."</span>
+
+<span class="same">Answer using exactly this format and
+nothing else:
+
+VERDICT: &lt;M or C&gt;
+REASON: &lt;one short sentence&gt;
+
+Use M if the response contains a
+misconception (a confident but
+incorrect belief). Use C if the
+response is correct.</span></pre>
+  </div>
+</div>
+
+<p>The principle underneath this is the whole of experimental design in one sentence:
+<strong>a comparison means something only when exactly one thing differs.</strong> Suppose you
+had also made prompt B longer and better organised. Then B wins and you have learned nothing,
+because you cannot say whether it won on the catalogue or on the tidier writing. There is a word
+for that — <strong>confounded</strong> — and a confounded result is not a weak result, it is a
+result that does not exist.</p>
+
+<div class="box warning">
+  <span class="lbl">Where this design honestly stretches its own rule</span>
+  <p>Look at the highlighted middle of prompt B. The instruction sentence is not identical to
+  A's: it had to change, because B has to point at the list. <strong>That is a second
+  difference, and you should say so out loud before somebody says it to you.</strong></p>
+  <p>The defence is that the change is forced — there is no way to supply a catalogue without
+  referring to it — and that it is as small as it could be. The stronger defence is a control
+  condition that separates the two, and Exercise 1.5 asks you to design it. Knowing where your
+  own design is weakest, and having already thought about the fix, is worth more at a
+  check-in than pretending it is airtight.</p>
+</div>
+
+<p>Three of these fairness conditions are checked automatically. In
+<code>python/tests/test_pipeline.py</code>:</p>
+
+<ul>
+  <li><code>test_baseline_prompt_does_not_leak_the_misconception_list</code> — no misconception
+  statement appears anywhere in the baseline prompt. If one did, the plain condition would
+  secretly not be plain.</li>
+  <li><code>test_aware_prompt_contains_every_misconception</code> — every statement in the
+  catalogue actually reaches the model. A quietly truncated list would mean condition B is not
+  the condition you described.</li>
+  <li><code>test_both_prompts_share_the_same_output_format</code> —
+  <code>OUTPUT_FORMAT_INSTRUCTION</code> appears verbatim in both, so the parser does the same
+  job either way.</li>
+</ul>
+
+<p>Those are necessary conditions, not full identity: they do not check that the two prompts
+match byte for byte outside the catalogue block, because they do not. Reading them side by side
+and listing every difference stays your job.</p>
+
+<h2>3 · The confusion matrix</h2>
+
+<p>After a run you have forty rows, each holding your label and the model's verdict. Every row
+falls into exactly one of four boxes. Which four depends on a choice you make first, and it is
+the choice that everything else is measured against:</p>
+
+<div class="box definition">
+  <span class="lbl">The positive class is M</span>
+  <p><strong>M</strong> — "this response contains a misconception" — is the positive class.
+  This is set in <code>python/misconception/config.py</code> as
+  <code>POSITIVE_LABEL = LABEL_MISCONCEPTION</code>. Precision, recall and F1 are all measured
+  with respect to it, and every one of them changes if you flip the choice.</p>
+  <p>"Positive" does not mean good. It means <em>the thing the detector is trying to find</em>.
+  A smoke alarm's positive class is smoke. <strong>A metric quoted without its positive class
+  stated is meaningless</strong>, so say it every single time you print one.</p>
+</div>
+
+<p>With M as positive, the four boxes are:</p>
+
+<ul>
+  <li><strong>TP</strong> — truly M, model said M: it caught a real misconception.</li>
+  <li><strong>FN</strong> — truly M, model said C: it <em>missed</em> one.</li>
+  <li><strong>FP</strong> — truly C, model said M: a false alarm.</li>
+  <li><strong>TN</strong> — truly C, model said C: correctly left alone.</li>
+</ul>
+
+<p>Suppose that out of your twenty M items the model caught fourteen, and out of your twenty C
+items it wrongly flagged three:</p>
+
+<div id="egmatrix"></div>
+
+<script>
+G.lab(function () {
+  G.matrix('egmatrix', { tp: 14, fn: 6, fp: 3, tn: 17 });
+});
+</script>
+
+<p>Read it as a sentence, not a grid. <em>Twenty responses really contained a misconception;
+the model found fourteen and walked past six. Twenty were fine; it left seventeen alone and told
+three students they were wrong when they were not.</em> Rows are the truth you wrote, columns
+are what the model said, diagonals are agreement.</p>
+
+<h3>The two errors are not the same size</h3>
+
+<p>The off-diagonal boxes are both mistakes, and here is the point of the whole design:
+<strong>they do not cost the same.</strong> A <strong>false negative</strong> means a student
+held a belief like "changing my password
+every month keeps me safe" and the tutor read it and said nothing. The student leaves still
+believing it, now with a machine's silence as confirmation. Scheduled rotation pushes people
+towards predictable increments — Summer2026!, Fall2026! — and NIST SP 800-63B recommends
+against requiring it <span class="status cited">cited</span>. The misconception survives contact
+with the tutor. That is the failure that costs something.</p>
+
+<p>A <strong>false positive</strong> means the tutor corrected a student who was already right.
+That is genuinely bad — irritating, and enough of it and the student stops trusting the tool,
+which eventually costs you the true positives too. But nobody's account gets taken over because
+a tutor was over-cautious.</p>
+
+<p>Unequal costs are why one metric gets to be the headline. Six misses and three false alarms
+is not the same result as three misses and six false alarms, even though both are nine errors
+and both give exactly the same accuracy. Accuracy cannot see the difference. Recall can.</p>
+
+<h2>4 · The four metrics</h2>
+
+<p>All four are arithmetic on those four counts, all with M as the positive class.</p>
+
+<p><strong>Accuracy</strong> — of all forty items, what fraction did it get right:</p>
+
+$$\text{accuracy} = \frac{TP + TN}{TP + FN + FP + TN}$$
+
+<p><strong>Precision</strong> — of the alarms it raised, what fraction were real. The
+denominator is everything the model <em>called</em> M:</p>
+
+$$\text{precision} = \frac{TP}{TP + FP}$$
+
+<p><strong>Recall</strong> — of the misconceptions that were really there, what fraction it
+caught. The denominator is everything that truly <em>was</em> M:</p>
+
+$$\text{recall} = \frac{TP}{TP + FN}$$
+
+<p>Those two denominators are the only thing you have to keep straight, and swapping them is
+the most common error in this whole project. The memory hook: <em>precision is about the
+model's claims, recall is about the world's misconceptions.</em></p>
+
+<p><strong>F1</strong> — one number when you want to talk about both. It is the harmonic mean
+of precision and recall:</p>
+
+$$F_1 = \frac{2 \cdot \text{precision} \cdot \text{recall}}{\text{precision} + \text{recall}}
+      = \frac{2\,TP}{2\,TP + FP + FN}$$
+
+<p>Running the example matrix through all four, with \(TP = 14\), \(FN = 6\), \(FP = 3\),
+\(TN = 17\):</p>
+
+<div class="box example">
+  <span class="lbl">The arithmetic, in full</span>
+  <p>accuracy = (14 + 17) / 40 = 31/40 = <strong>0.775</strong></p>
+  <p>precision = 14 / (14 + 3) = 14/17 = <strong>0.824</strong></p>
+  <p>recall = 14 / (14 + 6) = 14/20 = <strong>0.700</strong></p>
+  <p>F1 = 2 × 0.824 × 0.700 / (0.824 + 0.700) = 1.1529 / 1.5235 =
+  <strong>0.757</strong>, and the shortcut agrees: 2(14) / (2(14) + 3 + 6) = 28/37 = 0.757.</p>
+  <p class="muted">Positive class M throughout, n = 40. Each of these is a proportion with a
+  wide interval attached at this sample size; section 5 does that part.</p>
+</div>
+
+<h3>Why F1 is a harmonic mean and not an ordinary one</h3>
+
+<p>Take a model that flags every single item as M. It catches all twenty real misconceptions,
+so <strong>recall is 100%</strong>. It also flags all twenty correct ones, so of its forty
+alarms half are wrong: <strong>precision is 50%</strong>. Is that worth deploying? No — it is a
+system that says "misconception" and has learned nothing. Now score it:</p>
+
+<div class="box theorem">
+  <span class="lbl">Harmonic against arithmetic <span class="status proved">proved</span></span>
+  <p>Arithmetic mean: (1.00 + 0.50) / 2 = <strong>0.750</strong>.</p>
+  <p>Harmonic mean: 2 × 1.00 × 0.50 / (1.00 + 0.50) = 1.00 / 1.50 = <strong>0.667</strong>.</p>
+  <p>The arithmetic mean gives a useless classifier 0.75, which sounds like a decent result.
+  The harmonic mean gives it 0.667, and drags it further down the more lopsided the pair gets.
+  In general, for any two positive numbers the harmonic mean is at most the arithmetic mean,
+  with equality only when the two are equal. So <strong>F1 is pulled towards the smaller of the
+  two</strong>, and a model can only score well on it by being decent at both.</p>
+  <p>A single very high number cannot rescue a single very low one. That is exactly the
+  property you want from a summary score. <span class="qed">&#8718;</span></p>
+</div>
+
+<p>F1 is the summary; recall is the headline. Report all four, lead with recall, and say why
+in the same breath: a missed misconception is the error that costs something.</p>
+
+<div class="lab">
+  <div class="lab-title">Lab 1 · Move the errors around and watch the metrics</div>
+  <p class="lab-desc">The design fixes twenty truly-M and twenty truly-C items, so
+  TP + FN = 20 and FP + TN = 20 always, leaving exactly two free numbers. Set them and read the
+  live matrix, the four metrics and their 95% Wilson intervals. Find two settings with the same
+  accuracy and completely different recall — that is the point. Then push false negatives to 20
+  and watch precision.</p>
+  <canvas id="cm" height="290"></canvas>
+  <div class="controls" id="cmctl"></div>
+  <div id="cmtable"></div>
+  <div class="metrics-row" id="cmtiles"></div>
+  <div class="readout" id="cmout"></div>
+</div>
+
+<script>
+G.lab(function () {
+  var st = G.controls('cmctl', [
+    { k: 'fn', type: 'range', label: 'false negatives — misconceptions MISSED (of 20)',
+      min: 0, max: 20, step: 1, value: 6,
+      fmt: function (v) { return String(v); } },
+    { k: 'fp', type: 'range', label: 'false positives — false alarms (of 20)',
+      min: 0, max: 20, step: 1, value: 3,
+      fmt: function (v) { return String(v); } }
+  ], draw);
+
+  function ci(k, n) {
+    if (!n) return null;
+    var w = G.wilson(k, n);
+    return '95% CI ' + (100 * w[0]).toFixed(0) + '–' + (100 * w[1]).toFixed(0) + '%';
+  }
+
+  function tile(key, val, sub, lead) {
+    return '<div class="metric' + (lead ? ' lead' : '') + '">' +
+           '<div class="mk">' + key + '</div>' +
+           '<div class="mv">' + val + '</div>' +
+           '<div class="mci">' + (sub || '&nbsp;') + '</div></div>';
+  }
+
+  function draw() {
+    var cv = G.canvas('cm'); if (!cv) return;
+
+    var fn = Math.round(st.fn), fp = Math.round(st.fp);
+    var tp = 20 - fn, tn = 20 - fp;
+    var m = G.metrics({ tp: tp, fn: fn, fp: fp, tn: tn });
+
+    G.matrix('cmtable', { tp: tp, fn: fn, fp: fp, tn: tn });
+
+    var accCI = G.wilson(tp + tn, 40);
+    var recCI = G.wilson(tp, 20);
+    var precCI = (tp + fp) ? G.wilson(tp, tp + fp) : null;
+
+    var host = document.getElementById('cmtiles');
+    if (host) {
+      host.innerHTML =
+        tile('accuracy', G.pct(m.acc), ci(tp + tn, 40), false) +
+        tile('precision', G.pct(m.prec), (tp + fp) ? ci(tp, tp + fp) : 'no alarms raised', false) +
+        tile('recall', G.pct(m.rec), ci(tp, 20), true) +
+        tile('F1', G.pct(m.f1), 'not a simple proportion', false);
+    }
+
+    /* The picture: the four metrics as bars, with Wilson whiskers where a
+       Wilson interval is actually the right object, and the majority-class
+       floor drawn across everything. */
+    var fr = G.frame(cv.ctx, cv.w, cv.h, {
+      xmin: -0.85, xmax: 3.65, ymin: 0, ymax: 1.10,
+      margin: { left: 54, bottom: 30, top: 16, right: 16 }
+    });
+    fr.axes({ ylabel: 'score (positive class M)', xticks: 0, yticks: 4,
+              yfmt: function (v) { return v.toFixed(2); } });
+
+    var BARS = [
+      ['accuracy',  m.acc,  G.COL.muted,  accCI],
+      ['precision', m.prec, G.COL.amber,  precCI],
+      ['recall',    m.rec,  G.COL.accent, recCI],
+      ['F1',        m.f1,   G.COL.violet, null]
+    ];
+
+    BARS.forEach(function (b, i) {
+      var v = b[1], col = b[2], w = 0.30;
+      if (v === null) {
+        fr.text(i, 0.50, 'undefined', { color: G.COL.rose, align: 'center' });
+        fr.text(i, 0.42, '0/0', { color: G.COL.rose, align: 'center' });
+      } else {
+        fr.rect(i - w, 0, i + w, v, { fill: col, alpha: 0.20, stroke: col, width: 2 });
+        if (b[3]) {
+          fr.line([[i, b[3][0]], [i, b[3][1]]], { color: col, width: 1.6 });
+          fr.line([[i - 0.10, b[3][0]], [i + 0.10, b[3][0]]], { color: col, width: 1.6 });
+          fr.line([[i - 0.10, b[3][1]], [i + 0.10, b[3][1]]], { color: col, width: 1.6 });
+        }
+        /* label sits clear of the whisker cap, not on top of it */
+        var top = b[3] ? Math.max(v, b[3][1]) : v;
+        fr.text(i, top + 0.04, G.pct(v, 0), { color: col, align: 'center' });
+      }
+      fr.text(i, 0.035, b[0], { color: G.COL.ink, align: 'center' });
+    });
+
+    fr.hline(0.5, { color: G.COL.rose, dash: [5, 4] });
+    fr.text(-0.80, 0.525, 'floor 50%', { color: G.COL.rose, align: 'left' });
+
+    var mode;
+    if (fn === 0 && fp === 0) {
+      mode = 'A perfect run. On forty hand-written items this would be more suspicious than\n' +
+             'impressive: it usually means the M items were written too obviously wrong.';
+    } else if (fn > fp) {
+      mode = 'FAILURE MODE — SILENCE. ' + fn + ' students held a misconception and the tutor\n' +
+             'said nothing. It over-trusts. This is the expensive direction.';
+    } else if (fp > fn) {
+      mode = 'FAILURE MODE — NAGGING. ' + fp + ' students were already right and got corrected\n' +
+             'anyway. Annoying, trust-eroding, but nobody gets phished over it.';
+    } else {
+      mode = 'FAILURE MODE — EVEN. ' + fn + ' missed and ' + fp + ' false alarms. Accuracy hides\n' +
+             'nothing here, but it would the moment the split moved.';
+    }
+
+    G.say('cmout',
+      'TP ' + tp + '   FN ' + fn + '   FP ' + fp + '   TN ' + tn + '   (n = 40)\n' +
+      'accuracy ' + G.pct(m.acc) + '    precision ' + G.pct(m.prec) +
+      '    recall ' + G.pct(m.rec) + '    F1 ' + G.pct(m.f1) + '\n' +
+      mode + '\n' +
+      (m.acc <= 0.5
+        ? 'Accuracy is at or below the 50% always-guess-M floor. This result is worth nothing.'
+        : 'Beats the 50% floor by ' + G.fmt(100 * (m.acc - 0.5), 1) +
+          ' percentage points — but look how wide the whiskers are at n = 40.'));
+  }
+  draw();
+});
+</script>
+
+<div class="box warning">
+  <span class="lbl">Undefined is not zero</span>
+  <p>Push false negatives to 20 in the lab above. Now TP = 0 and FP = 0, so precision is
+  0/0: <strong>undefined, not zero.</strong> The model raised no alarms, so "of its alarms, what
+  fraction were right?" has no answer. <code>G.metrics</code> returns <code>null</code> and
+  <code>G.pct</code> prints <code>undefined</code>, deliberately — printing 0.00 would claim
+  every alarm was wrong, which is a different and false statement. Write "precision is undefined
+  because the model raised no alarms", never "precision was 0".</p>
+</div>
+
+<h2>5 · The floor: what a number has to beat</h2>
+
+<p>Your dataset is twenty M and twenty C by construction — ten misconceptions, two M answers
+and two C answers each. Now consider the most stupid classifier that can be built: it ignores
+the response entirely and answers M every time. It gets all twenty M items right and all twenty
+C items wrong, so its accuracy is 20/40 = <strong>50%</strong>. It has read nothing and
+contains no information about passwords whatsoever, and it scores 50%.</p>
+
+<div class="box definition">
+  <span class="lbl">The majority-class baseline</span>
+  <p>The <strong>majority-class baseline</strong> is the accuracy you get by always guessing
+  whichever class is more common — 50% on a balanced 20/20 set, which is what
+  <code>G.metrics</code> returns as <code>majority</code>. On 90 M and 10 C the floor would be
+  90%, and "90% accuracy" there would mean precisely nothing.</p>
+  <p><strong>Every accuracy you report is reported against this floor.</strong> Not "the model
+  got 62.5%", but "62.5% against a majority-class floor of 50%, so 12.5 points above
+  chance-level guessing" — and then, immediately, the interval.</p>
+</div>
+
+<p>This is the single most common way a first machine-learning result turns out to be
+meaningless. Balancing your set at 20/20 is what makes the floor a clean 50%, and is one of the
+better reasons to have balanced it.</p>
+
+<p>The floor also has to survive the interval. At n = 40, an accuracy of 24/40 = 60% has a 95%
+Wilson interval of <strong>44.6% to 73.7%</strong>, which contains 50%. So 60% accuracy on
+forty items is <em>consistent with a model doing nothing at all</em>, and you must not write
+the word "improved" about it. That is the price of a pilot.</p>
+
+<div class="box aside">
+  <span class="lbl">Why Wilson and not the ordinary interval</span>
+  <p>The textbook formula \(p \pm 1.96\sqrt{p(1-p)/n}\) fails badly for small n and for
+  proportions near 0 or 1. At 38 correct out of 40 it produces an upper bound of
+  <strong>1.018</strong> — an accuracy of 101.8%, which is not a thing that exists. The Wilson
+  score interval gives 83.5% to 98.6% instead, and never leaves the unit interval by
+  construction. Use <code>G.wilson(k, n)</code> everywhere; the results page depends on it.</p>
+</div>
+
+<h2>6 · Temperature 0, and what reproducible actually means</h2>
+
+<p><code>TEMPERATURE = 0.0</code> in <code>config.py</code>. Temperature controls how much
+randomness the model uses when picking each next word. At 1.0 it samples freely and gives a
+different answer every time; at 0 it takes the most likely option at every step.</p>
+
+<p>The reason is not that deterministic output is better output. It is that you are running a
+comparison. If the model is random, condition B scoring higher than condition A could just be
+the dice, and you have no way to tell that apart from a real effect. <strong>Temperature 0
+removes one source of variation so that the one you introduced on purpose — the prompt — is
+what is left.</strong></p>
+
+<div class="box warning">
+  <span class="lbl">Temperature 0 is not a guarantee <span class="status observed">observed</span></span>
+  <p>Two runs of the same prompt at temperature 0 may still differ slightly. Floating-point
+  addition is not associative, so the order a machine happens to sum things in can flip a
+  near-tie between two candidate words, and library versions, batching and hardware all change
+  that order. One different word early on can change a whole reply.</p>
+  <p>You will find out how much this matters for your setup, because Phase 4 has you run the
+  whole thing <strong>twice</strong> and count the items where the two runs disagree. That count
+  tells the reader how much of any difference between conditions could be run-to-run noise: if
+  two identical runs disagree on four items, a two-item difference between conditions means
+  nothing. Report it — "two runs at temperature 0 differed on k of 40 items" is one sentence and
+  costs you nothing.</p>
+</div>
+
+<div class="box python">
+  <span class="lbl">Nothing to run this phase — but confirm the plumbing still works</span>
+  <div class="cmd"><pre><span class="p">$ </span>cd python
+<span class="p">$ </span>python3 misconception/run_experiment.py --mock --sample
+<span class="p">$ </span>python3 misconception/analyze.py
+<span class="p">$ </span>pytest ../ -q</pre></div>
+  <p><code>--mock</code> uses a fake model, <code>--sample</code> the twelve demo responses
+  in <code>python/data/sample/</code>. <strong>Both produce demo data, and no number from them
+  may appear in your write-up as a result</strong> — they exist only to prove the pipeline runs
+  end to end. The real numbers come from Phase 4.</p>
+</div>
+
+<h2>7 · What would falsify the hypothesis</h2>
+
+<p>A study that can only come out one way is not a study. So the prediction gets written down
+now, before any data exists, in a form specific enough to be wrong:</p>
+
+<div class="box theorem">
+  <span class="lbl">The prediction, recorded in advance
+  <span class="status conjectured">conjectured</span></span>
+  <p><strong>The misconception-aware condition will raise recall more than it raises
+  precision.</strong></p>
+  <p>The reasoning: naming a failure mode helps a model <em>notice</em> that failure mode. It
+  does not obviously help the model avoid crying wolf on a correct answer — if anything, handing
+  it a list of ten things to look for makes it more likely to see one that is not there. So the
+  expected signature is recall up substantially, precision flat or slightly down, F1 up
+  somewhat.</p>
+</div>
+
+<p>Now the part that makes it a real prediction. Written in advance, here is what would count
+as <em>the catalogue did not help</em>:</p>
+
+<ul>
+  <li><strong>Recall barely moves.</strong> If recall goes from 55% to 60% that is one extra
+  item out of twenty. The Wilson interval for 11/20 runs 34% to 74% and for 12/20 runs 39% to
+  78%; those describe the same state of knowledge. The honest sentence is "no detectable
+  difference at this sample size", and it is a finding.</li>
+  <li><strong>Recall rises but precision collapses.</strong> If the aware condition simply flags
+  more things — recall 95%, precision 52% — check its total number of M predictions against 40.
+  A model that has learned to say "misconception" more often has not learned to detect
+  misconceptions.</li>
+  <li><strong>Precision rises and recall does not.</strong> The opposite of the prediction, and
+  genuinely interesting: the catalogue would be helping it rule things <em>out</em> rather than
+  spot them, and you would have to rewrite the explanation. That is what a surprising result is
+  for.</li>
+  <li><strong>The aware condition is worse.</strong> Entirely possible: a 3-billion parameter
+  model given a long list may get distracted, or pattern-match on surface words in the
+  catalogue. "Adding the catalogue reduced recall from 70% to 55%" is a real and useful finding
+  about small models and long prompts.</li>
+</ul>
+
+<p>None of these four outcomes is a failed project. The failed project is the one where you
+decide afterwards which comparison to report, and writing the prediction down first is what
+stops you doing that without noticing.</p>
+
+<div class="lab">
+  <div class="lab-title">Lab 2 · Cautious or twitchy — the precision/recall tradeoff</div>
+  <p class="lab-desc">Imagine the model ranking all forty responses by how suspicious they
+  look and raising an alarm on the top few. The slider is how many alarms it is willing to
+  raise: 0 is a tutor that never interrupts, 40 is one that flags everything. Watch precision
+  and recall move in opposite directions, find where F1 peaks, and see what reaching 100% recall
+  costs in precision. The ranking is seeded, so the picture is the same on every load.</p>
+  <canvas id="tr" height="310"></canvas>
+  <div class="controls" id="trctl"></div>
+  <div class="readout" id="trout"></div>
+</div>
+
+<script>
+G.lab(function () {
+  /* A fixed, seeded stand-in for a model's suspicion ranking over the forty
+     items. Truly-M items score higher on average than truly-C items, but the
+     distributions overlap — which is exactly what makes the tradeoff exist.
+     Seeded with G.rng so the figure is identical on every load. */
+  var rnd = G.rng(20);
+  function noise() { return (rnd() + rnd() + rnd() - 1.5) / 1.5; }
+  var items = [], i;
+  for (i = 0; i < 20; i++) items.push({ truth: 'M', s: 0.65 + 0.40 * noise() });
+  for (i = 0; i < 20; i++) items.push({ truth: 'C', s: 0.35 + 0.40 * noise() });
+  items.sort(function (a, b) { return b.s - a.s; });
+
+  /* tpAt[a] = how many of the top a alarms are truly M */
+  var tpAt = [0];
+  for (i = 0; i < 40; i++) tpAt.push(tpAt[i] + (items[i].truth === 'M' ? 1 : 0));
+
+  function at(a) {
+    var tp = tpAt[a];
+    return G.metrics({ tp: tp, fn: 20 - tp, fp: a - tp, tn: 20 - (a - tp) });
+  }
+
+  var bestA = 1, bestF1 = -1, fullA = 40, a;
+  for (a = 1; a <= 40; a++) {
+    var f = at(a).f1;
+    if (f !== null && f > bestF1 + 1e-12) { bestF1 = f; bestA = a; }
+  }
+  for (a = 1; a <= 40; a++) { if (tpAt[a] === 20) { fullA = a; break; } }
+
+  var st = G.controls('trctl', [
+    { k: 'a', type: 'range', label: 'alarms raised — how trigger-happy the tutor is',
+      min: 0, max: 40, step: 1, value: 14,
+      fmt: function (v) { return v + ' of 40'; } }
+  ], draw);
+
+  function draw() {
+    var cv = G.canvas('tr'); if (!cv) return;
+    var A = Math.round(st.a);
+    var m = at(A);
+
+    var fr = G.frame(cv.ctx, cv.w, cv.h, {
+      xmin: 0, xmax: 40, ymin: 0, ymax: 1.06,
+      margin: { left: 54, bottom: 44, top: 16, right: 16 }
+    });
+    fr.axes({ xlabel: 'alarms raised (of 40 responses)', ylabel: 'score (positive class M)',
+              xticks: 8, yticks: 4,
+              xfmt: function (v) { return v.toFixed(0); },
+              yfmt: function (v) { return v.toFixed(2); } });
+
+    var pP = [], pR = [], pF = [], k, mm;
+    for (k = 0; k <= 40; k++) {
+      mm = at(k);
+      if (mm.prec !== null) pP.push([k, mm.prec]);
+      pR.push([k, mm.rec]);
+      pF.push([k, mm.f1 === null ? 0 : mm.f1]);
+    }
+    fr.line(pP, { color: G.COL.amber, width: 2 });
+    fr.line(pR, { color: G.COL.accent, width: 2 });
+    fr.line(pF, { color: G.COL.violet, width: 2, dash: [6, 4] });
+
+    fr.vline(bestA, { color: G.COL.violet, dash: [3, 3] });
+    fr.text(bestA, 1.015, 'F1 peaks', { color: G.COL.violet, align: 'center' });
+    fr.vline(fullA, { color: G.COL.accent, dash: [3, 3] });
+    fr.text(fullA, 0.085, 'recall 100%', { color: G.COL.accent, align: 'center' });
+
+    fr.vline(A, { color: G.COL.ink, width: 1.4, dash: [1, 0] });
+    if (m.prec !== null) fr.dot(A, m.prec, { color: G.COL.amber, r: 4, ring: true });
+    fr.dot(A, m.rec, { color: G.COL.accent, r: 4, ring: true });
+    if (m.f1 !== null) fr.dot(A, m.f1, { color: G.COL.violet, r: 4, ring: true });
+
+    fr.legend([['precision', G.COL.amber], ['recall', G.COL.accent], ['F1', G.COL.violet]],
+              { left: true });
+
+    var tp = tpAt[A], fn = 20 - tp, fp = A - tp, tn = 20 - fp;
+    var story;
+    if (A === 0) {
+      story = 'A tutor that never speaks. It raises no alarms, so it is never wrong when it\n' +
+              'speaks — but precision is UNDEFINED, not perfect: there is nothing to score.\n' +
+              'Recall is 0%. All twenty misconceptions walk out of the room.';
+    } else if (A < bestA) {
+      story = 'CAUTIOUS. It only speaks when it is sure, so nearly every alarm is real —\n' +
+              'high precision. But ' + fn + ' misconceptions go unmentioned. Trustworthy and\n' +
+              'not much use: the errors it makes are the expensive kind.';
+    } else if (A > fullA) {
+      story = 'TWITCHY. It has already caught all twenty and is now purely adding false\n' +
+              'alarms: ' + fp + ' students corrected who were right. Recall cannot go above\n' +
+              '100%, so every extra alarm costs precision and buys nothing.';
+    } else if (A === fullA) {
+      story = 'THE CHEAPEST PERFECT-RECALL POINT. Nothing is missed, using the fewest\n' +
+              'alarms that manages it. Note it is NOT where F1 peaks: never missing one\n' +
+              'costs ' + fp + ' false alarms, and F1 does not think that is a good deal.';
+    } else {
+      story = 'AROUND THE BALANCE POINT. Raising one more alarm now trades a little\n' +
+              'precision for a little recall. Which trade you want is a judgement about\n' +
+              'costs, not a fact about the model — and here, missing costs more.';
+    }
+
+    G.say('trout',
+      'alarms ' + A + '     TP ' + tp + '   FN ' + fn + '   FP ' + fp + '   TN ' + tn + '\n' +
+      'precision ' + G.pct(m.prec) + '    recall ' + G.pct(m.rec) +
+      '    F1 ' + G.pct(m.f1) + '    accuracy ' + G.pct(m.acc) + '\n' +
+      story + '\n' +
+      'F1 peaks at ' + bestA + ' alarms (' + G.pct(bestF1) + '). Reaching 100% recall needs ' +
+      fullA + ' alarms,\nwhich drops precision to ' + G.pct(at(fullA).prec) +
+      '. That drop is the price of never missing one.');
+  }
+  draw();
+});
+</script>
+
+<p>Two things to take from that picture. Precision and recall genuinely pull against each other:
+no setting maximises both, so choosing between them is a decision about which error you can
+afford, not a technical detail. And F1 peaks in the middle rather than at either end — the
+harmonic mean refusing to reward the tutor that never speaks or the tutor that never shuts
+up.</p>
+
+<p>Your study does not have this slider; the model gives a verdict, not a ranking. But the same
+tension is inside it. If the misconception-aware prompt raises recall while precision falls, you
+have watched the model slide rightwards along this curve, which is a very different thing from
+the curve itself moving up. Telling those two apart is most of what Phase 5 is about.</p>
+
+<h2>8 · Exercises</h2>
+
+<div class="exercise">
+  <div class="ex-head">Exercise 1.1 <span class="stars">★</span><span class="tag">arithmetic</span></div>
+  <div class="ex-body">
+    <p>A <code>baseline</code> run gives TP = 11, FN = 9, FP = 4, TN = 16. Compute accuracy,
+    precision, recall and F1. State the positive class. Then say, in one sentence, which of the
+    two error types this model makes more of and what that means for a student.</p>
+  </div>
+  <details><summary>Solution</summary><div class="solution">
+    <p>Positive class is M, "this response contains a misconception". n = 11 + 9 + 4 + 16 = 40,
+    which is the right total, so no item has been lost.</p>
+    <p><strong>accuracy</strong> = (TP + TN)/40 = (11 + 16)/40 = 27/40 = <strong>0.675</strong>
+    = 67.5%.</p>
+    <p><strong>precision</strong> = TP/(TP + FP) = 11/(11 + 4) = 11/15 = <strong>0.733</strong>
+    = 73.3%. Of the fifteen times it raised an alarm, eleven were real.</p>
+    <p><strong>recall</strong> = TP/(TP + FN) = 11/(11 + 9) = 11/20 = <strong>0.550</strong>
+    = 55.0%. Of the twenty misconceptions that were really there, it caught eleven.</p>
+    <p><strong>F1</strong> = 2TP/(2TP + FP + FN) = 22/(22 + 4 + 9) = 22/35 =
+    <strong>0.629</strong> = 62.9%. Checking against the other form:
+    2(0.733)(0.550)/(0.733 + 0.550) = 0.8067/1.2833 = 0.629. They agree.</p>
+    <p>FN = 9 against FP = 4, so it makes more than twice as many <em>misses</em> as false
+    alarms. Nine students in this run held a misconception, wrote it down, and the tutor said
+    nothing — the expensive direction. And note the shape: accuracy 67.5% sounds respectable
+    until you see recall is 55%, barely above the 50% you would get by flipping a coin on every
+    item.</p>
+  </div></details>
+</div>
+
+<div class="exercise">
+  <div class="ex-head">Exercise 1.2 <span class="stars">★★</span><span class="tag">arithmetic</span></div>
+  <div class="ex-body">
+    <p>The <code>misconception_aware</code> run on the same forty responses gives TP = 17,
+    FN = 3, FP = 7, TN = 13. Compute the same four metrics, then compare them with Exercise
+    1.1. Does the change match the prediction recorded in section 7? Then compute the Wilson
+    intervals for the two recall figures — 11/20 is 34.2% to 74.2%, and 17/20 is 64.0% to
+    94.8% — and say what that does to your confidence.</p>
+  </div>
+  <details><summary>Solution</summary><div class="solution">
+    <p>Positive class M, n = 17 + 3 + 7 + 13 = 40.</p>
+    <p><strong>accuracy</strong> = (17 + 13)/40 = 30/40 = <strong>0.750</strong> = 75.0%.</p>
+    <p><strong>precision</strong> = 17/(17 + 7) = 17/24 = <strong>0.708</strong> = 70.8%.</p>
+    <p><strong>recall</strong> = 17/(17 + 3) = 17/20 = <strong>0.850</strong> = 85.0%.</p>
+    <p><strong>F1</strong> = 2(17)/(2(17) + 7 + 3) = 34/44 = <strong>0.773</strong> = 77.3%.</p>
+    <p>Side by side, baseline → aware:</p>
+    <p>accuracy 67.5% → 75.0% (up 7.5 points)<br>
+       precision 73.3% → 70.8% (<em>down</em> 2.5 points)<br>
+       recall 55.0% → 85.0% (up 30.0 points)<br>
+       F1 62.9% → 77.3% (up 14.4 points)</p>
+    <p>This is exactly the predicted signature: a large gain in recall, a small loss in
+    precision. The misses fell from nine to three; the false alarms rose from four to seven.
+    In tutor terms, the catalogue turned six silences into six corrections, at the cost of three
+    extra unnecessary corrections. Given that missing is the error that costs something, that is
+    a trade worth making, and you should say so in exactly those words rather than saying
+    "F1 improved".</p>
+    <p>Now the humility. The two recall intervals are 34.2%–74.2% and 64.0%–94.8%. They
+    <strong>overlap</strong>, between about 64% and 74%. Overlapping intervals are not a formal
+    test of the difference — a proper test of a paired difference is a separate calculation, and
+    these two runs are paired, since it is the same forty items both times. But the overlap does
+    tell you the honest register to write in. "Recall rose by 30 points (55% to 85%), though at
+    n = 20 positive items the intervals for the two figures overlap; this is a suggestive pilot
+    result, not an established effect" is a sentence a reader will believe. "The catalogue
+    improves recall" is not.</p>
+  </div></details>
+</div>
+
+<div class="exercise">
+  <div class="ex-head">Exercise 1.3 <span class="stars">★★</span><span class="tag">thinking</span></div>
+  <div class="ex-body">
+    <p>A classmate reports: <em>"My system got 100% recall. It never missed a single
+    misconception."</em> Their matrix is TP = 20, FN = 0, FP = 20, TN = 0. Compute all four
+    metrics and say whether this is a good result. Then say what this implies about leading with
+    recall.</p>
+  </div>
+  <details><summary>Solution</summary><div class="solution">
+    <p>accuracy = (20 + 0)/40 = <strong>50.0%</strong>. precision = 20/(20 + 20) = 20/40 =
+    <strong>50.0%</strong>. recall = 20/(20 + 0) = <strong>100.0%</strong>. F1 =
+    2(1.00)(0.50)/(1.50) = <strong>66.7%</strong>.</p>
+    <p>The recall claim is true and completely worthless. TN = 0 gives it away: the system never
+    once said C. It answers M to everything, which is precisely the always-guess-M classifier
+    from section 5. Its accuracy is 50.0%, sitting exactly on the majority-class floor, so it
+    contains no information about passwords at all. You could replace it with a piece of paper
+    reading "M".</p>
+    <p>Two lessons. First, <strong>recall alone can be gamed by anything willing to say
+    yes</strong>, so "recall is the headline metric" never means "recall is the only metric".
+    You report all four and lead with recall; you do not report recall and hide the rest.
+    Second, this is why the specificity and the raw counts matter: a glance at TN = 0, or at
+    accuracy sitting on the floor, kills the claim instantly, while the recall figure on its own
+    does not.</p>
+    <p>Practically: when your own aware condition shows a recall jump in Phase 5, the first
+    thing to check is how many M predictions it made in total. If it is close to 40, you have
+    this classifier, not a result.</p>
+  </div></details>
+</div>
+
+<div class="exercise">
+  <div class="ex-head">Exercise 1.4 <span class="stars">★★</span><span class="tag">thinking</span></div>
+  <div class="ex-body">
+    <p>Here is a result: <em>"The misconception-aware condition reached 60% accuracy on 40
+    items, compared with 50% for baseline."</em> Is it good? Write the two or three sentences
+    you would actually put in a write-up. The Wilson interval for 24/40 is 44.6% to 73.7%; for
+    20/40 it is 35.2% to 64.8%.</p>
+  </div>
+  <details><summary>Solution</summary><div class="solution">
+    <p>It is not a result yet. Three things are wrong with the sentence as written.</p>
+    <p><strong>1. The floor is unstated, and it happens to be 50%.</strong> The baseline
+    condition's 50% accuracy is exactly what you get by ignoring the input and always answering
+    M. So the comparison being offered is "10 points above a classifier that does nothing",
+    which is a much smaller claim than it sounds.</p>
+    <p><strong>2. The interval swallows the difference.</strong> 24/40 has a 95% Wilson interval
+    of 44.6% to 73.7%. That interval <em>contains 50%</em>. A model whose true accuracy is
+    chance-level would produce 24 correct out of 40 quite often. So the data are consistent with
+    no effect at all.</p>
+    <p><strong>3. Accuracy is the wrong headline here anyway.</strong> Accuracy cannot tell a
+    run with 9 misses and 4 false alarms from one with 4 misses and 9 false alarms, and those
+    are different tutors. The interesting number is recall.</p>
+    <p>What to write instead: <em>"The misconception-aware condition reached 60.0% accuracy
+    (95% Wilson CI 44.6–73.7%) against a majority-class floor of 50%, which the interval
+    contains; the baseline reached 50.0% (35.2–64.8%). At n = 40 this design cannot distinguish
+    a ten-point accuracy difference from noise. Recall, reported below, is the more informative
+    comparison."</em></p>
+    <p>Then in the limitations: say how many items would be needed to detect a difference this
+    size, and note that this is a pilot whose job was to establish the method.</p>
+  </div></details>
+</div>
+
+<div class="exercise">
+  <div class="ex-head">Exercise 1.5 <span class="stars">★★★</span><span class="tag">research</span></div>
+  <div class="ex-body">
+    <p>Section 2 admitted a weakness: prompt B differs from prompt A in two ways, not one — it
+    has the catalogue, <em>and</em> its instruction sentence points at the catalogue. Design a
+    third condition that separates those two differences. Say exactly what it contains, and
+    write down in advance what each possible outcome would let you conclude.</p>
+  </div>
+  <details><summary>Solution</summary><div class="solution">
+    <p><strong>The condition: a placebo catalogue.</strong> Call it
+    <code>irrelevant_catalogue</code>. It is byte-for-byte identical to
+    <code>misconception_aware</code>, including the "decide whether it reflects any of the
+    misconceptions listed above" sentence, except that the ten statements listed are documented
+    misconceptions from a completely different domain — say, mechanics: "heavier objects fall
+    faster", "a moving object needs a continuous force to keep moving", and so on. Ten of them,
+    matched in length and in register to your real ten.</p>
+    <p>The logic: this condition has everything the aware condition has — the same length, the
+    same structure, the same instruction sentence, the same "here is a list, check against it"
+    framing — except the one thing that is supposed to matter, which is that the list describes
+    the misconceptions actually present in the data.</p>
+    <p>Outcomes, written down in advance:</p>
+    <p><strong>Aware &gt; irrelevant ≈ baseline.</strong> The gain came from the content of the
+    catalogue. This is the result you are hoping for and it is now defensible, because the
+    wording change and the extra prompt length have been controlled for.</p>
+    <p><strong>Aware ≈ irrelevant &gt; baseline.</strong> Any list helps. The model is not using
+    your ten misconceptions — it is responding to being told to look for problems, which primes
+    it to answer M more often. Your finding changes completely: it becomes a finding about
+    prompt framing, not about misconception knowledge. Check whether the M-prediction count rose
+    in both.</p>
+    <p><strong>Aware ≈ irrelevant ≈ baseline.</strong> Nothing helps at this model size. Report
+    it. This is a real result about 3-billion parameter models.</p>
+    <p><strong>Irrelevant &gt; aware.</strong> Something odd is happening; suspect a bug before
+    a discovery — check that the catalogue is loading, that conditions are not swapped, and that
+    the parser is not failing differently across conditions.</p>
+    <p>Cost: one more condition means forty more model calls, roughly doubling to tripling a run
+    that already takes an afternoon. That is affordable, which is why this is the right variant
+    to propose. Adding it is a change to <code>CONDITIONS</code> in <code>config.py</code>, a
+    new builder in <code>prompts.py</code>, and a branch in <code>build_prompt</code> — the file
+    is laid out to make exactly this easy. Do it only after the two-condition study runs end to
+    end.</p>
+  </div></details>
+</div>
+
+<div class="exercise">
+  <div class="ex-head">Exercise 1.6 <span class="stars">★★</span><span class="tag">by hand</span></div>
+  <div class="ex-body">
+    <p>A run comes back with the model having answered C to all forty items: TP = 0, FN = 20,
+    FP = 0, TN = 20. Compute all four metrics, being careful about what is defined. Then write
+    the one sentence you would put in the results section, and say which of the two errors this
+    model makes.</p>
+  </div>
+  <details><summary>Solution</summary><div class="solution">
+    <p><strong>accuracy</strong> = (0 + 20)/40 = <strong>50.0%</strong> — exactly the
+    majority-class floor, as it must be, since this is the always-guess-C classifier and the set
+    is balanced.</p>
+    <p><strong>recall</strong> = 0/(0 + 20) = 0/20 = <strong>0.0%</strong>. This one <em>is</em>
+    zero and is defined: there were twenty misconceptions to find and it found none.</p>
+    <p><strong>precision</strong> = 0/(0 + 0) = 0/0 = <strong>undefined</strong>. Not zero. The
+    model raised no alarms at all, so "of its alarms, what fraction were correct?" has no
+    subject. <code>G.metrics</code> returns <code>null</code> here and <code>G.pct</code> prints
+    <code>undefined</code>.</p>
+    <p><strong>F1</strong> = <strong>undefined</strong>, because it is built from precision. In
+    the shortcut form 2TP/(2TP + FP + FN) you would get 0/20 = 0, which is why the code computes
+    it from precision and recall instead: the shortcut quietly hides a division that has no
+    answer.</p>
+    <p>The sentence: <em>"The model returned C for all 40 items. Accuracy was 50.0%, exactly the
+    majority-class floor; recall was 0.0%; precision and F1 are undefined, as no positive
+    predictions were made."</em></p>
+    <p>Every error it makes is a false negative — twenty misses, zero false alarms. It is the
+    perfectly silent tutor, which is the worst possible tutor for this purpose while looking
+    respectable on accuracy. If you see this in a real run, suspect the prompt or the parser
+    before you conclude anything about the model: a parser returning C where it should return
+    <code>?</code> produces exactly this pattern.</p>
+  </div></details>
+</div>
+
+<div class="exercise">
+  <div class="ex-head">Exercise 1.7 <span class="stars">★★</span><span class="tag">writing</span></div>
+  <div class="ex-body">
+    <p>Write, in your own words and before any data exists, the paragraph that goes in your
+    write-up under the heading "What would have changed our conclusion". It must name a specific
+    numerical outcome for at least two of the four metrics. Keep it under 120 words. Then put a
+    date on it and commit it.</p>
+  </div>
+  <details><summary>Solution</summary><div class="solution">
+    <p>There is no single right answer, but a good one is specific enough to be checked against
+    later. For example:</p>
+    <p><em>"We predicted before running that the misconception-aware condition would raise
+    recall substantially while leaving precision flat or slightly lower. We would have concluded
+    the catalogue did not help if recall had risen by two items or fewer out of twenty (a change
+    of 10 percentage points or less, well inside the Wilson intervals at this n), or if the gain
+    in recall had come with the aware condition predicting M on more than about 32 of the 40
+    items, since that would indicate a drift towards the always-guess-M classifier rather than
+    improved detection. We would also have reported a reduction in recall, which is a plausible
+    outcome for a 3B model given a long prompt."</em></p>
+    <p>Check yours against three things. Does it name numbers, not adjectives? Does it describe
+    at least one outcome that would have embarrassed you? Could a stranger check, from your
+    results table alone, whether the condition was met? If yes to all three, it does its job.</p>
+    <p>Commit it before Phase 4 runs. The whole value of a pre-registered prediction is the
+    timestamp; written afterwards it is just a description of what happened.</p>
+  </div></details>
+</div>
+
+<h2>9 · Verification</h2>
+
+<div class="box verify">
+  <span class="lbl">Before the check-in</span>
+  <ul>
+    <li>I can say in one sentence why the pilot measures detection and not learning.</li>
+    <li>I can name the two conditions and the one thing that differs — and the one place where
+    a second thing had to differ, and why.</li>
+    <li>I can fill a 2&times;2 matrix from a list of labels and predictions without looking
+    anything up, with M as the positive class.</li>
+    <li>I can compute all four metrics from that matrix on paper and get the same answers as
+    Exercises 1.1 and 1.2.</li>
+    <li>I can say why F1 is a harmonic mean, using the 100%/50% example and its two numbers.</li>
+    <li>I know the majority-class floor for this design is 50%, why, and that no accuracy gets
+    reported without it.</li>
+    <li>My prediction for Phase 4 is written down, dated, and committed to the repository.</li>
+    <li><code>pytest -q</code> passes from the repository root, so the fairness assertions on
+    the two prompts are green.</li>
+  </ul>
+</div>
+
+<div class="box aside">
+  <span class="lbl">Going deeper (optional)</span>
+  <p><strong>Specificity.</strong> <code>G.metrics</code> also returns
+  <code>spec = TN/(TN + FP)</code> — recall's mirror image, computed with C as the positive
+  class. Reading a result twice, once each way, catches a swapped denominator fast.</p>
+  <p><strong>The curve in Lab 2 has a name.</strong> Sweeping a decision threshold and plotting
+  precision against recall gives a precision–recall curve; plotting recall against the false
+  positive rate gives an ROC curve, whose area is a threshold-free summary of a ranking's
+  quality <span class="status cited">cited</span>. Your model outputs a verdict rather than a
+  score, so you cannot draw either from this design — but if you ever get it to emit a
+  confidence, you can, and that would be a genuinely stronger version of this study.</p>
+</div>
+
+<div class="pager"><a href="../setup/git.html">← Setup 3 · Git</a><a href="phase-2-code.html">Phase 2 · Six TODOs →</a></div>
+
+</main>
+
+<footer class="site">
+  <div class="wrap">
+    <strong>Wrong in a Particular Way</strong> · Phase 1 ·
+    <a href="../index.html">index</a> ·
+    <a href="../extras/glossary.html">glossary</a> ·
+    <a href="../extras/unstuck.html">stuck?</a>
+  </div>
+</footer>
+
+</body>
+</html>

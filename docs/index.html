@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Wrong in a Particular Way</title>
+<link rel="stylesheet" href="assets/vendor/katex/katex.min.css">
+<link rel="stylesheet" href="assets/css/style.css">
+<script src="assets/vendor/katex/katex.min.js"></script>
+<script src="assets/vendor/katex/auto-render.min.js"></script>
+<script src="assets/js/detect.js"></script>
+</head>
+<body>
+
+<header class="site">
+  <div class="wrap wide">
+    <div class="crumbs">A mentored research project · SenSym</div>
+    <h1 class="chapter-title">Wrong in a Particular Way</h1>
+    <p class="chapter-sub">Misconception-aware prompting and the detection of structured error in cybersecurity learning</p>
+  </div>
+</header>
+
+<main class="wrap wide">
+
+<p class="lede">A wrong answer is not noise. Students are wrong in particular, repeatable,
+nameable ways, and a teacher who knows the catalogue of those ways sees things a teacher
+without it does not. This project asks whether the same is true of a language model — and
+measures it, on a laptop, with a model small enough to run for free.</p>
+
+<div class="box theorem">
+  <span class="lbl">The research question</span>
+  <p><strong>Does giving a small language model an explicit catalogue of known
+  misconceptions improve its ability to detect those misconceptions in student writing?</strong></p>
+  <p>The domain is cybersecurity — passwords and authentication — chosen because
+  misunderstanding there has consequences you can point at. The pilot narrows to the
+  <em>detection</em> step, because detection is a precondition for corrective feedback: a
+  tutor that cannot tell a confused answer from a correct one cannot possibly correct it.</p>
+  <p>Two conditions, identical in every respect but one. The <strong>baseline</strong> prompt
+  asks a generic grader to judge whether a response contains a misconception. The
+  <strong>misconception-aware</strong> prompt is the same request with the catalogue of ten
+  specific misconceptions pasted in. Same model, same temperature, same forty responses. The
+  only difference is what the model was told to look for.</p>
+  <p class="muted">Headline expectation, stated in advance so it can be wrong:
+  <em>the misconception-aware condition improves recall more than precision, because naming
+  the failure modes helps the model notice them, not helps it avoid false alarms.</em></p>
+</div>
+
+<div class="toolbar-links">
+  <a href="setup/index.html">Setup track</a>
+  <a href="setup/ollama.html">Ollama walkthrough</a>
+  <a href="phases/phase-1-design.html">Start Phase 1</a>
+  <a href="extras/metrics.html">Metrics playground</a>
+  <a href="extras/glossary.html">Glossary</a>
+  <a href="extras/unstuck.html">Stuck?</a>
+  <a href="extras/ai-policy.html">Using AI tools</a>
+</div>
+
+<h2>Before anything else · Setup</h2>
+
+<p class="muted">Four short pages. Install problems are the single most common way a project
+like this loses a fortnight, and they are much easier to sort out on a call than over email.
+Get through all four before we next talk, even if you have not written a word of data yet.</p>
+
+<div class="sem-grid">
+  <a class="week-card gate" href="setup/index.html"><span class="wk">Start here</span><div class="tt">The setup track — what order, and why</div></a>
+  <a class="week-card" href="setup/python.html"><span class="wk">Step 1</span><div class="tt">Python, the repo, and the first run</div></a>
+  <a class="week-card milestone" href="setup/ollama.html"><span class="wk">Step 2</span><div class="tt">Ollama and the local model</div></a>
+  <a class="week-card" href="setup/git.html"><span class="wk">Step 3</span><div class="tt">Git, the small version</div></a>
+</div>
+
+<h2>The project · Five phases</h2>
+
+<p class="muted">Not weeks. Phases, because they take as long as they take and the third one
+is much harder than it looks. Gold marks a phase that ends in something you can show
+somebody; violet marks the decision gate where the dataset either works or has to be rebuilt.</p>
+
+<div class="sem-grid">
+  <a class="week-card milestone" href="phases/phase-1-design.html"><span class="wk">Phase 1 · P1</span><div class="tt">The design, and why it is this shape</div></a>
+  <a class="week-card" href="phases/phase-2-code.html"><span class="wk">Phase 2</span><div class="tt">Six TODOs, on fake data</div></a>
+  <a class="week-card gate" href="phases/phase-3-dataset.html"><span class="wk">Phase 3 · gate</span><div class="tt">Forty responses — the hard part</div></a>
+  <a class="week-card" href="phases/phase-4-run.html"><span class="wk">Phase 4</span><div class="tt">The real run, twice</div></a>
+  <a class="week-card milestone" href="phases/phase-5-analysis.html"><span class="wk">Phase 5 · P2</span><div class="tt">Analysis, and writing it honestly</div></a>
+</div>
+
+<h2>Reference</h2>
+
+<div class="sem-grid">
+  <a class="week-card" href="extras/metrics.html"><span class="wk">Interactive</span><div class="tt">The metrics playground</div></a>
+  <a class="week-card" href="extras/glossary.html"><span class="wk">Reference</span><div class="tt">Glossary</div></a>
+  <a class="week-card" href="extras/unstuck.html"><span class="wk">When stuck</span><div class="tt">How to get unstuck</div></a>
+  <a class="week-card" href="extras/ai-policy.html"><span class="wk">Read once</span><div class="tt">Using AI tools on this project</div></a>
+</div>
+
+<h2>The whole study in one picture</h2>
+
+<div class="lab">
+  <div class="lab-title">What the experiment actually does</div>
+  <p class="lab-desc">Forty responses go in. Each one is sent to the same model twice, once
+  under each prompt, and each reply is turned into a single letter: <strong>M</strong> for
+  "contains a misconception", <strong>C</strong> for "correct". Compare those letters to the
+  labels you wrote, and you get a 2&times;2 table. Everything in Phase 5 is arithmetic on
+  that table. Drag the slider to see how the same accuracy can hide very different tables.</p>
+  <canvas id="hero" height="300"></canvas>
+  <div class="controls" id="heroctl"></div>
+  <div class="readout" id="heroout"></div>
+</div>
+
+<script>
+G.lab(function () {
+  /* One slider: how the model's errors are split between the two kinds.
+     Accuracy is held fixed on purpose — that is the whole point of the picture. */
+  var st = G.controls('heroctl', [
+    { k: 'split', type: 'range', label: 'errors that are MISSES (rest are false alarms)',
+      min: 0, max: 8, step: 1, value: 6, fmt: function (v) { return v + ' of 8'; } }
+  ], draw);
+
+  function draw() {
+    var cv = G.canvas('hero'); if (!cv) return;
+    var fn = Math.round(st.split), fp = 8 - fn;
+    var tp = 20 - fn, tn = 20 - fp;
+    var m = G.metrics({ tp: tp, fn: fn, fp: fp, tn: tn });
+
+    var fr = G.frame(cv.ctx, cv.w, cv.h, {
+      xmin: -0.6, xmax: 3.6, ymin: 0, ymax: 1.05,
+      margin: { left: 52, bottom: 44, top: 18, right: 16 }
+    });
+    fr.axes({ ylabel: 'score', xticks: 0, yticks: 5,
+              yfmt: function (v) { return v.toFixed(1); }, grid: true });
+
+    var bars = [
+      ['accuracy',  m.acc,  G.COL.muted],
+      ['precision', m.prec, G.COL.amber],
+      ['recall',    m.rec,  G.COL.accent],
+      ['F1',        m.f1,   G.COL.violet]
+    ];
+    bars.forEach(function (b, i) {
+      var w = 0.34;
+      fr.rect(i - w, 0, i + w, b[1], { fill: b[2], alpha: 0.20, stroke: b[2], width: 2 });
+      fr.text(i, b[1] + 0.045, G.pct(b[1], 0), { color: b[2], align: 'center' });
+      fr.text(i, 0.035, b[0], { color: G.COL.ink, align: 'center' });
+    });
+    fr.hline(m.majority, { color: G.COL.rose, dash: [5, 4] });
+    fr.text(3.55, m.majority + 0.03, 'always-guess-M baseline',
+            { color: G.COL.rose, align: 'right' });
+
+    G.say('heroout',
+      'TP ' + tp + '   FN ' + fn + '   FP ' + fp + '   TN ' + tn +
+      '        accuracy ' + G.pct(m.acc) + ' — unchanged all the way across\n' +
+      'recall ' + G.pct(m.rec) + '   precision ' + G.pct(m.prec) + '\n' +
+      (fn > fp
+        ? 'Mostly MISSES. The tutor stays silent while a student holds a dangerous belief.'
+        : fn < fp
+          ? 'Mostly FALSE ALARMS. The tutor corrects students who were already right.'
+          : 'Errors evenly split.') +
+      '\nSame accuracy, different failure. This is why accuracy alone is not the headline number.');
+  }
+  draw();
+});
+</script>
+
+<h2>Why this project is worth doing</h2>
+
+<div class="tiles">
+  <div class="tile">
+    <h4>It can be wrong</h4>
+    <p>The interesting outcomes include "the catalogue did not help." A study designed so
+    that only one answer is publishable is not a study. The prediction is written down in
+    advance, on this page, so that it can fail.</p>
+  </div>
+  <div class="tile">
+    <h4>It is reproducible</h4>
+    <p>A local model at temperature 0, a fixed dataset in the repository, and a test suite
+    that cross-checks every metric against scikit-learn. Someone else can clone this and get
+    your numbers.</p>
+  </div>
+  <div class="tile">
+    <h4>It runs on a laptop</h4>
+    <p>No API key, no bill, no rate limit, and no student writing leaving the machine. If
+    prompting alone lifts a 3-billion-parameter model, that is a result a school could
+    actually deploy.</p>
+  </div>
+</div>
+
+<h2>What "done" looks like</h2>
+
+<table>
+  <thead><tr><th>#</th><th>Phase</th><th>Artifact</th><th>How we know it is real</th></tr></thead>
+  <tbody>
+  <tr><td>P1</td><td>Design</td><td>You can state the two conditions, the positive class, and why recall is the headline metric — without notes</td><td>You survive being asked "why not accuracy?" on a call</td></tr>
+  <tr><td>—</td><td>Code</td><td>Six TODOs done; the run prints the green <em>no reference fallbacks</em> line</td><td>The line is green. There is no partial credit on this one.</td></tr>
+  <tr><td>gate</td><td>Dataset</td><td>40 responses, 20 M / 20 C, that a second reader labels the same way you did</td><td>Agreement measured, not assumed — see Phase 3</td></tr>
+  <tr><td>—</td><td>Run</td><td>Two complete runs of both conditions, and the difference between them written down</td><td>Both runs committed, with the model name and date</td></tr>
+  <tr><td>P2</td><td>Analysis</td><td>Confusion matrices, four metrics with intervals, and a paragraph on what would change your mind</td><td>An outsider reads it and can say what you found and what you did not</td></tr>
+  </tbody>
+</table>
+
+<div class="box aside">
+  <span class="lbl">A note on where this sits</span>
+  <p>This is a pilot, not a finished study. Forty items is enough to detect a large effect
+  and nowhere near enough to detect a small one — Phase 5 shows you exactly how wide the
+  confidence intervals are, which is itself one of the more useful things to learn from
+  running it. The honest framing of the result is "here is a method, here is what it showed
+  at this scale, and here is what a larger version would need." That framing is not a
+  weakness. Overclaiming is.</p>
+</div>
+
+</main>
+
+<footer class="site">
+  <div class="wrap wide">
+    <strong>Wrong in a Particular Way</strong> ·
+    <a href="setup/index.html">setup</a> ·
+    <a href="phases/phase-1-design.html">phases</a> ·
+    <a href="extras/glossary.html">glossary</a> ·
+    <a href="extras/unstuck.html">stuck?</a> ·
+    <a href="extras/ai-policy.html">AI policy</a>
+  </div>
+</footer>
+
+</body>
+</html>

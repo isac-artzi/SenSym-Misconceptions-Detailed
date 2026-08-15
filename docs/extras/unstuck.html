@@ -1,0 +1,866 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Reference · How to get unstuck — Wrong in a Particular Way</title>
+<link rel="stylesheet" href="../assets/vendor/katex/katex.min.css">
+<link rel="stylesheet" href="../assets/css/style.css">
+<script src="../assets/vendor/katex/katex.min.js"></script>
+<script src="../assets/vendor/katex/auto-render.min.js"></script>
+<script src="../assets/js/detect.js"></script>
+</head>
+<body>
+
+<header class="site">
+  <div class="wrap">
+    <div class="crumbs"><a href="../index.html">Wrong in a Particular Way</a> · Reference</div>
+    <div class="badges"><span class="badge">Reference</span><span class="badge win">Win: no more lost weeks</span></div>
+    <h1 class="chapter-title">How to get unstuck</h1>
+    <p class="chapter-sub">Twenty minutes, four layers, four runs, and a question worth answering.</p>
+  </div>
+</header>
+
+<main class="wrap">
+
+<p class="lede">Being stuck is the ordinary condition of research, not a sign that something
+has gone wrong with you. What separates a productive week from a wasted one is not how often
+you get stuck but what you do in the first twenty minutes. This page is the method: decide
+which layer the problem is in, halve the search space until only one thing can be to blame,
+read the error from the bottom, and — if none of that works within twenty minutes — ask a
+question that can be answered in one reply.</p>
+
+<div class="objectives">
+  <h3>By the end of this page you can</h3>
+  <ul>
+    <li>State the twenty-minute rule and say why both halves of it matter.</li>
+    <li>Name the four layers a bug can live in, and the one command that tests each.</li>
+    <li>Isolate any failure in this project to a single cause using at most four runs.</li>
+    <li>Read a Python traceback from the bottom and point at the line that is yours.</li>
+    <li>Recognise the twelve errors this project actually produces, on sight.</li>
+    <li>Write a question that gets an answer in one reply instead of four.</li>
+    <li>Decide when a problem is not worth solving, and what to do instead.</li>
+  </ul>
+</div>
+
+<div class="os-bar">
+  <span class="lbl2">I am on:</span>
+  <span class="seg">
+    <button type="button" data-os="mac" aria-pressed="true">macOS</button>
+    <button type="button" data-os="win" aria-pressed="false">Windows</button>
+  </span>
+  <span class="muted" style="font-size:13px">Set this once. Every page on the site follows it.</span>
+</div>
+
+<h2>1 · The twenty-minute rule</h2>
+
+<p><strong>Try alone for twenty minutes. Then ask.</strong> That is the whole rule, and both
+halves of it are load-bearing.</p>
+
+<p>Asking at minute one is a real cost, and not mainly to the person you ask. It costs you the
+thing the twenty minutes would have bought: the memory of having worked it out. A fix you were
+handed does not survive contact with the next bug, because you never learned the shape of the
+search. It also costs you the ability to say, out loud at a check-in, how your own project
+works — and you will be asked. The point of this project is not a confusion matrix. It is
+that you can defend every step of how the confusion matrix got there.</p>
+
+<p>Grinding for three days is a much larger cost, and it is the one that actually happens.
+You have about five hours a week. Three days of stuck is not three days; it is most of a
+fortnight of your research time spent on a wrong column name that somebody else would have
+spotted in nine seconds. The dataset you write in Phase 3 is the part of this project that
+nobody else can do for you. An install error is not.</p>
+
+<p>So the rule is a budget, not a virtue test. Twenty minutes is roughly long enough to run
+the four checks in section 2, try one bisection from section 3, and read the traceback
+properly — which is most of what a mentor would do anyway. If those produce nothing, the
+next twenty minutes will very likely produce nothing either, because you have run out of
+moves rather than out of patience. That is the moment to ask.</p>
+
+<div class="box warning">
+  <span class="lbl">The twenty minutes have to be real</span>
+  <p>Twenty minutes of re-running the same command and hoping is not twenty minutes of
+  debugging. It is one minute of debugging, repeated. The clock only counts time in which you
+  did something <em>different</em> from the last thing: changed one input, read one more line
+  of the error, checked one more layer.</p>
+  <p>Set an actual timer. Everyone underestimates how long they have been stuck, in both
+  directions — five minutes of frustration feels like an hour, and an hour of interesting
+  flailing feels like ten minutes.</p>
+</div>
+
+<h2>2 · Which layer is it in?</h2>
+
+<p>This is the single most useful debugging move there is, and it is not a fix — it is a
+question you answer <em>before</em> fixing anything. Every problem in this project lives in
+exactly one of four layers:</p>
+
+<table>
+  <thead><tr><th>Layer</th><th>The question it answers</th><th>The one command</th></tr></thead>
+  <tbody>
+  <tr>
+    <td><strong>(a) Your machine</strong></td>
+    <td>Does Python exist, and are the four packages installed?</td>
+    <td><code>python3 misconception/check_setup.py</code></td>
+  </tr>
+  <tr>
+    <td><strong>(b) The model / server</strong></td>
+    <td>Is Ollama alive, and is the model on disk?</td>
+    <td><code>ollama list</code></td>
+  </tr>
+  <tr>
+    <td><strong>(c) Your code</strong></td>
+    <td>Do the functions still do what they claim?</td>
+    <td><code>pytest -q</code> &nbsp;(from the repo root)</td>
+  </tr>
+  <tr>
+    <td><strong>(d) Your data</strong></td>
+    <td>Is the CSV the shape I think it is?</td>
+    <td><code>python3 -c "import pandas as pd; d = pd.read_csv('data/responses.csv'); print(d.shape, d.columns.tolist())"</code></td>
+  </tr>
+  </tbody>
+</table>
+
+<p>Four commands, under a minute, and afterwards you know which third of the problem to look
+at. The temptation is always to skip this and start editing the file you were last working
+in. Resist it: editing code to fix a stopped server is how an afternoon disappears.</p>
+
+<h3>The error text usually tells you the layer, if you read it</h3>
+
+<p>You mostly do not have to run anything, because the message already says which layer it
+came from. The trick is that error messages are written by the layer that failed, so they use
+that layer's vocabulary:</p>
+
+<ul>
+  <li><code>command not found: ollama</code> — the shell is speaking. Nothing Python-shaped
+  is involved yet. <strong>Machine.</strong></li>
+  <li><code>Could not reach Ollama at http://localhost:11434/api/generate</code> — an address
+  and a knock that went unanswered. This string is raised by <code>ask_llm()</code> in
+  <code>llm_client.py</code> and it is <em>never</em> caused by your code.
+  <strong>Model / server.</strong></li>
+  <li><code>KeyError: 'ground truth'</code> — a Python object was asked for something it does
+  not have. A name you typed. <strong>Your code.</strong></li>
+  <li><code>ERROR: data/misconceptions.csv has no real rows yet.</code> — the program ran
+  perfectly and is telling you what it found in a file. <strong>Your data.</strong></li>
+</ul>
+
+<p>None of those four needed a diagnosis. They needed reading. The most common single mistake
+in debugging is not misreading the error; it is not reading it at all, because a wall of red
+text triggers a reflex to scroll past. Section 4 is about slowing that reflex down.</p>
+
+<div class="box definition">
+  <span class="lbl">A fifth possibility, and it is common</span>
+  <p><strong>Nothing is broken.</strong> The yellow TODO warning, the <code>[TODO]</code>
+  lines in <code>check_setup.py</code>, the <code>address already in use</code> message, and
+  the fact that both conditions come out identical under <code>--mock</code> are all
+  deliberate, documented behaviour. Before assigning a layer, ask whether the program is
+  failing or just talking to you. Red is not the same as broken, and neither is yellow.</p>
+</div>
+
+<h2>3 · Bisection: four runs locate anything</h2>
+
+<p>The project has two switches you can flip independently. <code>--mock</code> replaces the
+real model with a fake one built out of keyword rules, so it is instant and needs nothing
+installed. <code>--sample</code> replaces your data with the twelve demo responses in
+<code>python/data/sample/</code>. Two switches, two positions each, so four possible runs —
+and the pattern of which ones pass tells you where the fault is without you guessing once.</p>
+
+<div class="box python">
+  <span class="lbl">The four runs, in this order</span>
+  <div class="cmd"><pre><span class="p">$ </span>cd python
+<span class="p">$ </span>python3 misconception/run_experiment.py --mock --sample   <span class="c"># 1: fake model, demo data</span>
+<span class="p">$ </span>python3 misconception/run_experiment.py --mock            <span class="c"># 2: fake model, YOUR data</span>
+<span class="p">$ </span>python3 misconception/run_experiment.py --sample          <span class="c"># 3: real model, demo data</span>
+<span class="p">$ </span>python3 misconception/run_experiment.py                   <span class="c"># 4: the real thing</span>
+<span class="p">$ </span>python3 misconception/analyze.py</pre></div>
+  <p style="margin-bottom:0">Stop as soon as one fails. The first failure is the informative
+  one; running the rest is only for confirming the pattern.</p>
+</div>
+
+<p>Start at run 1 because it is the cheapest thing that can possibly work: no model, no
+network, no data of yours, about a second. If run 1 fails, nothing downstream is worth
+looking at, because the failure cannot involve the model or your data — neither is present.
+That is the whole idea. Each run either takes half the possible causes off the table or
+leaves them all on it, and either answer is progress.</p>
+
+<div class="lab">
+  <div class="lab-title">Lab · The bisection grid</div>
+  <p class="lab-desc">Pick a failure pattern. The grid shows which of the four runs passed;
+  the readout names the culprit and the next command. Notice that you never diagnose a single
+  cell — you diagnose a <em>row</em>, a <em>column</em>, or a corner.</p>
+  <canvas id="bisect" height="300"></canvas>
+  <div class="controls" id="bisectctl"></div>
+  <div class="readout" id="bisectout"></div>
+</div>
+
+<script>
+G.lab(function () {
+  /* grid[col][row]: col 0 = --mock, col 1 = real model.
+     row 1 = --sample (demo data, drawn on top), row 0 = your data. */
+  var SCEN = {
+    env: {
+      grid: [[0, 0], [0, 0]],
+      who: 'YOUR MACHINE (layer a)',
+      why: 'Run 1 fails, and run 1 contains neither the model nor your data.\n' +
+           'So it can be neither. Something the pipeline needs is not installed.',
+      next: 'python3 misconception/check_setup.py'
+    },
+    data: {
+      grid: [[0, 1], [0, 1]],
+      who: 'YOUR DATA (layer d)',
+      why: 'The demo-data row passes with both models; your-data row fails with both.\n' +
+           'The model is irrelevant to the pattern, so the fault is in the file that\n' +
+           'changed between the two rows: data/responses.csv or data/misconceptions.csv.',
+      next: 'python3 -c "import pandas as pd; d = pd.read_csv(\'data/responses.csv\'); print(d.shape, d.columns.tolist())"'
+    },
+    model: {
+      grid: [[1, 1], [0, 0]],
+      who: 'THE MODEL OR THE SERVER (layer b)',
+      why: 'Everything passes with the fake model and nothing passes with the real one,\n' +
+           'on both datasets. Your code is fine — it ran twice. Your data is fine — it\n' +
+           'ran under --mock. What changed is that Ollama is now in the loop.',
+      next: 'ollama list          # then open http://localhost:11434 in a browser'
+    },
+    inter: {
+      grid: [[1, 1], [0, 1]],
+      who: 'THE COMBINATION — neither one alone (layer b meeting layer d)',
+      why: 'Three runs pass. Only the real model on your real data fails, so no single\n' +
+           'component is broken. Usually one item: a response long enough to hit\n' +
+           'TIMEOUT_SECONDS = 120, or a reply parse_verdict() cannot read, which\n' +
+           'shows up as ? in the prediction column rather than as a crash.',
+      next: 'python3 -c "import pandas as pd; d = pd.read_csv(\'results/predictions_baseline.csv\'); print(d[d.prediction == \'?\'][[\'response_id\', \'raw_reply\']])"'
+    }
+  };
+
+  var st = G.controls('bisectctl', [
+    { k: 'sc', type: 'select', label: 'what happened:',
+      options: [['env',   'nothing runs at all — even run 1'],
+                ['data',  'the demo data works, mine does not'],
+                ['model', 'mock mode works, the real model does not'],
+                ['inter', 'only the last run fails']],
+      value: 'env' }
+  ], draw);
+
+  var COLS = ['--mock  (fake model)', 'real model  (llama3.2:3b)'];
+  var ROWS = ['your data  (40 rows)', '--sample  (12 demo rows)'];
+
+  function draw() {
+    var cv = G.canvas('bisect'); if (!cv) return;
+    var s = SCEN[st.sc];
+    var fr = G.frame(cv.ctx, cv.w, cv.h, {
+      xmin: 0, xmax: 2, ymin: 0, ymax: 2,
+      margin: { left: 168, right: 16, top: 34, bottom: 24 }
+    });
+    fr.axes({ xticks: 0, yticks: 0, grid: false });
+
+    var i, j, pass, col;
+    for (i = 0; i < 2; i++) {
+      fr.text(i + 0.5, 2.06, COLS[i], { color: G.COL.ink, align: 'center' });
+      for (j = 0; j < 2; j++) {
+        pass = s.grid[i][j];
+        col = pass ? G.COL.green : G.COL.rose;
+        fr.rect(i + 0.04, j + 0.05, i + 0.96, j + 0.95,
+                { fill: col, alpha: pass ? 0.11 : 0.15, stroke: col, width: 2 });
+        fr.text(i + 0.5, j + 0.60, pass ? 'PASS' : 'FAIL',
+                { color: col, align: 'center',
+                  font: 'bold 19px -apple-system, Segoe UI, Roboto, sans-serif' });
+        fr.text(i + 0.5, j + 0.30,
+                'run ' + (j === 1 ? (i === 0 ? '1' : '3') : (i === 0 ? '2' : '4')),
+                { color: G.COL.muted, align: 'center' });
+      }
+    }
+    for (j = 0; j < 2; j++) {
+      fr.text(-0.03, j + 0.47, ROWS[j], { color: G.COL.ink, align: 'right' });
+    }
+
+    G.say('bisectout',
+      'Culprit: ' + s.who + '\n\n' + s.why + '\n\nNext command:\n  ' + s.next);
+  }
+  draw();
+});
+</script>
+
+<p>The formal version of this is worth naming, because it is the same idea everywhere. If a
+failure could have any one of $n$ causes and each test can rule out half of them, you need</p>
+
+$$\lceil \log_2 n \rceil \text{ tests, not } n$$
+
+<p>to find it. <span class="status proved">proved</span> — each test halves the surviving
+candidate set, so after $k$ tests at most $n / 2^k$ candidates remain, and that drops below 1
+exactly when $k \ge \log_2 n$. With $n = 8$ suspect steps in a pipeline that is 3 tests
+instead of 8; with $n = 1000$ commits it is 10 instead of 1000. Git has this built in as
+<code>git bisect</code>, which walks your history the same way to find the commit that broke
+something. Same move, different search space. Once you have the habit, you stop asking "what
+is wrong?" and start asking "what can I rule out with one run?", which is a much easier
+question and always has an answer.</p>
+
+<h2>4 · Reading a traceback</h2>
+
+<p>A Python traceback is not a wall of text. It is a list, printed in a specific order, and
+almost all of the useful information is in the last four lines. <strong>Read it from the
+bottom.</strong></p>
+
+<p>Here is a real one. It comes from writing <code>"ground truth"</code> with a space instead
+of <code>"ground_truth"</code> with an underscore while doing TODO 5a in
+<code>analyze.py</code> — which is the most likely single mistake on that TODO, because the
+column reads as two words in English.</p>
+
+<div class="out">Traceback (most recent call last):
+  File ".../site-packages/pandas/core/indexes/base.py", line 3641, in get_loc
+    return self._engine.get_loc(casted_key)
+  File "pandas/_libs/index.pyx", line 168, in pandas._libs.index.IndexEngine.get_loc
+  File "pandas/_libs/hashtable_class_helper.pxi", line 7668, in ...PyObjectHashTable.get_item
+<i>KeyError: 'ground truth'</i>
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/Users/arshi/wrong-in-a-particular-way/python/misconception/analyze.py", line 269, in &lt;module&gt;
+    main()
+  File "/Users/arshi/wrong-in-a-particular-way/python/misconception/analyze.py", line 219, in main
+    cm = compute_confusion(df)
+  <b>File "/Users/arshi/wrong-in-a-particular-way/python/misconception/analyze.py", line 67, in compute_confusion</b>
+    <b>tp = len(scored[(scored["ground truth"] == M) &amp; (scored["prediction"] == M)])</b>
+                     ~~~~~~^^^^^^^^^^^^^^^^
+  File ".../site-packages/pandas/core/frame.py", line 4378, in __getitem__
+    indexer = self.columns.get_loc(key)
+  File ".../site-packages/pandas/core/indexes/base.py", line 3648, in get_loc
+    raise KeyError(key) from err
+<i>KeyError: 'ground truth'</i></div>
+
+<p class="muted">That is genuinely what Python printed, with the long
+<code>site-packages</code> paths shortened and the repeated <code>^^^^</code> underlines
+removed so it fits. Nothing else was changed.</p>
+
+<h3>How to read it, in order</h3>
+
+<ol>
+  <li><strong>Last line: what went wrong.</strong> <code>KeyError: 'ground truth'</code>. A
+  <code>KeyError</code> means something was looked up by name and the name was not there. The
+  name it wanted is printed in quotes. That is your search term, and it is the only thing
+  worth pasting into a search engine.</li>
+  <li><strong>Now go up to the last file path that is <em>yours</em>.</strong> Ignore every
+  line containing <code>site-packages</code> or <code>_libs</code> — that is pandas' own
+  code, and pandas is not broken. The deepest line under
+  <code>misconception/</code> is the green pair above: <code>analyze.py</code>, line 67, in
+  <code>compute_confusion</code>. <strong>That is where.</strong> Two facts, ten seconds,
+  and you have not opened a file yet.</li>
+  <li><strong>The line under it is the code that failed</strong>, printed for you, with
+  <code>~~~~~^^^^</code> pointing at the exact expression. Here it points at
+  <code>["ground truth"]</code>. The error and the arrow together have now told you the
+  answer.</li>
+  <li><strong>Read upward only if you still need to.</strong> The frames above are the call
+  chain: <code>main()</code> called <code>compute_confusion(df)</code>, which is how you got
+  here. Useful when the same function is called from three places and you need to know which
+  call did it. Usually you do not need it.</li>
+  <li><strong>"The above exception was the direct cause of the following exception"</strong>
+  means one error was re-raised as another. Read the <em>lower</em> block; the upper one is
+  pandas' internal plumbing showing its work.</li>
+</ol>
+
+<p>Then check what the column is actually called, rather than what you remember it being
+called. One line, and it answers the question outright:</p>
+
+<div class="cmd"><pre><span class="p">$ </span>python3 -c "import pandas as pd; print(pd.read_csv('results/predictions_baseline.csv').columns.tolist())"</pre></div>
+<div class="out">['response_id', 'misconception_id', 'response_text', <b>'ground_truth'</b>, 'prediction', 'model_reason', 'raw_reply', 'condition']</div>
+
+<div class="box aside">
+  <span class="lbl">Nine bugs in ten are "the data is not what I thought it was"</span>
+  <p>Which is why the fix above is a <em>print</em>, not an edit. Before changing any line,
+  print the thing you are about to use: <code>print(df.head())</code> after loading,
+  <code>print(prompt)</code> before sending, <code>print(len(df))</code> after filtering. It
+  feels too simple to be a technique. It is the technique.</p>
+</div>
+
+<h2>5 · The symptom index</h2>
+
+<p>Twelve things that actually go wrong on this project, with the real message each one
+prints. The tag on the right names the layer, so you can check your own diagnosis against it.
+<strong>The six Ollama-specific ones are not repeated here</strong> —
+<code>command not found: ollama</code>, <code>Could not reach Ollama</code>,
+<code>address already in use</code>, <code>model not found</code>, unbearable slowness, and a
+predictions column full of <code>?</code> all live in
+<a href="../setup/ollama.html">section 7 of the Ollama page</a>.</p>
+
+<div class="exercise">
+  <div class="ex-head">Symptom 5.1<span class="tag">machine</span></div>
+  <div class="ex-body"><p><code>ModuleNotFoundError: No module named 'pandas'</code></p></div>
+  <details><summary>Diagnosis and fix</summary><div class="solution">
+    <p>Python started fine, so Python is installed. It could not find a library. The layer is
+    your machine, and the fix is one command:</p>
+    <div class="cmd"><pre><span class="p">$ </span>pip install pandas requests matplotlib scikit-learn</pre></div>
+    <p>Then rerun <code>python3 misconception/check_setup.py</code>, which tests all four
+    imports and prints a line each. Note that the import name and the install name are not
+    always the same word: you <code>import sklearn</code> but you <code>pip install
+    scikit-learn</code>. <code>check_setup.py</code> keeps both spellings in a list precisely
+    because that mismatch confuses everyone once.</p>
+    <p>If <code>pip</code> itself is not recognised, try <code>python3 -m pip install
+    pandas</code>. That form works whenever Python works, because it asks Python to run its
+    own package installer instead of relying on a separate program being on your PATH.</p>
+  </div></details>
+</div>
+
+<div class="exercise">
+  <div class="ex-head">Symptom 5.2<span class="tag">machine</span></div>
+  <div class="ex-body"><p><span class="os-only on" data-os="mac"><code>zsh: command not found: python</code></span><span class="os-only" data-os="win"><code>python3 : The term 'python3' is not recognized as the name of a cmdlet, function, script file, or operable program.</code></span></p></div>
+  <details><summary>Diagnosis and fix</summary><div class="solution">
+    <p>Not a broken install. The two systems disagree about what the program is called.</p>
+    <p class="os-only on" data-os="mac">On macOS, <code>python</code> with no 3 usually does
+    not exist at all — it was removed so that nobody accidentally ran the long-obsolete
+    Python 2. <strong>Always type <code>python3</code> on this machine.</strong> Every command
+    on this site is written that way.</p>
+    <p class="os-only" data-os="win">On Windows, the installer from python.org creates
+    <code>python</code> but often not <code>python3</code>. <strong>Drop the 3:
+    <code>python misconception/check_setup.py</code>.</strong> Everything else on the site is
+    identical.</p>
+    <p>If <em>neither</em> name works, Python genuinely is not installed or not on your PATH —
+    see the Python setup page. A useful tell: <code>python --version</code> printing
+    <code>Python 2.7.x</code> means you have found the wrong one, not that you are fine.</p>
+    <p>Worth internalising as a pattern: "this exact word is not recognised" is always the
+    machine layer, and it is almost never solved by editing code.</p>
+  </div></details>
+</div>
+
+<div class="exercise">
+  <div class="ex-head">Symptom 5.3<span class="tag">data</span></div>
+  <div class="ex-body"><p><code>ERROR: data/misconceptions.csv has no real rows yet.</code>
+  followed by <code>-&gt; Fill in your 10 chosen misconceptions ... or run with --sample</code></p></div>
+  <details><summary>Diagnosis and fix</summary><div class="solution">
+    <p>Nothing is broken. <code>load_misconceptions()</code> in
+    <code>run_experiment.py</code> drops every row whose <code>statement</code> begins with
+    <code>&lt;</code> — the angle-bracket placeholders the template ships with — and then
+    checks whether anything is left. On a fresh clone, nothing is.</p>
+    <p>Two correct responses, depending on where you are:</p>
+    <p><strong>Before Phase 3:</strong> add <code>--sample</code>. That switches to the twelve
+    demo responses in <code>python/data/sample/</code> and the pipeline runs end to end in
+    about a second.</p>
+    <p><strong>During or after Phase 3:</strong> open the file and check that you replaced the
+    placeholder text rather than adding rows underneath it. A row still reading
+    <code>&lt;statement&gt;</code> is invisible to the loader by design.</p>
+    <p>This filter exists so that a half-filled file fails loudly instead of quietly running
+    your experiment on template text and producing numbers that look real. An error that
+    refuses to guess is doing you a favour.</p>
+  </div></details>
+</div>
+
+<div class="exercise">
+  <div class="ex-head">Symptom 5.4<span class="tag">data</span></div>
+  <div class="ex-body"><p><code>ERROR: /path/to/python/results/predictions_baseline.csv not found. Run  python misconception/run_experiment.py  first.</code></p></div>
+  <details><summary>Diagnosis and fix</summary><div class="solution">
+    <p><code>analyze.py</code> reads what <code>run_experiment.py</code> wrote. If the file is
+    not there, the run either never happened, stopped early, or wrote somewhere else.</p>
+    <p>Check in this order. <strong>One:</strong> did the run actually finish? It prints
+    <code>Saved -&gt; ...predictions_baseline.csv</code> for each condition. If you never saw
+    that line, the run did not get that far, and the real error is further up your terminal
+    scrollback.</p>
+    <p><strong>Two:</strong> are you in the right directory? The paths in
+    <code>config.py</code> are worked out relative to the file itself, so they are correct
+    wherever you launch from — but the error message prints the full path it wanted. Read it
+    and compare with where you are.</p>
+    <p><strong>Three:</strong> list what is actually there.</p>
+    <div class="cmd"><pre><span class="p">$ </span>ls python/results/</pre></div>
+    <p>The general shape here is worth keeping: a "file not found" error always tells you the
+    exact path it wanted. Comparing that string to the output of <code>ls</code> answers the
+    question completely, and it is faster than thinking.</p>
+  </div></details>
+</div>
+
+<div class="exercise">
+  <div class="ex-head">Symptom 5.5<span class="tag">your code</span></div>
+  <div class="ex-body"><p><code>KeyError: 'ground truth'</code> — or any other column name in
+  quotes.</p></div>
+  <details><summary>Diagnosis and fix</summary><div class="solution">
+    <p>Worked through line by line in section 4. In summary: the last line names the key that
+    was missing; the deepest traceback frame under <code>misconception/</code> names the file
+    and line that asked for it; the <code>~~~~^^^^</code> marker points at the exact
+    expression.</p>
+    <p>The four column names this project uses in predictions files are
+    <code>response_id</code>, <code>ground_truth</code>, <code>prediction</code> and
+    <code>raw_reply</code>. All lowercase, all underscores. Print the real list rather than
+    trusting memory:</p>
+    <div class="cmd"><pre><span class="p">$ </span>python3 -c "import pandas as pd; print(pd.read_csv('results/predictions_baseline.csv').columns.tolist())"</pre></div>
+    <p>A subtler version of the same bug: a trailing space in a header, so the column really
+    is called <code>'ground_truth '</code>. It looks identical in a spreadsheet. It is visible
+    the moment you print the list, because Python shows you the quotes.</p>
+  </div></details>
+</div>
+
+<div class="exercise">
+  <div class="ex-head">Symptom 5.6<span class="tag">data</span></div>
+  <div class="ex-body"><p><code>pandas.errors.ParserError: Error tokenizing data. C error: Expected 5 fields in line 3, saw 6</code></p></div>
+  <details><summary>Diagnosis and fix</summary><div class="solution">
+    <p>A CSV separates columns with commas, so a comma <em>inside</em> a value has to be
+    protected by wrapping that value in double quotes. One row of
+    <code>responses.csv</code> has an unquoted comma in the response text, so pandas counted
+    six columns on a five-column file and refused to guess which split was intended.</p>
+    <p>The message names the line. Open the file in a plain text editor — not a spreadsheet,
+    which will hide the quoting from you — and go to that line:</p>
+    <div class="out"><i>R02,M01,C,Length helps, but a long password of common words is guessable.,notes</i>
+<b>R02,M01,C,"Length helps, but a long password of common words is guessable.",notes</b></div>
+    <p>Your responses will be full of commas, because they are sentences. The reliable habit
+    is to quote <em>every</em> <code>response_text</code> value, always, whether or not it
+    currently contains a comma — then the file cannot break later when you edit the wording.</p>
+    <p>Saving from Excel or Numbers usually does the quoting for you. Editing the file by hand
+    afterwards is where it gets undone.</p>
+  </div></details>
+</div>
+
+<div class="exercise">
+  <div class="ex-head">Symptom 5.7<span class="tag">data</span></div>
+  <div class="ex-body"><p><code>ERROR: 3 row(s) have a ground_truth that isn't 'M' or 'C'.</code>
+  and <code>First offender is response_id 'R14' with value 'm'</code></p></div>
+  <details><summary>Diagnosis and fix</summary><div class="solution">
+    <p><code>load_responses()</code> checks every label against
+    <code>{config.LABEL_MISCONCEPTION, config.LABEL_CORRECT}</code> before spending a minute
+    of model time, and names the first offender so you do not have to search. The usual causes
+    are a lowercase <code>m</code>, a trailing space (<code>"M "</code>), or a spreadsheet
+    autocorrecting something.</p>
+    <p>Fix the labels; do not relax the check. A stray <code>'m'</code> silently treated as
+    <code>M</code> is a row that quietly stops being counted, and with n = 40 a single lost
+    row moves recall by two and a half percentage points.</p>
+    <p>This is a good example of a check that exists because of what it protects: the run it
+    prevents would have taken minutes and produced a confusion matrix that was wrong in a way
+    nothing downstream would have flagged.</p>
+  </div></details>
+</div>
+
+<div class="exercise">
+  <div class="ex-head">Symptom 5.8<span class="tag">not an error</span></div>
+  <div class="ex-body"><p>A block of yellow text at the end of a run:
+  <code>⚠  2 TODO(s) not done — the worked versions were used.</code></p></div>
+  <details><summary>Diagnosis and fix</summary><div class="solution">
+    <p><strong>This is not an error and the run succeeded.</strong> It is
+    <code>todo.report()</code> telling you which TODOs still fell back to the worked version
+    in <code>reference.py</code>. The full message says so explicitly: <em>"The numbers above
+    are real, but they aren't YOUR code's numbers yet."</em></p>
+    <p>The design is deliberate. If unfinished TODOs crashed the program you could never run
+    anything until they were all done, so you would never see the finished shape and could not
+    tell "my code is wrong" apart from "my setup is wrong". If they came pre-filled you would
+    learn nothing. So they run, and they announce themselves.</p>
+    <p>What to do: nothing, until you get to that TODO. When you have filled one in correctly,
+    its line disappears from the block on the next run — which is a rather satisfying
+    progress bar. When all six are gone you get
+    <code>✓ Nothing fell back — this run was entirely your code.</code> in green.</p>
+    <p>Learning to tell "the program is warning me" from "the program has failed" is worth
+    more than any individual fix on this page. Colour is a hint, not a verdict.</p>
+  </div></details>
+</div>
+
+<div class="exercise">
+  <div class="ex-head">Symptom 5.9<span class="tag">your code</span></div>
+  <div class="ex-body"><p><code>FAILED tests/test_pipeline.py::test_confusion_agrees_with_sklearn - assert (n...</code></p></div>
+  <details><summary>Diagnosis and fix</summary><div class="solution">
+    <p>A failing test is the most useful error you can get, because it hands you a worked
+    example of the disagreement. Run it on its own with <code>-q</code> and read the middle:</p>
+    <div class="out">>       assert (tp, fp, fn, tn) == (cm["TP"], cm["FP"], cm["FN"], cm["TN"])
+<i>E       assert (np.int64(7),..., np.int64(8)) == (7, 3, 2, 8)</i>
+<i>E         At index 1 diff: np.int64(2) != 3</i></div>
+    <p>Read it as: scikit-learn says the second number is 2, your code says 3. The second
+    slot in that tuple is <code>FP</code>. So your false positives and false negatives are
+    swapped — the classic TODO 5 mistake, because the two conditions differ only in which of
+    <code>M</code> and <code>C</code> goes where.</p>
+    <p>Go back to the definitions and read them as sentences rather than symbols: <strong>FN
+    = truth is M and prediction is C</strong>, a misconception that was there and was missed.
+    <strong>FP = truth is C and prediction is M</strong>, a false alarm on an answer that was
+    fine. Then check that your line for each matches the sentence.</p>
+    <p>Note the test that did <em>not</em> catch this:
+    <code>test_confusion_counts_land_in_the_right_boxes</code> uses data with one FN and one
+    FP, so a swap leaves it passing. A test only catches a bug if the data can tell the two
+    cases apart — a genuinely useful thing to have noticed about testing.</p>
+  </div></details>
+</div>
+
+<div class="exercise">
+  <div class="ex-head">Symptom 5.10<span class="tag">data</span></div>
+  <div class="ex-body"><p>Either <code>pandas.errors.EmptyDataError: No columns to parse from
+  file</code>, or a clean run printing <code>TP=0  FP=0  FN=0  TN=0</code> and every metric
+  <code>0.0</code>.</p></div>
+  <details><summary>Diagnosis and fix</summary><div class="solution">
+    <p>Two different sizes of empty, and they fail differently.</p>
+    <p><strong>A completely empty file</strong> (zero bytes) gives
+    <code>EmptyDataError: No columns to parse from file</code>. pandas cannot even find a
+    header row.</p>
+    <p><strong>A header-only file</strong> is worse, because it does not crash. Every count is
+    genuinely 0, <code>compute_confusion()</code>'s safety check passes (0 + 0 + 0 + 0 = 0
+    scored items, which is correct), and <code>compute_metrics()</code> returns
+    <code>0.0</code> everywhere thanks to its <code>if denominator else 0.0</code> guards. You
+    get a chart of empty bars and no complaint at all.</p>
+    <p>Check the size before believing any zero:</p>
+    <div class="cmd"><pre><span class="p">$ </span>python3 -c "import pandas as pd; print(len(pd.read_csv('results/predictions_baseline.csv')))"</pre></div>
+    <p>Then rerun <code>run_experiment.py</code>. The usual cause is a run interrupted with
+    Ctrl-C after the file was opened, or a run that failed on the first condition and left
+    the second file from an older attempt.</p>
+    <p>Worth writing down as a rule: <strong>an all-zero result is a suspicious result.</strong>
+    Real data almost never lands in exactly one box. If accuracy comes out as precisely
+    0.0 or 1.0, look at the file before you look at the model.</p>
+  </div></details>
+</div>
+
+<div class="exercise">
+  <div class="ex-head">Symptom 5.11<span class="tag">not an error</span></div>
+  <div class="ex-body"><p><code>analyze.py</code> finishes, says
+  <code>Saved -&gt; .../comparison.png</code>, and no chart window ever opens.</p></div>
+  <details><summary>Diagnosis and fix</summary><div class="solution">
+    <p>Working exactly as designed. The second line of <code>analyze.py</code>'s matplotlib
+    setup is <code>matplotlib.use("Agg")</code>, with the comment <em>"save to file instead of
+    opening a window"</em>. Agg is a backend that draws into a file and never touches your
+    screen, which is what you want for a script you will run twenty times.</p>
+    <p>The charts are on disk. Open the folder:</p>
+    <div class="cmd"><pre><span class="p">$ </span><span class="os-only on" data-os="mac">open python/results/</span><span class="os-only" data-os="win">explorer python\results\</span></pre></div>
+    <p>You should find <code>comparison.png</code>, <code>confusion_matrices.png</code> and
+    <code>metrics.csv</code>. If the PNG files are there but stale, check their modification
+    time — you may be looking at a chart from an earlier run and diagnosing a problem that no
+    longer exists.</p>
+    <p>If they are genuinely missing, read further up: <code>analyze.py</code> prints one
+    <code>Saved -&gt;</code> line per file, so the last one it printed tells you where it
+    stopped.</p>
+  </div></details>
+</div>
+
+<div class="exercise">
+  <div class="ex-head">Symptom 5.12<span class="tag">not an error</span></div>
+  <div class="ex-body"><p>Both conditions produce byte-for-byte identical results, so the
+  comparison chart shows two equal bars everywhere.</p></div>
+  <details><summary>Diagnosis and fix</summary><div class="solution">
+    <p>Check the top of the run for <code>*** MOCK MODE — these numbers are FAKE. Never
+    report them. ***</code>. If it is there, this is expected and documented:
+    <code>ask_llm_mock()</code> extracts the student response from the prompt and applies a
+    keyword rule to it. <strong>It never looks at the rest of the prompt</strong>, so the
+    misconception list has nothing to act on and both conditions come out identical.</p>
+    <p>That is the correct behaviour for a mock. Its job is to prove the plumbing works, not
+    to simulate a result. There is no real model for the prompt to influence.</p>
+    <p>If you are <em>not</em> in mock mode and the two conditions still match exactly, that
+    is a genuine finding rather than a bug: at temperature 0 on a 3B model, it is entirely
+    possible that adding the misconception list changes nothing at all. Report it. "The
+    catalogue made no measurable difference on n = 40" is a real answer to the research
+    question, and with an interval this wide it is one you should have been prepared for.
+    Before reporting it, confirm the two prompts really did differ by printing one of each —
+    <code>test_baseline_prompt_does_not_leak_the_misconception_list</code> checks exactly
+    that, so <code>pytest -q</code> settles it in two seconds.</p>
+  </div></details>
+</div>
+
+<h2>6 · How to ask a question well</h2>
+
+<p>Twenty minutes are up. A good question is not a longer question; it is a question that
+contains the three things the answerer would otherwise have to ask you for. Miss one and you
+get a reply that is a request for it, and the round trip costs a day.</p>
+
+<ol>
+  <li><strong>The exact command you ran</strong>, and what you expected it to do. Not "I ran
+  the experiment" — the literal line, including the flags, because <code>--mock --sample</code>
+  and no flags are different programs.</li>
+  <li><strong>The complete error, copied and not retyped.</strong> Copied, because retyping
+  silently corrects the typo that caused it. Complete, because the last line names the fault
+  and the middle names the file, and people habitually send only the last line.</li>
+  <li><strong>What you already tried.</strong> This is the one that gets left out, and it is
+  the one that saves the most time: it stops the answer being a suggestion you have already
+  ruled out, and it shows the twenty minutes happened.</li>
+</ol>
+
+<div class="ab">
+  <div class="a">
+    <div class="ab-h">Four rounds of questions back</div>
+<pre>hi, the analysis isn't working,
+it says KeyError. do you know
+what's wrong?</pre>
+  </div>
+  <div class="b">
+    <div class="ab-h">An answer in one reply</div>
+<pre>RAN — and what I expected
+  cd python
+  python3 misconception/analyze.py
+  expected: metrics.csv + two PNGs
+  in python/results/
+
+GOT — copied, not retyped
+  File ".../misconception/analyze.py",
+    line 67, in compute_confusion
+    tp = len(scored[(scored[
+      "ground truth"] == M) ...
+  KeyError: 'ground truth'
+
+ALREADY TRIED
+  Reran run_experiment.py --mock
+  --sample first; it saved both CSVs
+  fine. Opened predictions_baseline
+  .csv and the header does say
+  ground_truth. Guessing my TODO 5a
+  line has the name wrong but I
+  can't see the difference.</pre>
+  </div>
+</div>
+
+<p>The second one is answerable without a single follow-up: the command locates the stage,
+the traceback locates the line, and "already tried" rules out the two things anyone would
+have suggested first. It also takes about ninety seconds to write, most of which is copying.
+Notice too that writing it out is often enough on its own — laying the three parts side by
+side is how you spot that the file says <code>ground_truth</code> and your line says
+<code>ground truth</code>. That is worth knowing: a properly written question frequently
+answers itself, which is the cheapest possible outcome.</p>
+
+<div class="lab">
+  <div class="lab-title">Lab · The message composer</div>
+  <p class="lab-desc">Fill in the three boxes and press the button. It assembles the message
+  in the shape above, ready to copy. The example text is filled in — replace it with your
+  own. If a box is empty when you press the button, it will tell you which one, because a
+  message missing one of the three is the one that costs a day.</p>
+  <div style="padding:14px 16px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;font-size:14px">
+    <label for="askCmd" style="display:block;font-weight:600;color:#33414f;margin-bottom:4px">1 · The exact command you ran, and what you expected</label>
+    <textarea id="askCmd" rows="4" spellcheck="false" style="width:100%;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:13px;line-height:1.5;padding:9px 11px;border:1px solid #d7dce1;border-radius:6px;background:#fff;color:#10161d;resize:vertical">cd python
+python3 misconception/analyze.py
+expected: metrics.csv and two PNGs in python/results/</textarea>
+
+    <label for="askErr" style="display:block;font-weight:600;color:#33414f;margin:14px 0 4px">2 · The complete error, copied not retyped</label>
+    <textarea id="askErr" rows="5" spellcheck="false" style="width:100%;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:13px;line-height:1.5;padding:9px 11px;border:1px solid #d7dce1;border-radius:6px;background:#fff;color:#10161d;resize:vertical">  File ".../misconception/analyze.py", line 67, in compute_confusion
+    tp = len(scored[(scored["ground truth"] == M) &amp; (scored["prediction"] == M)])
+KeyError: 'ground truth'</textarea>
+
+    <label for="askTried" style="display:block;font-weight:600;color:#33414f;margin:14px 0 4px">3 · What you already tried</label>
+    <textarea id="askTried" rows="4" spellcheck="false" style="width:100%;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:13px;line-height:1.5;padding:9px 11px;border:1px solid #d7dce1;border-radius:6px;background:#fff;color:#10161d;resize:vertical">Reran run_experiment.py --mock --sample first; it saved both CSVs fine.
+Opened predictions_baseline.csv; the header row does say ground_truth.
+Searched the error text; every result is about missing DataFrame columns.</textarea>
+  </div>
+  <div class="controls">
+    <button type="button" id="askBuild">Assemble the message</button>
+    <span class="muted" id="askNote" style="font-size:13px">Then use the copy button on the block below.</span>
+  </div>
+  <div class="cmd" style="margin:0"><pre id="askOut">(press the button)</pre></div>
+</div>
+
+<script>
+G.ready(function () {
+  var ids = [
+    ['askCmd',   'RAN — and what I expected'],
+    ['askErr',   'GOT — copied, not retyped'],
+    ['askTried', 'ALREADY TRIED']
+  ];
+
+  function indent(s) {
+    return s.replace(/\s+$/, '').split('\n').map(function (l) { return '  ' + l; }).join('\n');
+  }
+
+  function build() {
+    var parts = [], missing = [];
+    ids.forEach(function (pair) {
+      var el = document.getElementById(pair[0]);
+      var v = (el && el.value ? el.value : '').replace(/\s+$/, '');
+      if (!v.trim()) { missing.push(pair[1]); return; }
+      parts.push(pair[1] + '\n' + indent(v));
+    });
+
+    var note = document.getElementById('askNote');
+    if (missing.length) {
+      note.textContent = 'Still empty: ' + missing.join(', ') + '.';
+      note.style.color = '#b02a37';
+    } else {
+      note.textContent = 'All three present. Use the copy button on the block below.';
+      note.style.color = '#15803d';
+    }
+
+    G.say('askOut', parts.length ? parts.join('\n\n') : '(all three boxes are empty)');
+  }
+
+  document.getElementById('askBuild').addEventListener('click', build);
+  ids.forEach(function (pair) {
+    var el = document.getElementById(pair[0]);
+    if (el) el.addEventListener('input', build);
+  });
+  build();
+});
+</script>
+
+<div class="box aside">
+  <span class="lbl">Asking an AI assistant, specifically</span>
+  <p>The same three parts work, with one change: <strong>ask it to explain, not to fix.</strong>
+  "What does this error mean and what should I check?" leaves you able to describe your own
+  project at a check-in. "Fix this for me" produces working code you cannot defend, which is
+  worth less than broken code you understand. There is a whole page on where the line sits —
+  see <a href="ai-policy.html">Using AI tools</a>.</p>
+</div>
+
+<h2>7 · When to stop and change plan</h2>
+
+<p>Some problems should not be solved. Recognising those is a separate skill from debugging
+and it is the one that protects the schedule. The signal is always the same shape: <strong>the
+cost of the fix has grown larger than the value of the thing being fixed.</strong> Three
+versions of it come up on this project.</p>
+
+<p><strong>A locked-down laptop where Ollama will not install.</strong> Do not spend a
+fortnight on this. Ollama is required for exactly one step: the single real run in Phase 4.
+Everything else — the six code TODOs, all forty responses, the whole analysis and the charts
+— runs under <code>--mock</code> and <code>--sample</code> with nothing installed. Build all
+of it, then borrow one machine for one afternoon. The table in
+<a href="../setup/ollama.html">section 8 of the Ollama page</a> lists which phases need it,
+and the answer is one row out of six.</p>
+
+<p><strong>A dependency that will not install.</strong> Which one matters, so check before
+panicking. <code>scikit-learn</code> is used only for the cross-check, and
+<code>analyze.py</code> already handles its absence: it catches the <code>ImportError</code>
+and prints <code>(scikit-learn not installed — skipping cross-check)</code>, then carries on
+and produces every number and both charts. You lose one safety net, which you note in your
+methods, and nothing else. <code>matplotlib</code> is imported at the top of the file, so
+without it <code>analyze.py</code> will not run at all — but the fallback there is Google
+Colab, which is free Python in a browser with all four packages already present. Upload the
+two predictions CSVs and you have your charts in ten minutes.</p>
+
+<p><strong>Every fix producing a new error.</strong> Three fixes deep, each one revealing
+something else broken, is not a debugging problem — it is a signal that the environment is
+wrong at a level you should not be repairing by hand. Stop, write down the chain of errors
+exactly as it happened, and switch to Colab or a different machine. The chain is worth
+keeping; it is often the fastest thing to diagnose from, and it belongs in your notes file.</p>
+
+<div class="box warning">
+  <span class="lbl">The one that is hardest to see from the inside</span>
+  <p>The fourth signal is not technical. If you have spent two sessions on the same obstacle,
+  the problem is very unlikely to still be the obstacle — it is that the plan has a step in it
+  that does not need to be there. That is a conversation, not a fix, and it usually ends with
+  the step being deleted rather than solved.</p>
+  <p>Falling behind is fine and expected. <strong>If you fall behind, do less, not worse.</strong>
+  A careful twenty-item study you can defend completely beats a rushed forty-item one you
+  cannot, and the smaller n gets reported with its wider interval, honestly, as a limitation.</p>
+</div>
+
+<div class="box verify">
+  <span class="lbl">Before the check-in</span>
+  <ul>
+    <li>I set a timer at least once this week, and I know roughly how long I was stuck.</li>
+    <li>I can name the four layers and the one command that tests each.</li>
+    <li>I have run the bisection — at minimum, run 1 — before asking about any failure.</li>
+    <li>I can point at the file and line in a traceback without opening any file.</li>
+    <li>Every question I sent contained the command, the complete error, and what I tried.</li>
+    <li>I know which yellow and <code>[TODO]</code> messages are expected and are not errors.</li>
+    <li>Anything I gave up on is written down, with what I switched to instead.</li>
+  </ul>
+</div>
+
+<div class="box aside">
+  <span class="lbl">Going deeper (optional)</span>
+  <p>The four-run grid in section 3 is bisection over two binary switches. Git generalises the
+  same move over your whole history. If the pipeline worked on Tuesday and does not today,
+  and there are twenty commits in between:</p>
+  <div class="cmd"><pre><span class="p">$ </span>git bisect start
+<span class="p">$ </span>git bisect bad                  <span class="c"># today is broken</span>
+<span class="p">$ </span>git bisect good HEAD~20         <span class="c"># Tuesday was fine</span></pre></div>
+  <p>Git then checks out the commit halfway between, you test it, and you say
+  <code>git bisect good</code> or <code>git bisect bad</code>. Five rounds later it names the
+  exact commit that broke things, out of twenty. That is $\lceil \log_2 20 \rceil = 5$, the
+  same arithmetic as before. Say <code>git bisect reset</code> when you are done.</p>
+  <p>You will probably not need this on a project this size. It is here because recognising
+  the pattern is the point: any time you can cut the candidates in half with one test, do
+  that instead of looking for the answer directly.</p>
+</div>
+
+<div class="pager"><a href="glossary.html">← Glossary</a><a href="ai-policy.html">Using AI tools →</a></div>
+
+</main>
+
+<footer class="site">
+  <div class="wrap">
+    <strong>Wrong in a Particular Way</strong> · Reference ·
+    <a href="../index.html">index</a> ·
+    <a href="glossary.html">glossary</a> ·
+    <a href="../setup/ollama.html">Ollama setup</a>
+  </div>
+</footer>
+
+</body>
+</html>

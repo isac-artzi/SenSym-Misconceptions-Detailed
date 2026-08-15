@@ -1,0 +1,1076 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Phase 5 · Analysis, and writing it honestly — Wrong in a Particular Way</title>
+<link rel="stylesheet" href="../assets/vendor/katex/katex.min.css">
+<link rel="stylesheet" href="../assets/css/style.css">
+<script src="../assets/vendor/katex/katex.min.js"></script>
+<script src="../assets/vendor/katex/auto-render.min.js"></script>
+<script src="../assets/js/detect.js"></script>
+</head>
+<body>
+
+<header class="site">
+  <div class="wrap">
+    <div class="crumbs"><a href="../index.html">Wrong in a Particular Way</a> · Phase 5</div>
+    <div class="badges"><span class="badge">Phase 5 · P5</span><span class="badge win">Win: a claim you can defend under questioning</span></div>
+    <h1 class="chapter-title">Analysis, and writing it honestly</h1>
+    <p class="chapter-sub">Four files in <code>python/results/</code>, one interval that swallows most of them, and the sentences that survive.</p>
+  </div>
+</header>
+
+<main class="wrap">
+
+<p class="lede">This is the phase where the project becomes either a real piece of research or an
+overclaim. The arithmetic is easy — you already did all of it in Phase 1. The hard part is
+looking at a difference you were hoping for, computing its interval, and writing the sentence
+that the interval actually supports rather than the one you wanted. That sentence is the whole
+deliverable. Everything before this phase was building the machine that produces it.</p>
+
+<div class="objectives">
+  <h3>By the end of this phase you can</h3>
+  <ul>
+    <li>Say exactly what <code>analyze.py</code> writes into <code>python/results/</code>, and read each file.</li>
+    <li>Read a confusion matrix by looking at the false-negative cell first, and say why that cell.</li>
+    <li>Compute a Wilson interval by hand and explain why it dominates every conclusion at n&nbsp;=&nbsp;40.</li>
+    <li>State the comparison that matters — the difference in recall — and put an interval on the difference rather than on the two numbers separately.</li>
+    <li>Count the paired flips by hand and say what McNemar's test adds on top of them.</li>
+    <li>Name the four standard ways of fooling yourself, and say which one you were most tempted by.</li>
+    <li>Write Methods, Results and Limitations paragraphs that a hostile reader would believe.</li>
+  </ul>
+</div>
+
+<div class="box warning">
+  <span class="lbl">Every number on this page is a worked illustration</span>
+  <p>None of the matrices, percentages or intervals below came from your run, because your run
+  has not happened on this page. They are arithmetic examples chosen to make a point. The same
+  applies with more force to anything produced by <code>--mock</code> or <code>--sample</code>:
+  those exist to prove the pipeline works and <strong>no number derived from them may appear in
+  your write-up as a result.</strong> When your real numbers arrive, redo every calculation here
+  with them.</p>
+</div>
+
+<h2>1 · What <code>analyze.py</code> actually produces</h2>
+
+<p>Two commands, in this order. The first talks to the model and writes raw predictions; the
+second reads those and does arithmetic on them. They are separate on purpose: the expensive,
+fragile step happens once, and you can rerun the analysis a hundred times without waiting for
+the model again.</p>
+
+<div class="box python">
+  <span class="lbl">Run these</span>
+  <div class="cmd"><pre><span class="p">$ </span>cd python
+<span class="p">$ </span>python3 misconception/run_experiment.py
+<span class="p">$ </span>python3 misconception/analyze.py
+<span class="p">$ </span>pytest ../ -q</pre></div>
+  <p>Add <code>--mock --sample</code> to either of the first two to rehearse without a model and
+  without your own data. Rehearse as much as you like; report none of it.</p>
+</div>
+
+<p><code>analyze.py</code> reads two files it did not create —
+<code>results/predictions_baseline.csv</code> and
+<code>results/predictions_misconception_aware.csv</code>, one row per response per condition,
+with columns <code>response_id</code>, <code>misconception_id</code>,
+<code>response_text</code>, <code>ground_truth</code>, <code>prediction</code>,
+<code>model_reason</code>, <code>raw_reply</code> and <code>condition</code>. It writes three:</p>
+
+<p><strong><code>results/metrics.csv</code></strong> — one row per condition, ten columns:
+<code>condition, TP, FP, FN, TN, unparseable, accuracy, precision, recall, f1</code>. This is the
+table that goes in your write-up, and it is the only one of the three outputs you should quote
+numbers from. Note what is in it and what is not. It has the four counts, so a reader can
+recompute every metric and check you. It has <code>unparseable</code>, so items the parser could
+not read are visible rather than silently gone. And it has <strong>no intervals</strong>, because
+the script does not compute them: adding those is your job, by hand, and section 3 is how.</p>
+
+<p><strong><code>results/confusion_matrices.png</code></strong> — one 2×2 grid per condition,
+side by side, drawn by <code>plot_confusion_matrices()</code>. The layout is
+<code>[[TP, FN], [FP, TN]]</code>, so the top-right cell is the misses.</p>
+
+<p><strong><code>results/comparison.png</code></strong> — a grouped bar chart of accuracy,
+precision, recall and F1 with one bar per condition per metric, drawn by
+<code>plot_comparison()</code>, with the y-axis fixed to 0–1.15 and the value printed above each
+bar. This is your Figure 1. <strong>It has no error bars</strong>, which is exactly the trap
+section 3 is about: eight bars of different heights are very persuasive and, at n = 40, mostly
+noise.</p>
+
+<p><code>analyze.py</code> also prints to the terminal. Two lines per condition — the four counts
+with the unparseable count, then the four metrics — and then a cross-check line from
+<code>cross_check_with_sklearn()</code>. That line should say <code>MATCH ✓</code>. If it says
+<code>MISMATCH ✗</code>, your TODO 5 counts disagree with scikit-learn and the numbers in
+<code>metrics.csv</code> are wrong; fix that before reading anything else. Checking your own
+implementation against a trusted library is a habit worth keeping, and when they disagree it is
+almost always you.</p>
+
+<div class="out">=== baseline ===
+  TP=11  FP=4  FN=9  TN=16  (unparseable: 0)
+  accuracy=0.675  precision=0.733  recall=0.55  f1=0.629
+  scikit-learn cross-check: <b>MATCH ✓</b></div>
+
+<h2>2 · Reading your own confusion matrices</h2>
+
+<p>You get one matrix per condition, and the temptation is to read them the way you read a
+scoreboard — glance at the diagonal, see which is bigger, move on. Do the opposite.
+<strong>Look at the false-negative cell first, in both matrices, before you look at anything
+else.</strong></p>
+
+<p>The reason is the argument from Phase 1: the two off-diagonal cells are both errors and they
+do not cost the same. A false positive is a tutor correcting a student who was already right —
+irritating, trust-eroding, survivable. A false negative is a student who wrote down a wrong
+belief about passwords and had it read by a machine that said nothing. The belief survives, now
+with a machine's silence behind it. <strong>FN is the consequential cell</strong>, recall is the
+metric built on it, and recall is what your headline sentence is about. Reading FN first is a
+way of stopping yourself from telling a story about the diagonal.</p>
+
+<div class="ab">
+  <div class="a">
+    <div class="ab-h">A · baseline</div>
+    <div id="m5a"></div>
+  </div>
+  <div class="b">
+    <div class="ab-h">B · misconception_aware</div>
+    <div id="m5b"></div>
+  </div>
+</div>
+
+<script>
+G.lab(function () {
+  G.matrix('m5a', { tp: 11, fn: 9, fp: 4, tn: 16 },
+           { fnNote: 'LOOK HERE FIRST — 9 missed' });
+  G.matrix('m5b', { tp: 17, fn: 3, fp: 7, tn: 13 },
+           { fnNote: 'LOOK HERE FIRST — 3 missed' });
+});
+</script>
+
+<p>Read those two as one sentence each. <em>Under the plain prompt, twenty responses really
+contained a misconception and the tutor walked past nine of them. Under the prompt with the
+catalogue, it walked past three.</em> Then, and only then, look at the cost: false alarms rose
+from four to seven. Six silences became corrections; three students who were right got corrected
+anyway. That is the trade, stated in students rather than in decimals, and it is a far better
+opening line than "F1 improved from 0.629 to 0.773".</p>
+
+<p>Three more things to do with the matrices before you write anything.</p>
+
+<p><strong>Check the row totals.</strong> TP + FN should be the number of truly-M items scored, and
+FP + TN the truly-C items. If they are not 20 and 20, some items were unparseable — go and find
+out how many and which.</p>
+
+<p><strong>Check the total number of M predictions.</strong> That is TP + FP. If the aware
+condition's recall jumped and TP + FP is close to 40, you have not found a better detector; you
+have found a model that learned to say "misconception" more often. Phase 1's Exercise 1.3 is that
+failure in pure form: TP = 20, FN = 0, FP = 20, TN = 0 gives 100% recall and an accuracy sitting
+exactly on the 50% floor.</p>
+
+<p><strong>Read the false negatives themselves.</strong> Open the predictions CSV, filter to rows
+where <code>ground_truth</code> is M and <code>prediction</code> is C, and read the
+<code>response_text</code> and <code>model_reason</code> columns. This is TODO 6 item 3 in
+<code>analyze.py</code> and it is usually the most interesting part of the whole project. Were
+the misses all on one misconception? All longer? All the ones where the wrong belief is implied
+rather than stated? A sentence like <em>"seven of the nine misses were responses where the
+misconception was implied by a confident tone rather than stated as a claim"</em> is worth more
+to a reader than any of your four metrics, because it is a finding nobody could have guessed.</p>
+
+<h2>3 · The interval, and why it dominates everything at n = 40</h2>
+
+<p>A proportion computed from forty items is not a fact, it is an estimate, and an estimate with
+a range attached. The range at this sample size is enormous, and it is the single most important
+thing on this page.</p>
+
+<p>Suppose your aware condition got 30 of the 40 items right — 75.0% accuracy, comfortably above
+the 50% majority-class floor. The 95% Wilson interval for 30/40 is
+<strong>59.8% to 85.8%</strong>. That is the honest statement of what you know: the true accuracy
+of this prompt on this kind of item is somewhere in a band twenty-six percentage points wide. You
+do not know it to the nearest five points. You do not know it to the nearest ten.</p>
+
+<div class="box definition">
+  <span class="lbl">The Wilson score interval <span class="status cited">cited</span></span>
+  <p>For \(k\) successes out of \(n\), with \(\hat p = k/n\) and \(z = 1.96\) for 95%:</p>
+  $$p_{\pm} \;=\; \frac{\hat p + \dfrac{z^{2}}{2n} \;\pm\; z\sqrt{\dfrac{\hat p\,(1-\hat p)}{n} + \dfrac{z^{2}}{4n^{2}}}}{1 + \dfrac{z^{2}}{n}}$$
+  <p>In the site's engine this is <code>G.wilson(k, n)</code>, returning
+  <code>[lo, hi]</code>. Use it everywhere. The textbook interval
+  \(\hat p \pm z\sqrt{\hat p(1-\hat p)/n}\) is not merely less accurate here — at 38/40 it
+  produces an upper bound of 1.018, an accuracy of 101.8%, which is visibly not a thing that
+  exists. Wilson gives 83.5% to 98.6% and never leaves the unit interval by construction.</p>
+</div>
+
+<p>Now put two of these side by side, because that is what you are actually going to do. Suppose
+baseline got 28/40 and aware got 30/40 — a five-point difference in accuracy, the kind of gap
+that looks decisive on a bar chart.</p>
+
+<div class="box example">
+  <span class="lbl">Five points, at n = 40</span>
+  <p>baseline 28/40 = 70.0%, 95% Wilson interval <strong>54.6% to 81.9%</strong> (width 27.4 points)</p>
+  <p>aware 30/40 = 75.0%, 95% Wilson interval <strong>59.8% to 85.8%</strong> (width 26.0 points)</p>
+  <p>The two intervals share the range 59.8% to 81.9%, which is 22.1 points wide — that is 85%
+  of the aware interval and 81% of the baseline interval. They are very nearly the same interval.
+  A five-point difference at n = 40 is <strong>two items</strong>. Two students writing slightly
+  differently would erase it.</p>
+</div>
+
+<p>This is not a defect in your study. It is what forty items buys, and it was known before you
+started; a pilot is for establishing that a method runs end to end and for measuring roughly how
+big an effect might be, not for settling anything. What it does mean is that
+<strong>the honest conclusion from most plausible outcomes of this pilot is "consistent with an
+effect of the size we hoped for, and also consistent with no effect"</strong> — and saying that
+clearly, in one sentence, is a better piece of work than claiming a significance you do not have.
+A reader who catches you overclaiming stops believing the rest of the page. A reader who watches
+you state your own limits believes everything else you say.</p>
+
+<div class="lab">
+  <div class="lab-title">Lab 1 · The interval overlap lab</div>
+  <p class="lab-desc">Recall is computed on the twenty truly-M items only, so both sliders are
+  counts out of 20. Set the two conditions and read the two Wilson intervals as horizontal bars,
+  with their shared range shaded. Try the difference you are hoping for. Then try to find any
+  pair where the intervals stop overlapping — you will need a gap of about eight or nine items
+  out of twenty, which is a forty-point difference. The readout says what you are entitled to
+  conclude, and roughly how many items it would take to be entitled to more.</p>
+  <canvas id="ovl" height="300"></canvas>
+  <div class="controls" id="ovlctl"></div>
+  <div class="readout" id="ovlout"></div>
+</div>
+
+<script>
+G.lab(function () {
+  var st = G.controls('ovlctl', [
+    { k: 'kb', type: 'range', label: 'baseline — misconceptions caught (of 20)',
+      min: 0, max: 20, step: 1, value: 11,
+      fmt: function (v) { return v + '/20'; } },
+    { k: 'ka', type: 'range', label: 'misconception_aware — misconceptions caught (of 20)',
+      min: 0, max: 20, step: 1, value: 13,
+      fmt: function (v) { return v + '/20'; } }
+  ], draw);
+
+  /* Rough sample size per condition for two independent proportions at
+     alpha = 0.05 and 80% power:  n = (1.96 + 0.8416)^2 * [p1 q1 + p2 q2] / d^2.
+     (1.96 + 0.8416)^2 = 7.849. This is a planning approximation, not a
+     property of your data, and the paired design needs somewhat fewer. */
+  function requiredN(p1, p2) {
+    var d = p2 - p1;
+    if (d === 0) return null;
+    return 7.849 * (p1 * (1 - p1) + p2 * (1 - p2)) / (d * d);
+  }
+
+  function bar(fr, y, k, ci, col, name) {
+    var p = k / 20;
+    fr.line([[ci[0], y], [ci[1], y]], { color: col, width: 3 });
+    fr.line([[ci[0], y - 0.13], [ci[0], y + 0.13]], { color: col, width: 2 });
+    fr.line([[ci[1], y - 0.13], [ci[1], y + 0.13]], { color: col, width: 2 });
+    fr.dot(p, y, { color: col, r: 5, ring: true });
+    fr.text(0.012, y + 0.30, name + '   ' + k + '/20 = ' + G.pct(p, 0),
+            { color: col, align: 'left' });
+    fr.text(ci[0], y - 0.36, G.pct(ci[0], 0), { color: G.COL.muted, align: 'center' });
+    fr.text(ci[1], y - 0.36, G.pct(ci[1], 0), { color: G.COL.muted, align: 'center' });
+  }
+
+  function draw() {
+    var cv = G.canvas('ovl'); if (!cv) return;
+    var kb = Math.round(st.kb), ka = Math.round(st.ka);
+    var pb = kb / 20, pa = ka / 20;
+    var cb = G.wilson(kb, 20), ca = G.wilson(ka, 20);
+    var ovLo = Math.max(cb[0], ca[0]), ovHi = Math.min(cb[1], ca[1]);
+    var overlaps = ovHi > ovLo;
+
+    var fr = G.frame(cv.ctx, cv.w, cv.h, {
+      xmin: 0, xmax: 1, ymin: 0, ymax: 3,
+      margin: { left: 20, right: 20, top: 16, bottom: 46 }
+    });
+    fr.axes({ xlabel: 'recall — of the 20 truly-M items, the fraction caught',
+              xticks: 5, yticks: 0, grid: true,
+              xfmt: function (v) { return (100 * v).toFixed(0) + '%'; } });
+
+    if (overlaps) {
+      fr.rect(ovLo, 0.30, ovHi, 2.70,
+              { fill: G.COL.amber, alpha: 0.14, stroke: G.COL.amber, width: 1 });
+      fr.text((ovLo + ovHi) / 2, 1.47, 'both intervals cover this range',
+              { color: G.COL.amber, align: 'center' });
+    } else {
+      fr.text(0.5, 1.47, 'the two intervals do not overlap',
+              { color: G.COL.green, align: 'center' });
+    }
+
+    bar(fr, 2.05, ka, ca, G.COL.accent, 'misconception_aware');
+    bar(fr, 0.85, kb, cb, G.COL.muted, 'baseline');
+
+    var diff = pa - pb;
+    var need = requiredN(pb, pa);
+    var verdict;
+
+    if (kb === ka) {
+      verdict = 'IDENTICAL. Both conditions caught ' + ka + ' of the 20. There is no difference\n' +
+                'to interpret, and no sample size that makes a zero difference detectable.';
+    } else if (!overlaps) {
+      verdict = 'The marginal intervals are disjoint — a gap of ' + Math.abs(ka - kb) +
+                ' items out of 20. That is a\nvery large effect and you may say the two ' +
+                'conditions differ. Still report the PAIRED\ncounts (Lab 2): these are the ' +
+                'same forty items twice, and the paired test is the\ncorrect one.';
+    } else {
+      verdict = 'NOT MUCH. The intervals overlap over ' + (100 * (ovHi - ovLo)).toFixed(0) +
+                ' percentage points. You may write "the aware\ncondition caught ' +
+                Math.abs(ka - kb) + ' more of the twenty (' + G.pct(Math.abs(diff), 0) +
+                ')". You may NOT write "the catalogue\nimproves recall" — these data are ' +
+                'consistent with that and also with no effect.';
+    }
+
+    var needLine;
+    if (need === null) {
+      needLine = 'Required n: not defined — there is no difference to detect.';
+    } else if (need < 5) {
+      needLine = 'Required n: under 5 per condition, but the formula is a normal approximation\n' +
+                 'and stops being trustworthy at these extremes. Treat it as "very few".';
+    } else {
+      needLine = 'To detect a difference this size reliably (80% power, 95% confidence) you would\n' +
+                 'need roughly ' + Math.ceil(need) + ' truly-M items per condition, against the 20 you have.';
+    }
+
+    G.say('ovlout',
+      'baseline  ' + kb + '/20 = ' + G.pct(pb, 1) + '   95% CI ' +
+        G.pct(cb[0], 1) + ' to ' + G.pct(cb[1], 1) + '\n' +
+      'aware     ' + ka + '/20 = ' + G.pct(pa, 1) + '   95% CI ' +
+        G.pct(ca[0], 1) + ' to ' + G.pct(ca[1], 1) + '\n' +
+      'difference in recall: ' + (diff >= 0 ? '+' : '') + G.pct(diff, 1) +
+        '   (' + (ka - kb >= 0 ? '+' : '') + (ka - kb) + ' items)\n' +
+      verdict + '\n' + needLine);
+  }
+  draw();
+});
+</script>
+
+<p>Two settings worth trying in that lab. Set both to 14 and 15 — a five-point difference in
+recall, one item — and read the required-n line: about 1250 truly-M items per condition. Then set
+them to 11 and 17, the thirty-point difference from Phase 1's worked example, and it drops to
+about 33. The required sample size scales with the inverse square of the difference you are
+chasing, which is why small effects are so expensive and why a pilot can only ever detect a large
+one.</p>
+
+<h2>4 · The comparison that matters</h2>
+
+<p>Everything above puts an interval around one number. But your study is not about one number.
+It is about a difference, and the quantity your whole design exists to estimate is</p>
+
+$$\Delta \;=\; \text{recall}_{\text{aware}} - \text{recall}_{\text{baseline}}$$
+
+<p>with recall as always taking M — "this response contains a misconception" — as the positive
+class. Reporting two intervals and eyeballing whether they overlap is not the same as putting an
+interval on \(\Delta\), and the difference between those two things is worth understanding,
+because it is where your design earns its keep.</p>
+
+<p>Here is the key structural fact. <strong>The same forty responses go through both
+conditions.</strong> Item S07 is not a fresh draw in the aware condition; it is the identical
+sentence, judged again by the identical model with a different prompt. So the two sets of
+predictions are <em>paired</em>, and pairing is powerful: whatever makes S07 intrinsically hard is
+common to both conditions and cancels out of the difference.</p>
+
+<p>Restrict attention to the twenty truly-M items, since that is what recall is computed on, and
+define two counts:</p>
+
+<ul>
+  <li><strong>b</strong> — items the baseline missed and the aware condition caught. The flips
+  in your favour.</li>
+  <li><strong>c</strong> — items the baseline caught and the aware condition missed. The flips
+  against you.</li>
+</ul>
+
+<p>Then the algebra is immediate, and you can do it on paper:</p>
+
+$$\Delta \;=\; \frac{TP_{\text{aware}} - TP_{\text{baseline}}}{20} \;=\; \frac{b - c}{20}$$
+
+<p>Items both conditions caught, and items both conditions missed, contribute nothing to the
+difference. Only the flips do. <strong>This is why counting b and c by hand is already most of
+the value of the analysis</strong>: it is two numbers, it takes ten minutes with the two
+predictions CSVs open side by side, and it tells you something the marginals cannot.</p>
+
+<div class="box example">
+  <span class="lbl">Why the marginals cannot tell you <span class="status proved">proved</span></span>
+  <p>Baseline recall 11/20, aware recall 17/20. The marginals fix only \(b - c = 6\). They are
+  consistent with any of:</p>
+  <p><strong>b = 6, c = 0</strong> — six clean gains, nothing lost.<br>
+     <strong>b = 8, c = 2</strong> — eight gained, two given back.<br>
+     <strong>b = 10, c = 4</strong> — ten gained, four given back.</p>
+  <p>All three give exactly \(\Delta = 30\) percentage points, and all three give exactly the
+  same pair of Wilson intervals, because Wilson only sees 11/20 and 17/20. But they are very
+  different results. The first says the catalogue adds detections without disturbing anything.
+  The third says the catalogue is churning the model's verdicts and happens to come out ahead —
+  fourteen of twenty items changed answer. You cannot tell them apart from
+  <code>metrics.csv</code>. You can tell them apart in ten minutes with the predictions files.
+  <span class="qed">&#8718;</span></p>
+</div>
+
+<p>An interval on \(\Delta\) that uses the pairing exists and is worth quoting. With \(n\) the
+number of truly-M items and \(z = 1.96\) <span class="status cited">cited</span>:</p>
+
+$$\Delta \;\pm\; z\,\frac{\sqrt{\,(b+c) - \dfrac{(b-c)^{2}}{n}\,}}{n}$$
+
+<p>Running the three cases above, all with \(\Delta = 0.30\) and \(n = 20\):</p>
+
+<div class="box example">
+  <span class="lbl">The same difference, three different intervals</span>
+  <p><strong>b = 6, c = 0.</strong> \(b+c = 6\), \((b-c)^2/n = 36/20 = 1.8\), so the square root
+  is \(\sqrt{4.2} = 2.049\). Standard error \(2.049/20 = 0.1025\); half-width
+  \(1.96 \times 0.1025 = 0.201\). Interval: <strong>+9.9 to +50.1 points.</strong></p>
+  <p><strong>b = 8, c = 2.</strong> \(\sqrt{10 - 1.8} = \sqrt{8.2} = 2.864\); half-width
+  \(1.96 \times 2.864/20 = 0.281\). Interval: <strong>+1.9 to +58.1 points.</strong></p>
+  <p><strong>b = 10, c = 4.</strong> \(\sqrt{14 - 1.8} = \sqrt{12.2} = 3.493\); half-width
+  \(1.96 \times 3.493/20 = 0.342\). Interval: <strong>−4.2 to +64.2 points.</strong></p>
+  <p class="muted">Identical marginals, identical point estimate, and the third interval contains
+  zero while the first does not. The pairing is doing all the work.</p>
+</div>
+
+<h3>McNemar's test</h3>
+
+<p>The formal test corresponding to that argument has a name.
+<strong>McNemar's test</strong> is the correct significance test for two sets of binary
+predictions made on <em>the same items</em> <span class="status cited">cited</span>. It looks only
+at the discordant pairs — the flips — and asks whether they are lopsided enough to be
+surprising if the two conditions were equivalent. Under the null hypothesis that the conditions
+do not differ, each flip is equally likely to go either way, so \(b\) is a fair coin tossed
+\(b+c\) times. The continuity-corrected statistic is</p>
+
+$$\chi^{2} \;=\; \frac{\bigl(|b - c| - 1\bigr)^{2}}{b + c}$$
+
+<p>compared against a chi-square distribution with one degree of freedom, whose 5% critical value
+is <strong>3.841</strong> <span class="status cited">cited</span>. Larger means less consistent
+with "no difference".</p>
+
+<div class="box warning">
+  <span class="lbl">When McNemar is the right test, and when it is not</span>
+  <p><strong>Use it</strong> when the same items were classified twice — which is your entire
+  design. It is the right test for baseline versus aware on your forty items, and for baseline
+  versus aware on the twenty truly-M items separately.</p>
+  <p><strong>Do not use it</strong> to compare your study with somebody else's, or two different
+  sets of items. Different items are not paired and the whole argument collapses.</p>
+  <p><strong>When \(b+c\) is small — and at n = 40 it will be — the exact binomial test is
+  preferred</strong> <span class="status cited">cited</span>: compute the two-sided probability
+  of seeing a split at least this lopsided from \(b+c\) fair coin tosses. The chi-square version
+  is an approximation to it, and the approximation is poor with a handful of flips. With
+  \(b = 6, c = 0\) the exact two-sided probability is \(2 \times (1/2)^{6} = 0.031\), which you
+  can compute on paper; the chi-square version gives \(25/6 = 4.167\) and a probability of about
+  0.041. Lab 2 prints both.</p>
+</div>
+
+<p>And the thing to hold on to: <strong>reporting the paired counts is already most of the
+value.</strong> "Of the forty items, six changed from wrong under the baseline to right under the
+aware prompt, and none changed the other way" is a sentence any reader can evaluate, needs no
+test, and cannot be wrong. The test adds a number on top of it. If you never get to the test,
+report the counts and you have still done the analysis honestly.</p>
+
+<div class="lab">
+  <div class="lab-title">Lab 2 · The paired-flip lab</div>
+  <p class="lab-desc">All forty items now, scored right or wrong under each condition. Set how
+  many flipped from wrong-under-baseline to right-under-aware (b) and how many flipped the other
+  way (c). The two shaded cells are the only ones McNemar looks at; the greyed diagonal is
+  everything both conditions agreed on, and it is discarded. Notice that b = 6, c = 0 and
+  b = 16, c = 10 give the same net change and completely different verdicts.</p>
+  <canvas id="flip" height="330"></canvas>
+  <div class="controls" id="flipctl"></div>
+  <div class="readout" id="flipout"></div>
+</div>
+
+<script>
+G.lab(function () {
+  var st = G.controls('flipctl', [
+    { k: 'b', type: 'range', label: 'b — baseline WRONG → aware RIGHT (flips your way)',
+      min: 0, max: 20, step: 1, value: 6,
+      fmt: function (v) { return String(v); } },
+    { k: 'c', type: 'range', label: 'c — baseline RIGHT → aware WRONG (flips against you)',
+      min: 0, max: 20, step: 1, value: 2,
+      fmt: function (v) { return String(v); } }
+  ], draw);
+
+  /* Exact two-sided binomial probability for b successes in b+c fair tosses.
+     b + c <= 40 here, so plain doubles are ample. */
+  function choose(n, k) {
+    var r = 1, i;
+    for (i = 1; i <= k; i++) r = r * (n - k + i) / i;
+    return r;
+  }
+  function exactP(b, c) {
+    var n = b + c, k = Math.min(b, c), s = 0, i;
+    if (n === 0) return 1;
+    for (i = 0; i <= k; i++) s += choose(n, i);
+    return Math.min(1, 2 * s / Math.pow(2, n));
+  }
+
+  function cell(fr, x0, x1, y0, y1, val, name, col, alpha, faded) {
+    var txt = faded ? G.COL.muted : col;
+    fr.rect(x0, y0, x1, y1, { fill: col, alpha: alpha, stroke: col, width: 2 });
+    fr.text((x0 + x1) / 2, (y0 + y1) / 2 + 0.10, val,
+            { color: txt, align: 'center', font: '20px -apple-system, Segoe UI, Roboto, sans-serif' });
+    fr.text((x0 + x1) / 2, (y0 + y1) / 2 - 0.26, name, { color: txt, align: 'center' });
+  }
+
+  function draw() {
+    var cv = G.canvas('flip'); if (!cv) return;
+    var b = Math.round(st.b), c = Math.round(st.c);
+    var agreed = 40 - b - c;
+    var net = b - c;
+    var chi = (b + c) ? Math.pow(Math.abs(b - c) - 1, 2) / (b + c) : null;
+    var pex = exactP(b, c);
+
+    var fr = G.frame(cv.ctx, cv.w, cv.h, {
+      xmin: 0, xmax: 2, ymin: -0.95, ymax: 2,
+      margin: { left: 108, right: 18, top: 44, bottom: 30 }
+    });
+    fr.axes({ xticks: 0, yticks: 0, grid: false });
+
+    /* column and row headers, drawn outside the cells */
+    fr.text(0.5, 2.06, 'baseline RIGHT', { color: G.COL.muted, align: 'center' });
+    fr.text(1.5, 2.06, 'baseline WRONG', { color: G.COL.muted, align: 'center' });
+    fr.text(-0.03, 1.52, 'aware RIGHT', { color: G.COL.muted, align: 'right' });
+    fr.text(-0.03, 0.52, 'aware WRONG', { color: G.COL.muted, align: 'right' });
+
+    cell(fr, 0.02, 0.98, 1.02, 1.98, '?', 'both right — ignored',
+         G.COL.line, 0.35, true);
+    cell(fr, 1.02, 1.98, 1.02, 1.98, String(b), 'b · flipped your way',
+         G.COL.green, 0.18, false);
+    cell(fr, 0.02, 0.98, 0.02, 0.98, String(c), 'c · flipped against you',
+         G.COL.rose, 0.18, false);
+    cell(fr, 1.02, 1.98, 0.02, 0.98, '?', 'both wrong — ignored',
+         G.COL.line, 0.35, true);
+
+    fr.text(1.0, -0.22, 'the two grey cells total ' + agreed +
+            ' items; McNemar never looks at them',
+            { color: G.COL.muted, align: 'center' });
+
+    /* chi-square gauge along the bottom: 0 to 8, with the 5% critical value */
+    var GMAX = 8;
+    var shown = chi === null ? 0 : Math.min(chi, GMAX);
+    fr.rect(0, -0.86, 2, -0.50, { fill: G.COL.wash, alpha: 1, stroke: G.COL.line, width: 1 });
+    var gcol = (chi !== null && chi > 3.841) ? G.COL.green : G.COL.amber;
+    fr.rect(0, -0.86, 2 * shown / GMAX, -0.50, { fill: gcol, alpha: 0.30 });
+    fr.line([[2 * 3.841 / GMAX, -0.88], [2 * 3.841 / GMAX, -0.48]],
+            { color: G.COL.rose, width: 2 });
+    fr.text(2 * 3.841 / GMAX, -0.44, '3.841 = 5% critical value',
+            { color: G.COL.rose, align: 'center' });
+    fr.text(0.02, -0.79, 'chi-square (continuity corrected): ' +
+            (chi === null ? 'undefined — no flips at all' : G.fmt(chi, 3)),
+            { color: G.COL.ink, align: 'left' });
+
+    var verdict;
+    if (b + c === 0) {
+      verdict = 'NO FLIPS AT ALL. Every item got the same verdict under both prompts, so the\n' +
+                'chi-square is 0/0 — undefined, not zero. The prompt changed nothing whatsoever.';
+    } else if (b === c) {
+      verdict = 'PERFECTLY BALANCED CHURN. ' + b + ' items improved and ' + c +
+                ' got worse. The prompt moved\n' + (b + c) + ' verdicts and gained nothing. ' +
+                'A study reporting only accuracy would call this "no effect";\n' +
+                'the flip counts show it is instead an effect that cancels, which is different.';
+    } else if (chi > 3.841) {
+      verdict = 'The flips are lopsided enough that this would be unusual if the two prompts\n' +
+                'were equivalent. Report it as: "' + b + ' items improved and ' + c +
+                ' worsened; McNemar\nchi-square = ' + G.fmt(chi, 2) +
+                ', exact two-sided p = ' + G.fmt(pex, 3) + '." State the counts first.';
+    } else {
+      verdict = 'NOT LOPSIDED ENOUGH. ' + b + ' improved, ' + c + ' worsened. A split this uneven ' +
+                'happens\neasily by chance from ' + (b + c) + ' coin tosses. The honest sentence is ' +
+                '"the aware condition\nwas right on ' + Math.abs(net) + ' more items, a difference ' +
+                'this design cannot distinguish from noise".';
+    }
+
+    G.say('flipout',
+      'b = ' + b + '   c = ' + c + '   agreed = ' + agreed + '   (n = 40)\n' +
+      'net change: ' + (net >= 0 ? '+' : '') + net + ' items = ' +
+        (net >= 0 ? '+' : '') + G.fmt(100 * net / 40, 1) + ' accuracy points\n' +
+      'McNemar chi-square = ' + (chi === null ? 'undefined' : G.fmt(chi, 3)) +
+        '    exact two-sided p = ' + G.fmt(pex, 4) + '\n' +
+      verdict + '\n' +
+      'With b + c = ' + (b + c) + ', the exact binomial p is the one to quote; the chi-square\n' +
+      'is an approximation to it and is unreliable when the flips are few.');
+  }
+  draw();
+});
+</script>
+
+<h2>5 · Four ways to fool yourself</h2>
+
+<p>None of these requires dishonesty. Every one of them is something a careful, well-meaning
+person does by accident, which is exactly why they have names and why you check for them
+deliberately rather than trusting yourself.</p>
+
+<h3>1. Reporting accuracy without the 50% floor</h3>
+
+<p>Your dataset is twenty M and twenty C by construction, so the always-guess-M classifier scores
+50% and contains no information about passwords at all. An accuracy of 60% is therefore ten
+points above nothing, not sixty points above nothing — and the Wilson interval for 24/40 is
+44.6% to 73.7%, which contains 50%. <strong>The fix:</strong> every accuracy you write down
+carries the floor in the same sentence. Not "the model got 60%", but "60.0% (95% CI 44.6–73.7%)
+against a majority-class floor of 50%, which the interval contains".</p>
+
+<h3>2. Reporting a difference smaller than the interval</h3>
+
+<p>A five-point difference at n = 40 is two items, and section 3 showed that the two intervals
+around it are almost the same interval. Writing "the aware prompt improved accuracy by 5 points"
+is not false as arithmetic and is badly misleading as a claim, because it presents as a finding
+something the data cannot distinguish from two students having written differently.
+<strong>The fix:</strong> compute the interval before you write the sentence, not after. If the
+interval on the difference contains zero, the word "improved" does not appear; the words
+"consistent with" do.</p>
+
+<h3>3. Dropping the unparseable items instead of reporting them</h3>
+
+<p>Some replies will not contain a readable verdict. <code>parse_verdict()</code> returns
+<code>?</code> rather than guessing, and <code>compute_confusion()</code> counts those into the
+<code>unparseable</code> column and excludes them from the four cells. That is the correct
+behaviour and it creates a reporting obligation, because it quietly changes your denominators: if
+five items are unparseable in one condition and none in the other, you are comparing a proportion
+out of 35 with a proportion out of 40, and those are not the same measurement.</p>
+
+<p>It is also a real finding in its own right: "the 3B model produced unreadable output on 12% of
+items under the aware prompt and on 2% under the baseline" tells a reader something true about
+small models and long prompts. Hiding it makes your numbers look better than they are, which is
+why the code refuses to default them to C. <strong>The fix:</strong> report the count for each
+condition in the same paragraph as the metrics, and if the counts differ much between conditions,
+report the metrics both ways — excluding those items, and counting them all as errors.</p>
+
+<h3>4. Changing the prompt after seeing the results and reporting the best one</h3>
+
+<p>This is the serious one, and it feels completely innocent. You run the study; the aware
+condition is barely ahead; you notice the catalogue would read better with the misconceptions
+numbered; you rerun; now it is four points ahead; you write that up. Nothing you did was a lie
+and the result is still worthless, because you made a choice <em>after</em> seeing the data and
+you made it in the direction you were hoping for.</p>
+
+<div class="box definition">
+  <span class="lbl">Researcher degrees of freedom <span class="status cited">cited</span></span>
+  <p>Every study contains dozens of small decisions with no obviously right answer: which prompt
+  wording, whether to exclude an item that reads oddly, whether to count a borderline reply as
+  M. Each one is defensible on its own. <strong>Taken together, and chosen after looking at the
+  results, they let a careful person produce a positive finding from data containing no
+  effect</strong> — without ever knowingly doing anything wrong. The general name for the
+  practice is p-hacking; the general name for the freedom that enables it is researcher degrees
+  of freedom.</p>
+</div>
+
+<p><strong>The fix is not "never change the prompt".</strong> Iterating on a prompt is a
+reasonable thing to do and you will learn from it. The fix is to <strong>report every prompt you
+tried and every result it produced</strong>, in a table, in the order you tried them, with a
+sentence saying which one you had committed to in advance. Three prompts with three results, all
+shown, is honest and interesting. One prompt with one result, chosen from three, is not — and the
+only difference between them is what you chose to print.</p>
+
+<p>Two practical protections, both cheap. Commit your predicted outcome to the repository with a
+date before Phase 4 runs, as Phase 1 exercise 1.7 asked. And keep every version of
+<code>prompts.py</code> in git history rather than editing over it, so the record of what you
+tried exists whether or not you remember to write it down.</p>
+
+<h2>6 · The write-up skeleton</h2>
+
+<p>Three sections. Write Methods before you have results — it keeps you honest, and it is the
+part you can do while the run is still going.</p>
+
+<h3>Methods — five paragraphs</h3>
+
+<p><strong>1. The items.</strong> How many, how built, how balanced, from what source list.
+<em>"I wrote 40 short responses covering 10 misconceptions about passwords and authentication,
+drawn from a longer catalogue; each misconception has two responses containing it and two correct
+responses on the same topic, giving 20 M and 20 C."</em></p>
+
+<p><strong>2. The labelling.</strong> Who labelled, whether anyone checked, and how much they
+agreed. <em>"All 40 items were written and labelled by the author; a second reader independently
+labelled 12 of them and agreed on 11."</em> If there was no second reader, say that in the same
+plain way.</p>
+
+<p><strong>3. The model.</strong> Name, version, how it was run, and every setting that could
+change the answer. <em>"Responses were classified by llama3.2:3b run locally through Ollama at
+temperature 0, with a 200-token reply cap, on a single laptop."</em> If you catch yourself
+writing "I used an AI model", go back and add which one.</p>
+
+<p><strong>4. The two conditions.</strong> Both prompts, described, with the difference named
+exactly — and the place where a second thing had to differ named too.
+<em>"The two prompts are identical except that the misconception-aware prompt lists the ten
+catalogue statements and instructs the model to check the response against them; the instruction
+sentence therefore differs as well, which is a second difference and is discussed in the
+limitations."</em></p>
+
+<p><strong>5. The measurement.</strong> The confusion matrix, the four metrics, the positive
+class, and why recall leads. <em>"Predictions were scored into a 2×2 confusion matrix with 'the
+response contains a misconception' as the positive class; accuracy, precision, recall and F1 were
+computed from it, and recall is reported as the primary outcome because a missed misconception is
+the error that carries a cost to the student."</em></p>
+
+<h3>Results — four paragraphs and one table</h3>
+
+<p><strong>1. The table.</strong> Table 1 is <code>metrics.csv</code> with two columns added by
+hand: the 95% Wilson interval for recall and for accuracy. Caption it so it stands alone:
+<em>"Table 1. Confusion-matrix counts and detection metrics for the two prompts (llama3.2:3b,
+temperature 0, 40 responses, positive class = contains a misconception)."</em></p>
+
+<p><strong>2. Plain reporting, no adjectives.</strong> Numbers with their denominators, neutral
+verbs, no "impressively", no "only", no interpretation yet.
+<em>"Recall was 17/20 (85.0%, 95% CI 64.0–94.8%) with the misconception catalogue and 11/20
+(55.0%, 34.2–74.2%) without it; precision fell from 11/15 (73.3%) to 17/24 (70.8%). All 80
+judgements parsed as a clear M or C, so no items were excluded."</em></p>
+
+<p><strong>3. The paired comparison.</strong> The flips, then the test.
+<em>"Of the 20 items containing a misconception, 8 were missed by the baseline and caught by the
+aware condition and 2 went the other way (McNemar chi-square = 2.50, exact two-sided p = 0.109),
+giving a difference in recall of +30.0 points (95% CI +1.9 to +58.1)."</em></p>
+
+<p><strong>4. What the errors looked like.</strong> The false negatives, read and characterised,
+with one or two quoted. This is the paragraph a reader remembers.</p>
+
+<h3>Limitations — a list, in your own voice</h3>
+
+<p>Naming the holes yourself is what makes the rest believable; someone else will find them
+anyway. Start from this list, cut what does not apply, and add what you found.</p>
+
+<ul>
+  <li><strong>n = 40.</strong> Two or three items going the other way moves any of these numbers
+  by five to seven points, and the 95% intervals are twenty to forty points wide. This is a
+  pilot, not a measurement.</li>
+  <li><strong>One domain.</strong> Passwords and authentication only. Nothing here says anything
+  about phishing, encryption, or any subject outside computer security.</li>
+  <li><strong>One model.</strong> A single 3-billion-parameter model at one temperature. A larger
+  model, or a differently trained one of the same size, might behave completely differently.</li>
+  <li><strong>Single-author labelling.</strong> The same person wrote the items and assigned the
+  labels, so any systematic idea of what counts as a misconception is baked into both.</li>
+  <li><strong>Hand-authored responses.</strong> The forty items were written to contain
+  misconceptions, not collected from students. Real student writing is messier, shorter, and
+  often ambiguous in ways these items are not.</li>
+  <li><strong>Detection, not learning.</strong> This measures whether misconceptions get noticed.
+  It says nothing about whether anyone learns anything, which is the question the project is
+  ultimately about.</li>
+</ul>
+
+<h2>7 · What would make this a stronger study</h2>
+
+<p>Ranked by cost, cheapest first. The ordering matters: the first two are afternoons, the last
+one is a term.</p>
+
+<p><strong>1. A second model.</strong> Change <code>MODEL_NAME</code> in <code>config.py</code>
+and rerun: one more afternoon, no new data, and you have doubled the evidence about generality.
+If the catalogue helps both <code>llama3.2:3b</code> and <code>llama3.2:1b</code> that is much
+harder to dismiss than either alone; if it helps one and not the other, that is a result about
+model size nobody could have predicted. Best value per hour available to you.</p>
+
+<p><strong>2. A second labeller.</strong> Hand the forty responses, stripped of labels, to
+someone competent and ask them to label them cold; report the agreement. One person, one hour,
+and it attacks the biggest weakness in the design — that whoever decided what counts as a
+misconception also wrote the items. High agreement makes your ground truth defensible; low
+agreement is something important you learned before anyone else pointed it out.</p>
+
+<p><strong>3. Naturally occurring student responses.</strong> Real answers rather than answers
+written to order. This is the single largest improvement in what the study <em>means</em>, since
+it removes the possibility that you unconsciously wrote items your model could handle. Third
+rather than first only because it needs permission and permission needs time. Even twenty real
+responses alongside your forty would show whether the metrics hold on writing you did not
+author.</p>
+
+<p><strong>4. More items.</strong> The obvious fix, deliberately last, because the required-n
+line in Lab 1 shows why: detecting a five-point difference needs over a thousand items per
+condition, which is not a school project. Interval width shrinks roughly with the square root of
+n, so doubling from 40 to 80 narrows it by only about 30%. More items is the right move once you
+already know the effect is large enough to chase, and the pilot is what tells you that.</p>
+
+<h2>8 · Exercises</h2>
+
+<div class="exercise">
+  <div class="ex-head">Exercise 5.1 <span class="stars">★★</span><span class="tag">arithmetic</span></div>
+  <div class="ex-body">
+    <p>Compute the 95% Wilson interval for a recall of 15/20 by hand, using \(z = 1.96\) so that
+    \(z^2 = 3.8416\). Show every step. Then check your answer against
+    <code>G.wilson(15, 20)</code> by setting the aware slider in Lab 1 to 15.</p>
+  </div>
+  <details><summary>Solution</summary><div class="solution">
+    <p>\(\hat p = 15/20 = 0.75\), \(n = 20\), \(z^2 = 3.8416\).</p>
+    <p><strong>Denominator.</strong> \(1 + z^2/n = 1 + 3.8416/20 = 1 + 0.19208 =
+    \mathbf{1.19208}\).</p>
+    <p><strong>Centre.</strong> \(\hat p + z^2/(2n) = 0.75 + 3.8416/40 = 0.75 + 0.09604 =
+    \mathbf{0.84604}\). Note it is pulled above 0.75 — the Wilson interval shrinks estimates
+    towards one half, which is why it never runs off the end.</p>
+    <p><strong>Spread.</strong> Inside the root:
+    \(\hat p(1-\hat p)/n = 0.75 \times 0.25/20 = 0.1875/20 = 0.009375\), and
+    \(z^2/(4n^2) = 3.8416/1600 = 0.0024010\). Sum \(= 0.0117760\), root \(= 0.1085173\),
+    times \(z\): \(1.96 \times 0.1085173 = \mathbf{0.212694}\).</p>
+    <p><strong>Combine.</strong><br>
+    lower \(= (0.84604 - 0.212694)/1.19208 = 0.633346/1.19208 = \mathbf{0.5313}\)<br>
+    upper \(= (0.84604 + 0.212694)/1.19208 = 1.058734/1.19208 = \mathbf{0.8881}\)</p>
+    <p>So 15/20 = 75.0%, 95% CI <strong>53.1% to 88.8%</strong>. Lab 1 agrees.</p>
+    <p>Look at the width: 35.7 percentage points. That is what "the model caught three quarters
+    of them" is worth on twenty items — the truth could be a little over half, or nearly nine in
+    ten. Any sentence you write about this number has to survive both ends of that range.</p>
+  </div></details>
+</div>
+
+<div class="exercise">
+  <div class="ex-head">Exercise 5.2 <span class="stars">★★</span><span class="tag">thinking</span></div>
+  <div class="ex-body">
+    <p>Your run gives baseline recall 13/20 and aware recall 15/20. Someone suggests the headline
+    "the misconception catalogue improved recall by 10 percentage points". Decide whether that
+    difference is reportable as an improvement, and say exactly what you would write instead. The
+    Wilson interval for 13/20 is 43.3% to 81.9%; for 15/20 it is 53.1% to 88.8%.</p>
+  </div>
+  <details><summary>Solution</summary><div class="solution">
+    <p><strong>No, not as an improvement.</strong> Three reasons, in the order a reader would
+    raise them.</p>
+    <p><strong>1. The difference is two items.</strong> 15 − 13 = 2 out of twenty. Ten percentage
+    points sounds substantial and is, at this scale, two students' worth of writing.</p>
+    <p><strong>2. The intervals nearly coincide.</strong> 43.3–81.9% and 53.1–88.8% share
+    53.1–81.9%, a range 28.8 points wide, which is 75% of the first interval and 81% of the
+    second. Both numbers describe close to the same state of knowledge.</p>
+    <p><strong>3. The paired test cannot rescue it either.</strong> The marginals fix
+    \(b - c = 2\). The most favourable possible case is \(b = 2, c = 0\): McNemar's
+    continuity-corrected statistic is \((|2-0|-1)^2/(2+0) = 1/2 = 0.5\), far below 3.841, and the
+    exact two-sided probability from two fair coin tosses is \(2 \times (1/2)^2 = 0.5\). Even in
+    the best case this is a coin landing the same way twice.</p>
+    <p>What to write: <em>"Recall was 15/20 (75.0%, 95% CI 53.1–88.8%) with the catalogue and
+    13/20 (65.0%, 43.3–81.9%) without. Two additional items were caught; b = 2 items improved and
+    c = 0 worsened (exact two-sided p = 0.50). This design cannot distinguish a difference of this
+    size from noise, and the result is consistent both with a useful effect and with none."</em></p>
+    <p>Then, in Limitations, the required-n figure: detecting a difference between 65% and 75%
+    reliably would need roughly 326 truly-M items per condition, against the 20 you have. Saying
+    that turns "we found nothing" into "here is what finding something would have cost", which is
+    a much more useful sentence for whoever runs this next.</p>
+  </div></details>
+</div>
+
+<div class="exercise">
+  <div class="ex-head">Exercise 5.3 <span class="stars">★★</span><span class="tag">arithmetic</span></div>
+  <div class="ex-body">
+    <p>Over all forty items, nine flipped from wrong under the baseline to right under the aware
+    prompt, and three flipped the other way. Compute the net change in accuracy, the
+    continuity-corrected McNemar statistic, and say what you would report. Then state how many
+    items the two conditions agreed on, and why that number does not appear anywhere in the
+    calculation.</p>
+  </div>
+  <details><summary>Solution</summary><div class="solution">
+    <p>\(b = 9\), \(c = 3\), so \(b + c = 12\) discordant items and \(40 - 12 =
+    \mathbf{28}\) items on which the two conditions agreed.</p>
+    <p><strong>Net change.</strong> \(b - c = 6\) items, and \(6/40 = 0.15\), so accuracy rises by
+    <strong>15.0 percentage points</strong>. Every point of that comes from the twelve flips; the
+    twenty-eight agreements contribute exactly nothing, because they contribute the same amount to
+    both conditions and cancel in the subtraction.</p>
+    <p><strong>McNemar.</strong> \(\chi^2 = (|9-3| - 1)^2/(9+3) = (6-1)^2/12 = 25/12 =
+    \mathbf{2.083}\). The 5% critical value for one degree of freedom is 3.841, and 2.083 is well
+    below it.</p>
+    <p><strong>The exact test, which is the one to quote at \(b+c = 12\).</strong> Under the null
+    each flip is a fair coin, so the two-sided probability of a split at least as lopsided as 9–3
+    is \(2 \sum_{i=0}^{3}\binom{12}{i} / 2^{12} = 2(1 + 12 + 66 + 220)/4096 = 598/4096 =
+    \mathbf{0.146}\).</p>
+    <p>What to report: <em>"Nine items were wrong under the baseline and right with the catalogue;
+    three went the other way (McNemar chi-square = 2.08, exact two-sided p = 0.146). Accuracy rose
+    by 6 items (15.0 points), a difference this design cannot distinguish from chance."</em></p>
+    <p>The twenty-eight agreements are absent from the arithmetic because McNemar asks a question
+    they cannot answer: "when the two conditions disagreed, did they disagree lopsidedly?" An item
+    both prompts got right tells you the item was easy, not which prompt is better. This is also
+    why the test is more sensitive than comparing the two accuracies: it throws away the shared
+    difficulty instead of letting it dilute the signal.</p>
+  </div></details>
+</div>
+
+<div class="exercise">
+  <div class="ex-head">Exercise 5.4 <span class="stars">★★</span><span class="tag">writing</span></div>
+  <div class="ex-body">
+    <p>Here is a sentence from a first draft. Identify every separate thing wrong with it, then
+    write a replacement that says everything true it was trying to say.</p>
+    <p><em>"Our results prove that giving an AI a list of misconceptions makes it significantly
+    better at detecting student misconceptions, with accuracy improving from 70% to 76%."</em></p>
+    <p>The underlying run: baseline TP = 14, FN = 6, FP = 6, TN = 14, none unparseable; aware
+    TP = 17, FN = 3, FP = 6, TN = 12, with two further items unparseable and therefore excluded,
+    both of them items you had labelled C. Over the 38 items scored under both conditions the
+    paired flips were b = 7, c = 5.</p>
+  </div>
+  <details><summary>Solution</summary><div class="solution">
+    <p><strong>Six separate problems.</strong></p>
+    <p><strong>1. "prove".</strong> Forty items never prove anything. The correct verbs are
+    "suggests", "is consistent with", "is early evidence for".</p>
+    <p><strong>2. "an AI".</strong> Unreproducible. It was llama3.2:3b at temperature 0, run
+    locally through Ollama, and a reader cannot repeat the study without that.</p>
+    <p><strong>3. "significantly".</strong> This word has a technical meaning and here it is
+    simply false. The paired flips were b = 7 against c = 5, so the McNemar statistic is
+    \((|7-5|-1)^2/12 = 1/12 = 0.083\) and the exact two-sided probability from twelve coin
+    tosses is 0.774. Nothing about this is significant in any sense.</p>
+    <p><strong>4. No interval, and no floor.</strong> Baseline accuracy is 28/40 = 70.0% with a
+    Wilson interval of 54.6–81.9%; aware accuracy is 29/38 = 76.3% with an interval of
+    60.8–87.0%. They overlap over 21.1 points, and both sit above a majority-class floor of 50%
+    that has to be stated for the numbers to mean anything.</p>
+    <p><strong>5. Accuracy is the wrong headline.</strong> The interesting change here is recall,
+    14/20 to 17/20, which accuracy cannot see: it cannot distinguish six misses from six false
+    alarms, and this project exists because those are not the same error.</p>
+    <p><strong>6. The unparseable items are invisible.</strong> Two of the aware condition's
+    items were dropped, so its counts total 38, not 40 — its accuracy and precision have a
+    different denominator from the baseline's and the reader is not told.</p>
+    <p><strong>A replacement:</strong></p>
+    <p><em>"With the misconception catalogue in the prompt, llama3.2:3b (temperature 0, run
+    locally) caught 17 of the 20 responses containing a misconception (85.0%, 95% CI 64.0–94.8%),
+    against 14 of 20 without it (70.0%, 48.1–85.5%). Two further items in the aware condition
+    produced unparseable output and are excluded, so its accuracy is computed on 38 items rather
+    than 40; both were items labelled correct, so recall is unaffected. Across the 38 items scored
+    under both conditions, 7 changed from wrong to right and 5 from right to wrong (McNemar
+    chi-square = 0.08, exact two-sided p = 0.77). Accuracy was 29/38 = 76.3% (60.8–87.0%) with the
+    catalogue and 28/40 = 70.0% (54.6–81.9%) without, against a majority-class floor of 50%. These
+    data are consistent with a recall improvement of the size we predicted and also with no
+    effect; at n = 40 the design cannot separate the two."</em></p>
+    <p>It is four times as long and it is the only version a reader will believe. Notice also
+    what the flip counts revealed that the marginals hid: twelve of the thirty-eight verdicts
+    changed, to produce a net gain of two items. The catalogue is churning this model's
+    judgements rather than sharpening them, and that sentence is a genuine finding you would have
+    missed entirely by reading <code>metrics.csv</code> alone.</p>
+  </div></details>
+</div>
+
+<div class="exercise">
+  <div class="ex-head">Exercise 5.5 <span class="stars">★★</span><span class="tag">by hand</span></div>
+  <div class="ex-body">
+    <p>The aware condition returns five unparseable replies, three of them on items you labelled
+    M. So its recall is computed on 17 truly-M items, not 20, and it caught 14 of them. The
+    baseline had none unparseable and caught 11 of 20. Work out the range that the aware
+    condition's recall could take once you account for the dropped items, and write the sentence
+    you would put in Results.</p>
+  </div>
+  <details><summary>Solution</summary><div class="solution">
+    <p><strong>As computed by the script:</strong> 14/17 = <strong>82.4%</strong>, 95% Wilson
+    interval 59.0% to 93.8%. This is what <code>metrics.csv</code> will say, and quoting it
+    without the caveat compares a proportion out of 17 with the baseline's proportion out of 20.</p>
+    <p><strong>The bounds.</strong> The three dropped items really were misconceptions; the model
+    simply failed to say anything readable about them. Two extreme accountings:</p>
+    <p><em>Best case</em> — treat all three as catches: 17/20 = <strong>85.0%</strong>
+    (64.0–94.8%).<br>
+    <em>Worst case</em> — treat all three as misses, which is what a deployed tutor would
+    effectively do, since an unreadable verdict corrects nobody: 14/20 =
+    <strong>70.0%</strong> (48.1–85.5%).</p>
+    <p>So the aware condition's recall is somewhere in <strong>70.0% to 85.0%</strong> depending
+    purely on a bookkeeping decision, against the baseline's 11/20 = 55.0% (34.2–74.2%). The
+    worst-case figure still exceeds the baseline point estimate, which is worth saying — the
+    conclusion does not flip under the least generous accounting.</p>
+    <p>What to write: <em>"Five of the aware condition's 40 replies could not be parsed as a clear
+    verdict (12.5%), three of them on items containing a misconception; the baseline produced
+    none. Recall computed on the 17 scored M items was 14/17 (82.4%, 95% CI 59.0–93.8%). Counting
+    all three unparseable M items as missed — the conservative reading, since an unreadable
+    verdict corrects nobody — gives 14/20 (70.0%, 48.1–85.5%), against 11/20 (55.0%, 34.2–74.2%)
+    for the baseline."</em></p>
+    <p>Two things follow. Reporting the metric both ways costs one extra sentence and removes any
+    suspicion that you chose the flattering denominator. And the asymmetry itself is a finding:
+    the longer aware prompt produced unreadable output where the short one did not, which is a
+    real and reportable property of a 3B model given a long prompt, and belongs in the Results
+    rather than being treated as an embarrassment.</p>
+  </div></details>
+</div>
+
+<div class="exercise">
+  <div class="ex-head">Exercise 5.6 <span class="stars">★★</span><span class="tag">writing</span></div>
+  <div class="ex-body">
+    <p>Write the paragraph headed "What would have changed our conclusion" for your actual
+    results, once you have them. It must name at least two specific numerical outcomes that you
+    would have accepted as evidence against your own hypothesis, and it must be checkable by a
+    stranger holding only your results table. Under 130 words.</p>
+  </div>
+  <details><summary>Solution</summary><div class="solution">
+    <p>There is no single right answer, but a good one is specific enough that somebody could
+    hold it against your table and tick it off. For example:</p>
+    <p><em>"We predicted in advance that the catalogue would raise recall substantially while
+    leaving precision flat or slightly lower. We would have concluded it did not help if recall
+    had risen by two items or fewer out of twenty, since a two-item change gives an exact
+    two-sided p of 0.50 even in the most favourable paired arrangement; or if the paired flips had
+    been near-balanced, say b and c within two of each other, indicating churn rather than
+    improvement; or if the aware condition's total M predictions had exceeded about 32 of 40,
+    indicating drift towards the always-guess-M classifier rather than better detection. We would
+    also have reported a fall in recall, which is a plausible outcome for a 3B model given a long
+    prompt."</em></p>
+    <p>Check yours against three questions. Does it name numbers rather than adjectives? Does at
+    least one of the outcomes describe a result that would have embarrassed you? Could a stranger
+    verify, from your results table alone, whether the condition was met? If yes to all three it
+    does its job.</p>
+    <p>And the timestamp is the whole point. Written before Phase 4 it is a prediction; written
+    afterwards it is a description of what happened, dressed up as one.</p>
+  </div></details>
+</div>
+
+<div class="exercise">
+  <div class="ex-head">Exercise 5.7 <span class="stars">★★★</span><span class="tag">research</span></div>
+  <div class="ex-body">
+    <p>You run the study. The aware condition's recall is 12/20 against the baseline's 11/20 —
+    one item. You reread the aware prompt, decide the catalogue would be clearer numbered and with
+    a blank line between entries, rerun, and get 15/20. You now have two results and a choice.
+    Say exactly what you would do, what you would report, and what you would say at the check-in
+    when asked why there are two runs.</p>
+  </div>
+  <details><summary>Solution</summary><div class="solution">
+    <p><strong>What not to do:</strong> report 15/20 and delete the first run. Nothing about that
+    is a lie — the second run really did give 15/20 — and it is still worthless, because the
+    prompt was chosen after seeing that the first one underperformed, and chosen in the direction
+    you wanted. That is researcher degrees of freedom in its purest form, and the reason it is
+    dangerous is exactly that it does not feel like cheating.</p>
+    <p><strong>What to do.</strong> Report both, in a table, in the order you ran them, with the
+    committed prompt marked:</p>
+    <p>Prompt A (pre-registered, plain list): recall 12/20 = 60.0%, 95% CI 38.7–78.1%<br>
+       Prompt B (revised after seeing A, numbered list): recall 15/20 = 75.0%, 95% CI 53.1–88.8%<br>
+       Baseline: recall 11/20 = 55.0%, 95% CI 34.2–74.2%</p>
+    <p>Then say plainly which comparison is your result. <strong>Prompt A against baseline is the
+    study</strong> — one item's difference, which is nothing. Prompt B against baseline is a
+    hypothesis generated by this pilot and not tested by it, and the honest description of it is
+    "a promising second prompt that would need a fresh set of items to evaluate".</p>
+    <p><strong>At the check-in.</strong> Say it before you are asked: <em>"I ran the
+    pre-registered prompt first and got almost nothing. I then revised the prompt after seeing
+    that, and the revision did better, so I am reporting both and treating the revision as
+    something to test next rather than as my result, because I chose it after looking at the
+    data."</em> That answer is much stronger than a clean single number, because it demonstrates
+    you know what the trap is. Anyone experienced will immediately ask whether you tried more than
+    one prompt; having the answer ready and honest is worth more than the extra fifteen points
+    would have been.</p>
+    <p>The cheap fix for next time, worth writing into the plan: hold back ten items from the
+    start, never look at them, and use them once at the end to evaluate whatever prompt you ended
+    up with. That gives you a legitimate test of the revised prompt without needing to collect
+    anything new.</p>
+  </div></details>
+</div>
+
+<h2>9 · Verification</h2>
+
+<div class="box verify">
+  <span class="lbl">Before the check-in</span>
+  <ul>
+    <li><code>analyze.py</code> ran on real data and printed <code>MATCH ✓</code> on the
+    scikit-learn cross-check for both conditions.</li>
+    <li><code>results/metrics.csv</code> exists, and I can explain every one of its ten columns.</li>
+    <li>I have written the Wilson interval next to every proportion I intend to report, computed
+    with <code>G.wilson</code> or by hand.</li>
+    <li>I have counted b and c — the paired flips — by hand from the two predictions files, for
+    all 40 items and for the 20 truly-M items separately.</li>
+    <li>I have read every false negative in both conditions and written one sentence about what
+    they have in common.</li>
+    <li>The unparseable count is reported for each condition, and if the counts differ I have
+    reported the metrics both ways.</li>
+    <li>Every accuracy I report carries the 50% majority-class floor in the same sentence.</li>
+    <li>Every prompt I tried is in the write-up, in the order I tried them, with the
+    pre-registered one marked.</li>
+    <li>My Limitations list names n = 40, one domain, one model, single-author labelling, and
+    hand-authored responses.</li>
+    <li>I have read my own headline sentence out loud and it contains no word I could not defend.</li>
+  </ul>
+</div>
+
+<div class="box aside">
+  <span class="lbl">Going deeper (optional)</span>
+  <p><strong>Why the interval narrows so slowly.</strong> The half-width of an interval on a
+  proportion is roughly proportional to \(1/\sqrt{n}\), so to halve it you need four times as
+  many items and to shrink it tenfold you need a hundred times as many. That single fact governs
+  the economics of every empirical study ever run, and it is why "collect more data" is almost
+  never the cheapest improvement available.</p>
+  <p><strong>Newcombe's methods.</strong> The paired interval used in section 4 is a Wald-type
+  approximation. Better intervals for the difference of two proportions — including the paired
+  case — are given by Newcombe's hybrid score methods, which combine Wilson intervals for the
+  individual proportions rather than assuming normality of the difference
+  <span class="status cited">cited</span>. Worth naming if anyone asks what a statistician would
+  actually use; not worth implementing for a pilot, where the honest conclusion does not turn on
+  the third decimal place.</p>
+  <p><strong>Where the metrics playground goes next.</strong> Everything on this page manipulates
+  one 2×2 table. The next page collects all of it into one place you can keep open while writing,
+  so you are not recomputing an interval in the margin of a notebook at eleven at night.</p>
+</div>
+
+<div class="pager"><a href="phase-4-run.html">← Phase 4 · The real run</a><a href="../extras/metrics.html">The metrics playground →</a></div>
+
+</main>
+
+<footer class="site">
+  <div class="wrap">
+    <strong>Wrong in a Particular Way</strong> · Phase 5 ·
+    <a href="../index.html">index</a> ·
+    <a href="../extras/glossary.html">glossary</a> ·
+    <a href="../extras/unstuck.html">stuck?</a>
+  </div>
+</footer>
+
+</body>
+</html>

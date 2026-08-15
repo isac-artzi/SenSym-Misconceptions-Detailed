@@ -1,0 +1,13 @@
+response_id,misconception_id,ground_truth,response_text,notes
+S01,M01,M,"My password is 24 characters so it's basically uncrackable. Length is the only thing that really matters for password strength.",classic over-extension of a true fact
+S02,M01,M,"I use 'ilovepizzaandicecream' — it's really long, so even if it's just normal words a hacker would never get through it.",long but low-entropy
+S03,M01,C,"Length helps a lot, but a long password made of common words can still be guessed by a dictionary attack. It needs to be long and unpredictable.",
+S04,M01,C,"I use a long passphrase, but I make sure it's random words that don't form a normal sentence, because attackers try common phrases first.",
+S05,M02,M,"I change my password every single month, so even if someone got the old one my account is definitely safe now.",
+S06,M02,M,"Our school makes us reset our password every 60 days, which is the main reason school accounts are more secure than personal ones.",
+S07,M02,C,"I only change a password if there's a reason to — a breach notice or a login I don't recognize. Rotating on a schedule just makes people pick predictable patterns.",
+S08,M02,C,"Changing a password doesn't help much on its own. What matters more is that it's unique to that site, so one breach doesn't spread.",
+S09,M03,M,"Once I turned on two-factor authentication I stopped worrying about my password, because there's no way in without my phone.",
+S10,M03,M,"MFA means my account literally cannot be hacked, so I reuse the same simple password on all my accounts that have it.",
+S11,M03,C,"MFA blocks most automated attacks, but it isn't absolute — SIM swapping and push-notification spam can still get through, so the password still has to be strong.",
+S12,M03,C,"Two-factor is the single best thing I've turned on, though I switched from SMS codes to an authenticator app because SMS can be intercepted.",

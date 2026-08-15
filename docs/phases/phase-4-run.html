@@ -1,0 +1,900 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Phase 4 · The real run, twice — Wrong in a Particular Way</title>
+<link rel="stylesheet" href="../assets/vendor/katex/katex.min.css">
+<link rel="stylesheet" href="../assets/css/style.css">
+<script src="../assets/vendor/katex/katex.min.js"></script>
+<script src="../assets/vendor/katex/auto-render.min.js"></script>
+<script src="../assets/js/detect.js"></script>
+</head>
+<body>
+
+<header class="site">
+  <div class="wrap">
+    <div class="crumbs"><a href="../index.html">Wrong in a Particular Way</a> · Phase 4</div>
+    <div class="badges"><span class="badge">The project</span><span class="badge win">Win: a result you can describe exactly</span></div>
+    <h1 class="chapter-title">The real run, twice</h1>
+    <p class="chapter-sub">Eighty calls to the model, about a quarter of an hour of waiting, and a written record that makes the numbers mean something.</p>
+  </div>
+</header>
+
+<main class="wrap">
+
+<p class="lede">This is the shortest phase of the project and almost none of it is work. You type
+one command and watch a row of dots. What this page is really about is the ten minutes of
+writing you do <em>while</em> it runs, because a number without the conditions that produced it
+is not a result — it is a rumour. Budget one afternoon, and expect to run it twice.</p>
+
+<div class="objectives">
+  <h3>By the end of this phase you can</h3>
+  <ul>
+    <li>State every condition that must hold before the run starts, and check each one.</li>
+    <li>Predict exactly how many calls the run makes and roughly how long it will take.</li>
+    <li>Read the progress output, and say precisely what a dot and an X each mean.</li>
+    <li>Write a provenance record complete enough that a stranger could repeat your run.</li>
+    <li>Say why "I used llama3.2" is not a specification of anything.</li>
+    <li>Run it a second time and decide, with a stated rule, whether a difference is reportable or noise.</li>
+    <li>Explain why <code>parse_verdict()</code> returns <code>?</code> instead of guessing, and report the count without embarrassment.</li>
+  </ul>
+</div>
+
+<h2>1 · The pre-flight checklist</h2>
+
+<p>Every item here is cheap to check now and expensive to discover afterwards. A run started
+with the wrong dataset produces perfectly plausible numbers, and nothing in the output will
+tell you.</p>
+
+<div class="box verify">
+  <span class="lbl">All seven must be true before you type the command</span>
+  <ul>
+    <li><strong>The six TODOs are yours.</strong> A mock run ends with the green line
+      <code>✓ Nothing fell back — this run was entirely your code</code>, not a yellow block.
+      If a worked version is still standing in for your code, the run is not measuring what you
+      wrote.</li>
+    <li><strong>The dataset is finished, committed and tagged.</strong> Forty rows, twenty M and
+      twenty C, a second reader's agreement figure written down, and the whole thing at tag
+      <code>phase-3-complete</code>. The dataset is now frozen: editing an item after you have
+      seen a result is how honest people produce dishonest work.</li>
+    <li><strong><code>check_setup.py</code> shows no <code>[FIX]</code> and no
+      <code>[TODO]</code>.</strong> Both Ollama lines say <code>[OK]</code> and both data files
+      report 40 and 10 real rows. This is the first point in the project where a
+      <code>[TODO]</code> on a data file is genuinely a problem.</li>
+    <li><strong><code>MODEL_NAME</code> matches <code>ollama list</code> exactly.</strong>
+      Character for character, colon included.</li>
+    <li><strong>The laptop is plugged in, and will not sleep.</strong> Ten to twenty minutes at
+      full processor load flattens a battery quickly, and a machine that sleeps mid-run kills
+      the Python process. Change the sleep setting for the afternoon, then change it back.</li>
+    <li><strong>The browser is closed.</strong> Not minimised — closed. Chrome and a language
+      model compete for exactly the same memory, and if the model stops fitting, the run does
+      not get slightly slower, it gets several times slower.</li>
+    <li><strong>Your notebook is open at a blank page.</strong> Section 3 is what goes on it,
+      and it gets filled in while the run is happening, not from memory afterwards.</li>
+  </ul>
+</div>
+
+<div class="box python">
+  <span class="lbl">Run these, in this order</span>
+  <div class="cmd"><pre><span class="p">$ </span>cd python
+<span class="p">$ </span>pytest ../ -q
+<span class="p">$ </span>python3 misconception/check_setup.py
+<span class="p">$ </span>python3 misconception/run_experiment.py
+<span class="p">$ </span>python3 misconception/analyze.py</pre></div>
+  <p style="margin-bottom:0">Note what is <em>not</em> there: no <code>--mock</code> and no
+  <code>--sample</code>. Those two flags have carried you through every earlier phase, and this
+  is the one run where both must be absent. Any number produced with either flag is demo data
+  and can never appear in your write-up.</p>
+</div>
+
+<h2>2 · What the run actually does</h2>
+
+<p>The structure is two loops, and it is worth being able to state it without looking: for each
+condition, for each response, build the prompt, ask the model, write down what it said. So the
+number of calls is</p>
+
+$$\text{calls} \;=\; n_{\text{items}} \times n_{\text{conditions}} \;=\; 40 \times 2 \;=\; 80.$$
+
+<p>Eighty is the whole cost of this study. Each call is one HTTP POST to
+<code>localhost:11434</code>, and the two conditions are identical in every respect except the
+prompt text — same forty items, same model, same temperature, same order. That is what makes
+the comparison mean anything, and it is the reason the run is one command rather than two.</p>
+
+<p>Here is what the terminal shows. Read it before you see it, so that nothing in it surprises
+you at the moment when a surprise would make you stop the run.</p>
+
+<div class="out">Using model: llama3.2:3b at temperature 0.0
+Loaded 40 answers  (20 misconception, 20 correct)
+Loaded 10 misconceptions
+
+--- Condition: baseline ---
+..X.X......X..X..X...XX...X..X...X..X.X.
+Done in 341.2s (8.5s per item)
+Saved -&gt; /Users/arshi/SenSym-misconception-aware-llm/python/results/predictions_baseline.csv
+
+--- Condition: misconception_aware ---
+..X....X...X....X..X....X...X.X...X..X..
+Done in 352.8s (8.8s per item)
+Saved -&gt; /Users/arshi/SenSym-misconception-aware-llm/python/results/predictions_misconception_aware.csv
+
+<b>✓ Nothing fell back — this run was entirely your code.</b>
+All conditions complete. Next step:  python misconception/analyze.py</div>
+
+<div class="box definition">
+  <span class="lbl">What a dot and an X actually mean</span>
+  <p>One line of <code>run_experiment.py</code> produces them:</p>
+  <div class="cmd"><pre>mark = "." if verdict == item["ground_truth"] else "X"</pre></div>
+  <p>A <strong>dot</strong> means the verdict parsed out of the model's reply was the same letter
+  as the label <em>you</em> wrote in <code>responses.csv</code>. It does not mean the model was
+  right in any deeper sense — your label is the standard here, and it is only as good as
+  Phase 3 made it. It also does not tell you which letter: a dot on an M item and a dot on a C
+  item look identical.</p>
+  <p>An <strong>X</strong> means the two letters differed, and it covers two quite different
+  events: the model gave a clear verdict you disagree with, or the reply could not be read at
+  all and came back as <code>?</code>, which is never equal to <code>M</code> or <code>C</code>.
+  You cannot tell those apart from the terminal. That is what section 5 is about.</p>
+  <p>The marks exist so you can see the run has not frozen. Do not try to count them as they
+  appear, and do not start forming a conclusion at item twelve.</p>
+</div>
+
+<p>Expect somewhere between five and twenty minutes for the whole thing, on a laptop where the
+model fits comfortably in memory. <span class="status observed">observed</span> That is a range
+from ordinary experience rather than a measurement on a controlled benchmark, and the first
+call is always slower than the rest because the model has to be loaded into memory. If a single
+item takes more than 120 seconds the client gives up and raises an error, which is
+<code>TIMEOUT_SECONDS</code> in <code>config.py</code> doing its job.</p>
+
+<div class="lab">
+  <div class="lab-title">Lab · what a run costs, and what a bigger one would cost</div>
+  <p class="lab-desc">Your study is the dot at 40 items and 2 conditions. Move the sliders to
+  see what the scaled-up version costs: more items, or a third condition such as a second model.
+  Below the amber line is a run you can sit through in one go; above it you are committing an
+  evening, and above the red line you have to plan around it. The point of this lab is that run
+  time is exactly linear in both sliders, so the whole budget is one multiplication.</p>
+  <canvas id="cost" height="300"></canvas>
+  <div class="controls" id="costctl"></div>
+  <div class="readout" id="costout"></div>
+</div>
+
+<script>
+G.lab(function () {
+  /* Seconds-per-call is a knob rather than a constant on purpose: it depends on
+     the machine, the model size and whether the model fits in memory, and none
+     of those is measured here. Everything this lab draws is arithmetic on the
+     number you give it — calls = items x conditions, time = calls x seconds —
+     which is exact. The seconds themselves are observed, not measured. */
+  var st = G.controls('costctl', [
+    { k: 'items', type: 'range', label: 'items in the dataset', min: 10, max: 200, step: 10,
+      value: 40, fmt: function (v) { return String(v); } },
+    { k: 'cond', type: 'range', label: 'conditions (prompts or models)', min: 1, max: 4, step: 1,
+      value: 2, fmt: function (v) { return String(v); } },
+    { k: 'secs', type: 'range', label: 'seconds per call', min: 2, max: 20, step: 1,
+      value: 8, fmt: function (v) { return v + ' s'; } }
+  ], draw);
+
+  function mins(items, cond, secs) { return items * cond * secs / 60; }
+
+  function draw() {
+    var cv = G.canvas('cost'); if (!cv) return;
+    var here = mins(st.items, st.cond, st.secs);
+    var full = mins(200, st.cond, st.secs);
+    /* round up to a multiple of 25 so the five ticks land on readable numbers */
+    var ymax = Math.max(50, Math.ceil(full * 1.3 / 25) * 25);
+
+    var fr = G.frame(cv.ctx, cv.w, cv.h, {
+      xmin: 0, xmax: 200, ymin: 0, ymax: ymax,
+      margin: { left: 58, bottom: 48, top: 18, right: 18 }
+    });
+    fr.axes({
+      xlabel: 'items in the dataset', ylabel: 'minutes of waiting',
+      xticks: 5, yticks: 5,
+      xfmt: function (v) { return v.toFixed(0); },
+      yfmt: function (v) { return v.toFixed(0); }
+    });
+
+    fr.rect(0, 0, 200, Math.min(30, ymax), { fill: G.COL.green, alpha: 0.09 });
+    if (ymax > 30) fr.rect(0, 30, 200, Math.min(90, ymax), { fill: G.COL.amber, alpha: 0.08 });
+    if (ymax > 90) fr.rect(0, 90, 200, ymax, { fill: G.COL.rose, alpha: 0.07 });
+    /* partial-width rules, so the line labels at the right edge stay legible */
+    fr.line([[0, 30], [148, 30]], { color: G.COL.amber, dash: [5, 4], width: 1 });
+    fr.text(4, Math.max(30 - ymax * 0.095, ymax * 0.03),
+            'one sitting — under 30 min', { color: G.COL.green });
+    if (ymax > 92) {
+      fr.line([[0, 90], [148, 90]], { color: G.COL.rose, dash: [5, 4], width: 1 });
+      fr.text(4, 90 - ymax * 0.095, 'plan around it — over 90 min', { color: G.COL.rose });
+    }
+
+    var c;
+    for (c = 1; c <= 4; c++) {
+      var end = mins(200, c, st.secs);
+      var cur = (c === st.cond);
+      fr.line([[0, 0], [200, end]],
+              { color: cur ? G.COL.accent : G.COL.muted, width: cur ? 2.6 : 1.1,
+                alpha: cur ? 1 : 0.55 });
+      if (end < ymax * 0.97) {
+        fr.text(197, end + ymax * 0.012, c + (c === 1 ? ' condition' : ' conditions'),
+                { color: cur ? G.COL.accent : G.COL.muted, align: 'right' });
+      }
+    }
+
+    fr.vline(st.items, { color: G.COL.ink });
+    fr.dot(st.items, here, { color: G.COL.accent, r: 5, ring: true });
+    fr.text(st.items + 5, here + ymax * 0.075, here.toFixed(1) + ' min',
+            { color: G.COL.accent2 });
+
+    var calls = st.items * st.cond;
+    var secs = calls * st.secs;
+    var band = here <= 30 ? 'You can sit through this in one go.'
+             : here <= 90 ? 'This is an evening. Plug the laptop in and do something else nearby.'
+             : 'Too long to babysit. Split it, or cut the number of conditions, or accept an overnight run.';
+
+    G.say('costout',
+      G.pad(st.items, 3) + ' items  x  ' + st.cond + ' condition' + (st.cond === 1 ? '' : 's') +
+        '  =  ' + calls + ' calls\n' +
+      G.pad(calls, 3) + ' calls  x  ' + st.secs + ' s  =  ' + secs + ' s  =  ' +
+        here.toFixed(1) + ' minutes\n\n' +
+      band + '\n\n' +
+      'Your actual study is 40 x 2 = 80 calls, the dot\'s home position.\n' +
+      'Both sliders are linear: doubling the items doubles the wait, and a third\n' +
+      'condition adds half again on top of two. There is no hidden cost and no\n' +
+      'economy of scale — which is why the budget for a bigger study is a\n' +
+      'multiplication you can do before you commit to it, not a discovery you\n' +
+      'make at midnight.');
+  }
+  draw();
+});
+</script>
+
+<h2>3 · Recording the provenance</h2>
+
+<p>This is the part of the page that matters, and it is the part that feels like it does not.</p>
+
+<p>A result is not a number. A result is a number <em>plus the conditions that produced it</em>.
+Detached from those conditions, "recall was 0.72" is an assertion nobody — including you in
+three months — can check, repeat, or argue with. The conditions are cheap to write down while
+they are in front of you and effectively impossible to reconstruct afterwards, because the
+things you would need are exactly the things that change: model files get re-pulled, config
+files get edited, laptops get replaced.</p>
+
+<div class="box warning">
+  <span class="lbl">This is not a specification</span>
+  <p><em>"I used llama3.2."</em></p>
+  <p><code>llama3.2</code> names a family, not a model. It ships in at least a 1B and a 3B size,
+  which differ by a factor of three in the amount of computation per answer and are visibly
+  different in quality. Even <code>llama3.2:3b</code> alone is a moving target: a tag is a
+  pointer, and the same tag can be re-pointed at different weights, which is why
+  <code>ollama list</code> prints an ID alongside the name. And a model name says nothing about
+  temperature, so it does not tell a reader whether your run was repeatable at all.</p>
+  <p>This is a specification:</p>
+  <p><em>"llama3.2:3b, ID a80c4f17acd5, temperature 0, commit 4f2a1b9, 14 August 2026,
+  MacBook Air M2."</em></p>
+  <p>Six facts, each checkable by a stranger. The commit is the one people forget and the one
+  doing the most work: the two conditions differ <em>only</em> in the prompt, so the prompt text
+  is the independent variable of this entire experiment, and the only place the exact prompt
+  text lives is that commit.</p>
+</div>
+
+<h3>Collect the four things you cannot reconstruct</h3>
+
+<div class="cmd"><pre><span class="p">$ </span>ollama list
+<span class="p">$ </span>ollama --version
+<span class="p">$ </span>git rev-parse --short HEAD
+<span class="p">$ </span>git status --short</pre></div>
+
+<div class="out">NAME              ID              SIZE      MODIFIED
+<b>llama3.2:3b</b>       a80c4f17acd5    2.0 GB    3 weeks ago
+ollama version is 0.3.12
+<b>4f2a1b9</b>
+</div>
+
+<p><code>git rev-parse --short HEAD</code> prints the name of the commit you are standing on —
+seven characters that identify one exact state of every file in the project.
+<code>git status --short</code> printing <em>nothing</em> is the important part: it means there
+are no uncommitted edits, so the commit hash you just wrote down really does describe the code
+that is about to run. If it prints anything at all, commit before you run, or the hash in your
+record is a lie.</p>
+
+<h3>The template</h3>
+
+<p>Copy this into your notebook and fill it in as the run happens. Do it twice, once per run.</p>
+
+<div class="cmd"><pre>RUN RECORD — misconception-aware LLM pilot
+  run number ...... 1 of 2
+  date, time ...... 2026-08-14, 21:40 local
+  machine ......... MacBook Air M2, 8 GB RAM, macOS 15.5
+  model name ...... llama3.2:3b            (ollama list, NAME column)
+  model ID ........ a80c4f17acd5           (ollama list, ID column)
+  ollama version .. 0.3.12                 (ollama --version)
+  temperature ..... 0.0                    (config.py, TEMPERATURE)
+  max tokens ...... 200                    (config.py, MAX_TOKENS)
+  conditions ...... baseline, misconception_aware
+  dataset ......... 40 responses (20 M, 20 C), 10 misconceptions
+  commit .......... 4f2a1b9                (git rev-parse --short HEAD)
+  tag ............. phase-3-complete
+  working tree .... clean                  (git status --short printed nothing)
+  elapsed ......... baseline 341.2 s, misconception_aware 352.8 s
+  unparseable ..... baseline 3, aware 1    (analyze.py, "unparseable:")
+  anything odd .... first call took ~25 s while the model loaded
+</pre></div>
+
+<p>Fifteen lines, four minutes, and it turns a folder of CSV files into a result. The last line
+is not padding: "anything odd" is where you write the thing you would otherwise mention to
+nobody and remember at the worst possible moment — that the browser was open for the first ten
+items, that the machine went to sleep once, that you noticed the model repeating itself.</p>
+
+<div class="box aside">
+  <span class="lbl">Why by hand, when a script could do it</span>
+  <p>It could, and larger projects do exactly that: a run script that stamps the model, the
+  commit and the timestamp into the output file automatically. That is the better engineering
+  and it is a genuinely good extension to attempt in Phase 5.</p>
+  <p>The reason to write it by hand first is that the discipline is the point, not the file.
+  Writing "temperature 0.0" out yourself is what makes you notice, later, when somebody's result
+  does not say. Automating a habit you have never practised produces a field in a file that
+  nobody reads and nobody checks.</p>
+</div>
+
+<h2>4 · Run it twice</h2>
+
+<p>When the first run finishes and <code>analyze.py</code> has printed its numbers, do the whole
+thing again. Same command, same data, same everything. Write a second run record.</p>
+
+<p>The reasoning is short. Temperature 0 means the model is supposed to take the most likely
+next word every time rather than sampling, so the same prompt should produce the same reply. A
+second run is the cheapest possible test of whether that is actually true on your machine, and
+it costs a quarter of an hour of doing nothing. If the two runs agree exactly, you have earned
+the right to write "the run was repeated and reproduced identically", which is a sentence very
+little student work can honestly include.</p>
+
+<p>And if they do not agree, that is <strong>also a finding</strong>, and it gets reported rather
+than hidden. Temperature 0 makes the sampling greedy; it does not make the arithmetic
+bit-identical. Floating-point operations on a GPU are executed in an order that can vary between
+runs, and addition on floating-point numbers is not associative, so two mathematically identical
+computations can differ in the last few digits — which occasionally flips a verdict that was
+nearly a tie. <span class="status observed">observed</span> The honest response is to report
+both runs and the number of items that moved. Deleting the second run because it disagreed with
+the first is the single most tempting piece of misconduct available to you on this project, and
+it is worth naming it now so you recognise the temptation when it arrives.</p>
+
+<div class="box definition">
+  <span class="lbl">The rule, stated before you have any numbers</span>
+  <p><strong>Zero items move.</strong> Say so in the methods: the run was repeated and
+  reproduced exactly.</p>
+  <p><strong>One or two items move</strong> (up to 5 percentage points). Expected. Report the
+  headline numbers from run 1, and give run 2 one sentence in the methods with the count of
+  items that changed.</p>
+  <p><strong>Three items move</strong> (7.5 points). Borderline. Run it a third time before you
+  write anything, and report the range across all three.</p>
+  <p><strong>Four or more items move</strong> (10 points or more). Stop. This is not
+  run-to-run variation, it is a difference in the conditions, and you have not found it yet.
+  Do not average the runs, do not pick one — go and ask.</p>
+  <p>Deciding this rule <em>now</em>, before you have seen either set of numbers, is what makes
+  it a rule rather than a rationalisation.</p>
+</div>
+
+<div class="lab">
+  <div class="lab-title">Lab · is the difference real, or is it the instrument?</div>
+  <p class="lab-desc">Set run 1's score, then slide the number of items whose verdict changed in
+  run 2 — drawn in the worst case, where every change moves the same way. The bars are 95% Wilson
+  intervals; the shaded band is run 1's interval, which is the precision the study has at all.
+  Notice how many items have to move before the difference is even visible against that band —
+  and then read the last paragraph of the readout, which explains why the rule above is much
+  stricter than the band.</p>
+  <canvas id="vary" height="320"></canvas>
+  <div class="controls" id="varyctl"></div>
+  <div class="readout" id="varyout"></div>
+</div>
+
+<script>
+G.lab(function () {
+  var st = G.controls('varyctl', [
+    { k: 'k1', type: 'range', label: 'run 1 · items scored correctly', min: 0, max: 40, step: 1,
+      value: 28, fmt: function (v) { return v + '/40'; } },
+    { k: 'd', type: 'range', label: 'items that changed verdict in run 2', min: 0, max: 40,
+      step: 1, value: 1, fmt: function (v) { return String(v); } }
+  ], draw);
+
+  function pf(v) { return Math.round(100 * v) + '%'; }
+
+  function errbar(fr, x, k, col, name) {
+    var w = G.wilson(k, 40), p = k / 40, hw = 0.055;
+    fr.line([[x, w[0]], [x, w[1]]], { color: col, width: 2.2 });
+    fr.line([[x - hw, w[0]], [x + hw, w[0]]], { color: col, width: 2.2 });
+    fr.line([[x - hw, w[1]], [x + hw, w[1]]], { color: col, width: 2.2 });
+    fr.dot(x, p, { color: col, r: 5.5, ring: true });
+    fr.text(x, -0.05, name, { color: col, align: 'center' });
+    fr.text(x, -0.125, k + '/40 = ' + G.pct(p, 1), { color: G.COL.muted, align: 'center' });
+    return w;
+  }
+
+  function draw() {
+    var cv = G.canvas('vary'); if (!cv) return;
+    var k1 = st.k1, d = st.d, k2 = Math.max(0, k1 - d);
+    var moved = k1 - k2;                     /* what actually fits on 40 items */
+
+    var fr = G.frame(cv.ctx, cv.w, cv.h, {
+      xmin: 0, xmax: 1, ymin: 0, ymax: 1,
+      margin: { left: 60, bottom: 56, top: 18, right: 18 }
+    });
+    fr.axes({ ylabel: 'accuracy on the same 40 items', xticks: 0, yticks: 5, yfmt: pf });
+
+    var w1 = G.wilson(k1, 40);
+    fr.rect(0, w1[0], 1, w1[1], { fill: G.COL.accent, alpha: 0.10 });
+    fr.text(0.985, w1[1] - 0.045, 'run 1’s 95% Wilson interval',
+            { color: G.COL.accent2, align: 'right' });
+
+    fr.hline(0.5, { color: G.COL.rose, dash: [5, 4] });
+    fr.text(0.02, 0.515, 'majority-class floor, 50%', { color: G.COL.rose });
+
+    errbar(fr, 0.32, k1, G.COL.muted, 'run 1');
+    var w2 = G.wilson(k2, 40);
+    errbar(fr, 0.68, k2, G.COL.accent, 'run 2');
+
+    var inside = (k2 / 40) >= w1[0] && (k2 / 40) <= w1[1];
+    var pts = (k1 - k2) * 2.5;
+
+    var verdict;
+    if (moved === 0) {
+      verdict = 'IDENTICAL. Temperature 0 did exactly what it is set to 0 for. Write one\n' +
+                'sentence in the methods: the run was repeated with identical configuration\n' +
+                'and reproduced the same forty verdicts.';
+    } else if (moved <= 2) {
+      verdict = 'REPORTABLE AS NOISE. ' + moved + ' item' + (moved === 1 ? '' : 's') +
+                ' moved, which is ' + pts.toFixed(1) + ' percentage points and\n' +
+                'well inside the expected wobble. Headline the run 1 numbers, and give run 2 a\n' +
+                'sentence naming the count of items that changed. Do not report it as a change\n' +
+                'in performance, because it is not one.';
+    } else if (moved === 3) {
+      verdict = 'BORDERLINE. 3 items is 7.5 points. Run it a third time before writing anything,\n' +
+                'and report the range across all three runs rather than picking a favourite.';
+    } else {
+      verdict = 'STOP AND ASK. ' + moved + ' items is ' + pts.toFixed(1) + ' points. Two runs of the same code on the\n' +
+                'same data should not move this far, so something differed between them that you\n' +
+                'have not identified yet — a different model, an edited config, an edited CSV.\n' +
+                'Do not average the two runs and do not choose the nicer one. Find the cause.';
+    }
+
+    G.say('varyout',
+      'run 1   ' + G.pad(k1, 2) + '/40  ' + G.pad(G.pct(k1 / 40, 1), 6) +
+        '   95% Wilson [' + G.pct(w1[0], 1) + ', ' + G.pct(w1[1], 1) + ']   width ' +
+        G.pct(w1[1] - w1[0], 1) + '\n' +
+      'run 2   ' + G.pad(k2, 2) + '/40  ' + G.pad(G.pct(k2 / 40, 1), 6) +
+        '   95% Wilson [' + G.pct(w2[0], 1) + ', ' + G.pct(w2[1], 1) + ']\n' +
+      'moved   ' + G.pad(moved, 2) + ' item' + (moved === 1 ? ' ' : 's') + '   ' +
+        pts.toFixed(1) + ' percentage points\n\n' +
+      verdict + '\n\n' +
+      'Run 2 sits ' + (inside ? 'INSIDE' : 'OUTSIDE') + ' run 1’s interval. That band is how precisely you know\n' +
+      'this model’s accuracy on responses LIKE these, and it is enormous at n = 40. But the\n' +
+      'rerun asks a different and much narrower question — did the machine do the same thing\n' +
+      'twice on the SAME forty items — so passing the band test is nowhere near good enough.\n' +
+      'That is why the rule above trips at 4 items and the band does not trip until far later.');
+  }
+  draw();
+});
+</script>
+
+<p>The two questions in that last paragraph are worth separating carefully, because they get
+confused constantly. The Wilson interval answers <em>how precisely do I know this model's
+accuracy on cybersecurity responses in general</em>, and on forty items the answer is "not very"
+— about 27 points wide in the middle of the range. The rerun answers <em>did my machine do the
+same thing twice on these exact items</em>, and the answer should be "yes, or very nearly",
+because nothing about the situation changed. A rerun that moves ten points has not revealed
+uncertainty in your estimate. It has revealed that your two runs were not the same experiment.</p>
+
+<div class="box example">
+  <span class="lbl">What the methods section ends up saying</span>
+  <p><em>"The pipeline was run twice with identical configuration (llama3.2:3b, ID a80c4f17acd5,
+  temperature 0, commit 4f2a1b9), on 14 and 15 August 2026. One of the forty items changed
+  verdict between runs under the baseline prompt, moving baseline accuracy from 28/40 to 27/40.
+  Reported figures are from run 1; run 2 is committed in the repository at tag
+  <code>phase-4-run2</code>."</em></p>
+  <p>Three sentences. They tell a reader what you did, what varied, which numbers are the ones
+  in the table, and where to check. Nothing in them is impressive, and that is the point:
+  provenance is not meant to be impressive, it is meant to be sufficient.</p>
+</div>
+
+<h2>5 · The question marks</h2>
+
+<p><code>parse_verdict()</code> in <code>llm_client.py</code> has to turn a paragraph of model
+prose into one letter. It tries four things in order: the format the prompt asked for
+(<code>VERDICT: M</code>), then a bare <code>M</code> or <code>C</code> standing alone as a word,
+then a keyword sniff for "misconception" or "correct", and then it gives up and returns
+<code>?</code>.</p>
+
+<p>Giving up is a design decision, not a gap. The alternative — defaulting an unreadable reply
+to <code>C</code> — would be catastrophic in a specific and quiet way. Twenty of your items are
+C, so a silent default to C would convert every unreadable reply on a C item into a free true
+negative, inflating your accuracy and your specificity with answers the model never actually
+gave. Your numbers would get better precisely because the model got worse. A design that
+rewards you for the model's failures is a design that will eventually fool you.</p>
+
+<div class="box definition">
+  <span class="lbl">What happens to the question marks downstream</span>
+  <p><code>compute_confusion()</code> in <code>analyze.py</code> splits the rows in two:</p>
+  <div class="cmd"><pre>unparseable = len(df[~df["prediction"].isin([M, C])])
+scored      = df[df["prediction"].isin([M, C])]</pre></div>
+  <p>The four boxes of the confusion matrix are counted over <code>scored</code> only, so if five
+  replies were unreadable, every metric has a denominator of 35 rather than 40. The count is
+  carried separately and printed on its own:</p>
+  <div class="out">  TP=13  FP=7  FN=5  TN=10  (unparseable: <i>5</i>)</div>
+  <p>So whenever you quote a metric from a run with unparseable replies, <strong>quote the
+  denominator with it</strong>. "Accuracy 0.66" and "accuracy 0.66 over the 35 items that
+  produced a readable verdict, with 5 of 40 unreadable" are different claims, and only the
+  second one is true.</p>
+</div>
+
+<p>Then report the count. "The 3B model produced unparseable output on 12.5% of items under the
+baseline prompt and 2.5% under the misconception-aware prompt" is a genuine, quotable finding
+about small-model reliability — arguably a more useful one for a school considering this
+technology than the accuracy figures, because it is about whether the thing can be relied on to
+answer the question it was asked. It is not an embarrassment and it is not a sign you did
+something wrong.</p>
+
+<div class="box warning">
+  <span class="lbl">A low count is not proof that the parsing was clean</span>
+  <p>Strategies 2 and 3 are guesses with good manners. The keyword sniff returns <code>M</code>
+  whenever the word "misconception" appears without the exact phrase "no misconception" — so a
+  reply reading <em>"this is not a misconception"</em> is scored <code>M</code>, the opposite of
+  what the model said. <span class="status observed">observed</span> (Read the function and
+  check that for yourself; it is four lines.)</p>
+  <p>So do not treat the unparseable count as the whole story. Open
+  <code>results/predictions_baseline.csv</code> and read the <code>raw_reply</code> column for
+  ten or fifteen items, especially the ones marked X. Ten minutes of reading raw replies tells
+  you more about what the model is actually doing than any metric on the page.</p>
+</div>
+
+<h2>6 · If it dies partway</h2>
+
+<p>The machine sleeps, Ollama falls over, you close the lid, the timeout fires on item 33.
+Whatever the cause, the situation is far less serious than it feels.</p>
+
+<p><strong>Nothing is lost that a rerun will not fix.</strong> The cost of the entire run is ten
+to twenty minutes of a laptop being warm, and the inputs — your forty items, your prompts, your
+code — are all sitting untouched in git exactly as they were. There is no partial state to
+repair.</p>
+
+<p>Look at what is on disk. <code>run_experiment.py</code> writes a condition's CSV only after
+that condition's loop has finished, so you will find either a complete
+<code>predictions_baseline.csv</code> or no file at all, never a half-written one. If the crash
+came during the second condition, you have a complete baseline file and no aware file, and
+<code>analyze.py</code> will stop with <code>ERROR: ... predictions_misconception_aware.csv not
+found</code> rather than analysing half a study.</p>
+
+<div class="box warning">
+  <span class="lbl">Do not try to resume from the middle</span>
+  <p>The temptation is to keep the complete baseline file and rerun only the condition that
+  died. Do not. Two reasons, and the second is the important one.</p>
+  <p><strong>It saves eight minutes.</strong> That is the entire prize, and it is not worth any
+  amount of cleverness.</p>
+  <p><strong>It costs you the sentence.</strong> After a resume you can no longer write "both
+  conditions were run in a single execution with identical configuration" — you would have to
+  write "the baseline condition was run at 21:40 and the misconception-aware condition at 23:15,
+  after a crash of unknown cause, with the machine in an unknown state in between." A result you
+  cannot describe in one clean sentence is a result you will spend the whole write-up
+  apologising for. Fix the cause, delete the orphaned CSV, and start the whole thing again from
+  the top with a fresh run record.</p>
+</div>
+
+<p>The one thing worth doing before you rerun is diagnosing the cause, because an unexplained
+crash usually repeats. A <code>LLM ERROR</code> mentioning <code>Could not reach Ollama</code>
+means the server stopped — check the menu bar. One mentioning the 120-second timeout means the
+model is not fitting in memory, and the fix is to close things or drop to
+<code>llama3.2:1b</code> and record the change of model in your run record. A Python traceback
+about a CSV is a data problem and belongs back in Phase 3.</p>
+
+<h2>7 · Exercises</h2>
+
+<div class="exercise">
+  <div class="ex-head">Exercise 4.1 <span class="stars">★</span><span class="tag">arithmetic</span></div>
+  <div class="ex-body"><p>(a) How many calls does the full run make, and how many progress marks
+  will you see? (b) The run prints <code>Done in 341.2s (8.5s per item)</code> for baseline and
+  <code>Done in 352.8s (8.8s per item)</code> for the aware condition. What was the total time,
+  and what would a third condition cost? (c) A dot appears for item 7. State precisely what that
+  tells you and two things it does not.</p></div>
+  <details><summary>Solution</summary><div class="solution">
+    <p><strong>(a)</strong> Forty items under each of two conditions, so
+    $40 \times 2 = 80$ calls. You see 80 marks, in two runs of 40, each preceded by its
+    <code>--- Condition: ... ---</code> header. One mark per call, always.</p>
+    <p><strong>(b)</strong> $341.2 + 352.8 = 694.0$ seconds, which is 11 minutes 34 seconds,
+    plus a few seconds for loading the CSV files and writing the results. A third condition at
+    the same rate costs about $(341.2+352.8)/2 \approx 347$ seconds, roughly 5.8 minutes, taking
+    the total to about 17.4 minutes. The per-item figures are just the elapsed time divided by
+    40: $341.2/40 = 8.53$, printed as 8.5.</p>
+    <p><strong>(c)</strong> A dot means one thing only: the letter parsed out of the model's
+    reply equalled the letter in your <code>ground_truth</code> column for that item. It does
+    <em>not</em> tell you which letter — a dot on an M item and a dot on a C item look
+    identical, so you cannot tell a caught misconception from a correctly ignored good answer,
+    and therefore cannot compute recall from the marks. It also does <em>not</em> tell you the
+    reply was well formatted: a verdict rescued by the keyword fallback prints exactly the same
+    dot as a clean <code>VERDICT: M</code>. The marks are a liveness indicator, not data; the
+    data is in the CSV.</p>
+  </div></details>
+</div>
+
+<div class="exercise">
+  <div class="ex-head">Exercise 4.2 <span class="stars">★★</span><span class="tag">arithmetic</span></div>
+  <div class="ex-body"><p>You run the study twice. Under the misconception-aware prompt, run 1
+  scores 29 of 40 and run 2 scores 27 of 40. Compute the 95% Wilson interval for each, decide
+  whether the difference is reportable as a change in performance, and write the sentence that
+  goes in your methods.</p>
+  <p>The Wilson interval for $k$ successes in $n$ trials, with $\hat p = k/n$ and $z = 1.96$:</p>
+  $$\frac{\hat p + \dfrac{z^2}{2n} \;\pm\; z\sqrt{\dfrac{\hat p(1-\hat p)}{n} + \dfrac{z^2}{4n^2}}}
+         {1 + \dfrac{z^2}{n}}.$$</div>
+  <details><summary>Solution</summary><div class="solution">
+    <p><strong>The pieces that do not depend on $k$.</strong> With $n = 40$ and
+    $z^2 = 3.8416$: the denominator is $1 + 3.8416/40 = 1.09604$; the centre shift is
+    $z^2/(2n) = 0.04802$; and the constant inside the square root is
+    $z^2/(4n^2) = 3.8416/6400 = 0.00060$.</p>
+    <p><strong>Run 1, 29/40.</strong> $\hat p = 0.725$.
+    $\hat p(1-\hat p)/n = (0.725)(0.275)/40 = 0.00498$, so the root is
+    $\sqrt{0.00498 + 0.00060} = \sqrt{0.00558} = 0.07473$ and the half-width term is
+    $1.96 \times 0.07473 = 0.14647$. The centre is $0.725 + 0.04802 = 0.77302$. So</p>
+    $$\text{lo} = \frac{0.77302 - 0.14647}{1.09604} = 0.5716, \qquad
+      \text{hi} = \frac{0.77302 + 0.14647}{1.09604} = 0.8389,$$
+    <p>giving <strong>72.5%, 95% CI [57.2%, 83.9%]</strong>.</p>
+    <p><strong>Run 2, 27/40.</strong> $\hat p = 0.675$.
+    $(0.675)(0.325)/40 = 0.00548$; $\sqrt{0.00548 + 0.00060} = 0.07800$;
+    $1.96 \times 0.07800 = 0.15289$; centre $0.675 + 0.04802 = 0.72302$. So
+    $\text{lo} = (0.72302 - 0.15289)/1.09604 = 0.5202$ and
+    $\text{hi} = (0.72302 + 0.15289)/1.09604 = 0.7992$, giving
+    <strong>67.5%, 95% CI [52.0%, 79.9%]</strong>.</p>
+    <p><strong>Is it reportable as a change?</strong> No, on two separate grounds. The
+    operational rule from section 4 fires first: two items moved, which is 5.0 percentage
+    points, inside the expected wobble. And the intervals make the same point from the other
+    direction — they overlap across almost their whole length, and run 2's estimate of 67.5%
+    sits comfortably inside run 1's interval of [57.2%, 83.9%]. There is no version of this
+    data in which a two-item difference is a finding.</p>
+    <p><strong>The sentence.</strong> <em>"The run was repeated with identical configuration.
+    Two of the forty items changed verdict under the misconception-aware prompt between runs,
+    moving accuracy from 29/40 to 27/40. Reported figures are from run 1."</em> Note what it
+    does not say: it does not say the model "got worse", because two items on forty is not
+    evidence of anything getting worse.</p>
+  </div></details>
+</div>
+
+<div class="exercise">
+  <div class="ex-head">Exercise 4.3 <span class="stars">★★</span><span class="tag">writing</span></div>
+  <div class="ex-body"><p>Write the run record for this scenario, using the template in
+  section 3.</p>
+  <p>It is the evening of 14 August 2026. You are on a MacBook Air M2 with 8 GB of memory.
+  <code>ollama list</code> shows one model: <code>llama3.2:3b</code>, ID
+  <code>a80c4f17acd5</code>, 2.0 GB. <code>ollama --version</code> says 0.3.12. You have not
+  touched <code>config.py</code> since Phase 2. <code>git status --short</code> prints nothing
+  and <code>git rev-parse --short HEAD</code> prints <code>4f2a1b9</code>, which is the commit
+  you tagged <code>phase-3-complete</code>. The run takes 341.2 s then 352.8 s.
+  <code>analyze.py</code> reports 3 unparseable under baseline and 1 under the aware condition.
+  You forgot to close Safari until about the tenth item.</p>
+  <p>Then answer: which single line would a stranger most need in order to reproduce your
+  numbers, and which line are you most likely to have left out?</p></div>
+  <details><summary>Solution</summary><div class="solution">
+    <div class="cmd"><pre>RUN RECORD — misconception-aware LLM pilot
+  run number ...... 1 of 2
+  date, time ...... 2026-08-14, evening
+  machine ......... MacBook Air M2, 8 GB RAM
+  model name ...... llama3.2:3b
+  model ID ........ a80c4f17acd5
+  ollama version .. 0.3.12
+  temperature ..... 0.0                    (config.py, unchanged since Phase 2)
+  max tokens ...... 200
+  conditions ...... baseline, misconception_aware
+  dataset ......... 40 responses (20 M, 20 C), 10 misconceptions
+  commit .......... 4f2a1b9
+  tag ............. phase-3-complete
+  working tree .... clean
+  elapsed ......... baseline 341.2 s, misconception_aware 352.8 s
+  unparseable ..... baseline 3, aware 1
+  anything odd .... Safari was open for roughly the first 10 items of the
+                    baseline condition; closed it after that
+</pre></div>
+    <p><strong>The line a stranger needs most: the commit.</strong> It is tempting to answer
+    "the model name", but the model is one line of <code>config.py</code> and a stranger can
+    install it in five minutes. The commit pins the <em>prompt text</em>, and the prompts are
+    the independent variable of the entire experiment — the two conditions differ in nothing
+    else. Without the commit, "misconception-aware prompt" describes a category rather than a
+    thing, and the study cannot be repeated even in principle. The commit also pins the forty
+    items and the scoring code in the same stroke, which is why one seven-character string does
+    so much work.</p>
+    <p><strong>The line you are most likely to leave out: "anything odd".</strong> Everything
+    above it can be reconstructed from a file or a command; the Safari detail exists nowhere
+    but in your head and is gone by tomorrow. It is also the line most likely to matter later:
+    if the first ten items of the baseline condition ran with the browser competing for memory,
+    and your rerun does not, that is a candidate explanation for any items that move — and
+    without the note you would spend an afternoon inventing worse theories.</p>
+    <p><strong>Two smaller points.</strong> Recording "unchanged since Phase 2" beside the
+    temperature is worth the four words, because it converts a value you copied into a value you
+    checked. And <code>git status --short</code> printing nothing is what makes the commit line
+    trustworthy at all: with uncommitted edits in the working tree, the hash describes code that
+    is not the code that ran.</p>
+  </div></details>
+</div>
+
+<div class="exercise">
+  <div class="ex-head">Exercise 4.4 <span class="stars">★★</span><span class="tag">thinking</span></div>
+  <div class="ex-body"><p>Run 1 scores 30 of 40. You rerun it the next morning, changing nothing
+  you are aware of, and get 18 of 40. The 95% Wilson intervals are [59.8%, 85.8%] and
+  [30.7%, 60.2%].</p>
+  <p>(a) Do the intervals overlap, and does that settle the question? (b) List what you would
+  check, in order of likelihood. (c) Why is averaging the two runs the wrong move?</p></div>
+  <details><summary>Solution</summary><div class="solution">
+    <p><strong>(a)</strong> They overlap, but only just: run 1's lower limit is 59.8% and run 2's
+    upper limit is 60.2%, an overlap of 0.4 of a percentage point. And no, that does not settle
+    anything — it is the wrong test for this question. The Wilson interval describes uncertainty
+    about the model's accuracy on <em>responses like yours in general</em>. Here the two runs
+    used the identical forty items, so sampling uncertainty is not in play at all. Twelve items
+    out of forty changing verdict between two runs of the same code on the same data is a
+    30-point move, three times the "stop and ask" threshold, and it is a fault, not noise.</p>
+    <p><strong>(b)</strong> In order of likelihood:</p>
+    <p>1. <strong>A different model answered.</strong> Run <code>ollama list</code> and compare
+    the ID against your run record — if you re-pulled, or an update re-pointed the tag, the name
+    can match while the weights do not. Also check <code>MODEL_NAME</code> in
+    <code>config.py</code>, and check you did not fall back to <code>llama3.2:1b</code> after a
+    timeout.</p>
+    <p>2. <strong>A file changed.</strong> Run <code>git status --short</code> and
+    <code>git diff</code>. An edited prompt, an edited item, an edited temperature. This is
+    exactly the failure the "working tree clean" line in the run record exists to catch.</p>
+    <p>3. <strong>The flags differed.</strong> Check your shell history for <code>--mock</code>
+    or <code>--sample</code> on one of the two runs. Twelve items is a very plausible gap
+    between the real model and the keyword-based fake one.</p>
+    <p>4. <strong>The temperature was not 0.</strong> Confirm the run's own first line said
+    <code>at temperature 0.0</code>. At a nonzero temperature the model samples rather than
+    taking the most likely token, and a swing of this size is entirely ordinary.</p>
+    <p>5. <strong>Parsing collapsed.</strong> Compare the unparseable counts. If run 2 had ten
+    more question marks, the drop is a formatting failure rather than a reasoning failure — a
+    different story with a different fix, and one you would misreport badly if you had not
+    looked.</p>
+    <p><strong>(c)</strong> Averaging assumes the two runs are two noisy measurements of the same
+    quantity. That is the assumption in question. If one run used a different model or different
+    prompt text, the average is a number describing no experiment that was ever performed, and
+    quoting it would be worse than quoting either run alone. Averaging discards the single most
+    informative thing you have — that they disagreed — and replaces it with a plausible-looking
+    number that hides the problem. Find the cause, fix it, run twice again, and write down what
+    the cause was.</p>
+  </div></details>
+</div>
+
+<div class="exercise">
+  <div class="ex-head">Exercise 4.5 <span class="stars">★★</span><span class="tag">arithmetic</span></div>
+  <div class="ex-body"><p><code>analyze.py</code> prints this for the baseline condition on your
+  forty items:</p>
+  <div class="out">  TP=13  FP=7  FN=5  TN=10  (unparseable: <i>5</i>)</div>
+  <p>(a) How many items were scored, and how do you know the counts are consistent? (b) Compute
+  accuracy, precision and recall, with M as the positive class, and state each denominator.
+  (c) What is the widest and narrowest accuracy over all forty items consistent with this
+  output? (d) The aware condition has 1 unparseable rather than 5. What does that do to your
+  comparison?</p></div>
+  <details><summary>Solution</summary><div class="solution">
+    <p><strong>(a)</strong> $13 + 7 + 5 + 10 = 35$ scored items, and $35 + 5 = 40$, so the
+    unparseable count and the four boxes account for every row. <code>compute_confusion()</code>
+    checks this itself and exits if the four counts do not add up to
+    <code>len(scored)</code>. You can also check the split by class: the truly-M items are
+    $TP + FN = 13 + 5 = 18$, and the truly-C items are $FP + TN = 7 + 10 = 17$, so of your 20 M
+    and 20 C items, 2 M and 3 C came back unreadable.</p>
+    <p><strong>(b)</strong> With M — "this response contains a misconception" — as the positive
+    class:</p>
+    $$\text{recall} = \frac{TP}{TP+FN}, \qquad
+      \text{precision} = \frac{TP}{TP+FP}, \qquad
+      \text{accuracy} = \frac{TP+TN}{TP+FN+FP+TN}.$$
+    <p>Accuracy $= (13+10)/35 = 23/35 = 0.657$, over <strong>35 scored items</strong>.
+    Precision $= 13/(13+7) = 13/20 = 0.650$, over <strong>the 20 items it called M</strong>.
+    Recall $= 13/(13+5) = 13/18 = 0.722$, over <strong>the 18 truly-M items that produced a
+    readable verdict</strong> — not over all 20. Three different denominators in three
+    consecutive numbers, which is exactly why a metric quoted without one is not a claim.</p>
+    <p><strong>(c)</strong> The five unreadable replies could in principle have been anything.
+    If every one of them would have been wrong, accuracy over forty items is
+    $23/40 = 0.575$; if every one would have been right, it is $28/40 = 0.700$. So the true
+    accuracy on your forty items lies somewhere in $[0.575,\ 0.700]$, a band 12.5 points wide,
+    and the reported 0.657 sits inside it. Quoting that bound is a strong, honest move: it says
+    exactly how much the unreadable replies could be costing you, without pretending to know.</p>
+    <p><strong>(d)</strong> It means the two conditions are scored over different numbers of
+    items — 35 against 39 — so they are not quite like-for-like, and you must say so rather than
+    quietly comparing two fractions with different denominators. It is also a result in its own
+    right, and possibly a more interesting one than the accuracies: the misconception-aware
+    prompt is longer and more explicit about the output format, and it produced readable output
+    five times more reliably. "The catalogue prompt improved format compliance from 87.5% to
+    97.5% of items" is a sentence worth having, and it is invisible to anyone who treats
+    question marks as an embarrassment to be minimised.</p>
+  </div></details>
+</div>
+
+<div class="exercise">
+  <div class="ex-head">Exercise 4.6 <span class="stars">★★★</span><span class="tag">code</span></div>
+  <div class="ex-body"><p>Read <code>parse_verdict()</code> in
+  <code>python/misconception/llm_client.py</code>. (a) Construct a reply that the function scores
+  as <code>M</code> even though the model plainly said the opposite, and trace it through all
+  four strategies. (b) You discover this <em>after</em> the run, and fixing it would change your
+  results. What is the honest procedure? (c) Why is that procedure a rule about
+  <em>timing</em> rather than a rule about code?</p></div>
+  <details><summary>Solution</summary><div class="solution">
+    <p><strong>(a)</strong> The reply <em>"This is not a misconception."</em> The function
+    uppercases the text first, then:</p>
+    <p><em>Strategy 1</em> looks for <code>VERDICT: M</code> or <code>VERDICT: C</code>. There is
+    no <code>VERDICT</code>, so no match. <em>Strategy 2</em> looks for a standalone
+    <code>M</code> or <code>C</code> as a whole word — <code>\b([MC])\b</code>. The only
+    single-letter word here is "A", so no match. <em>Strategy 3</em> asks whether
+    <code>"MISCONCEPTION"</code> appears while <code>"NO MISCONCEPTION"</code> does not. The text
+    contains "NOT A MISCONCEPTION", which contains "MISCONCEPTION" but not the literal string
+    "NO MISCONCEPTION", so the test passes and the function returns <code>M</code>. Strategy 4
+    is never reached. The model said C and the pipeline recorded M.</p>
+    <p>If that reply came on a truly-M item it prints a dot and lands in TP, and you would never
+    look at it again. That is the more dangerous of the two cases.</p>
+    <p><strong>(b)</strong> Four steps, in this order. <strong>Measure it before you touch
+    anything:</strong> open the predictions CSVs and count how many rows have a
+    <code>raw_reply</code> with no <code>VERDICT:</code> line — those are the rows the fallbacks
+    decided, and if the number is zero the bug is real but did not fire and nothing needs
+    rerunning. <strong>Record the decision</strong> in your run record and your write-up: what
+    you found, when you found it, and what you did. <strong>If you change the parser, rerun both
+    conditions from scratch</strong> — never one, because a comparison between a condition parsed
+    the old way and a condition parsed the new way is meaningless. <strong>Report both sets of
+    numbers</strong>, pre-fix and post-fix, and say which you are headlining and why. Nothing
+    here is hidden and nothing is deleted.</p>
+    <p><strong>(c)</strong> Because the code change is fine and the temptation is not. Improving
+    a parser is ordinary good practice on any other day. What makes it dangerous today is that
+    you now know which direction the change moves your numbers, so a decision you would have
+    made on the merits becomes a decision you might make on the outcome — and neither you nor a
+    reader can tell those two apart from the finished result. The protection is the freeze: the
+    dataset, the prompts and the parser are fixed before the run, and any change after it is
+    made in public, with both sets of numbers on the page. This is the same principle as not
+    editing items after seeing a score in Phase 3, and it will be the same principle again when
+    you are choosing which metric to headline in Phase 5. Every one of them is a rule about
+    <em>when</em> you are allowed to decide, not about what you are allowed to decide.</p>
+  </div></details>
+</div>
+
+<h2>8 · Verification</h2>
+
+<div class="box verify">
+  <span class="lbl">What to bring to the check-in</span>
+  <ul>
+    <li>Two completed run records, on paper or in a file, with every line filled in.</li>
+    <li>The four prediction CSVs — two conditions, two runs — committed, with run 2 under
+      distinct filenames so both survive in the same snapshot.</li>
+    <li>The number of items that changed verdict between the runs, and which rule from
+      section 4 that number triggers.</li>
+    <li>The unparseable count for each condition, and the denominator you are quoting each
+      metric over.</li>
+    <li>The commit hash of the run, and a <code>phase-4-complete</code> tag on it — pushed, and
+      made only after <code>pytest -q</code> was green.</li>
+    <li>Ten raw replies you actually read, and one sentence on what surprised you.</li>
+    <li>The methods paragraph from section 4, written out in your own words, before you have
+      written any of the analysis.</li>
+  </ul>
+</div>
+
+<div class="box aside">
+  <span class="lbl">Going deeper (optional)</span>
+  <p><strong>Why temperature 0 is not the same as determinism.</strong> Temperature 0 fixes the
+  <em>selection rule</em> — always take the highest-scoring next token — but it does not fix the
+  arithmetic that produces the scores. Those are floating-point sums computed in parallel, and
+  floating-point addition is not associative, so a different order of summation can change the
+  last few bits of a score. Almost always that changes nothing. Occasionally two candidate
+  tokens are close enough that it flips which one wins, and one flipped token early in a reply
+  can change the whole verdict. <span class="status observed">observed</span> This is worth
+  understanding rather than memorising, because it is the reason the honest sentence is "we
+  repeated the run and one item moved" rather than "temperature 0 guarantees reproducibility".</p>
+  <p><strong>A third run is cheap.</strong> Nothing about the design stops at two. If the first
+  two disagree at all, a third costs a quarter of an hour and turns "they differed" into "the
+  score across three runs was 29, 27, 29 of 40", which is a much more informative sentence and
+  takes no more space in the write-up.</p>
+  <p><strong>What a bigger version of this study would record.</strong> Serious work stamps the
+  provenance into the output automatically: model name and digest, commit hash, timestamp,
+  library versions, random seeds and hardware, written into the results file by the run script
+  itself. If you want an extension in Phase 5, add six lines to <code>run_experiment.py</code>
+  that write those into a <code>results/run_meta.csv</code>. Do it after you have kept the record
+  by hand twice, so you know what belongs in it.</p>
+</div>
+
+<div class="pager"><a href="phase-3-dataset.html">← Phase 3 · Forty responses</a><a href="phase-5-analysis.html">Phase 5 · Analysis →</a></div>
+
+</main>
+
+<footer class="site">
+  <div class="wrap">
+    <strong>Wrong in a Particular Way</strong> · Phase 4 ·
+    <a href="../index.html">index</a> ·
+    <a href="../extras/glossary.html">glossary</a> ·
+    <a href="../extras/unstuck.html">stuck?</a>
+  </div>
+</footer>
+
+</body>
+</html>

@@ -1,0 +1,66 @@
+# Continuous Integration
+#
+# WHAT THIS IS (worth understanding — it's a real professional practice)
+# ---------------------------------------------------------------------
+# Every time someone pushes code to GitHub, GitHub spins up a fresh Linux
+# machine, clones this repository onto it, and runs the commands below. If
+# anything fails you get a red ✗ next to the commit; if everything passes,
+# a green ✓.
+#
+# Why it matters here: it proves the project runs on a machine that is NOT
+# yours. "It works on my laptop" is the single most common wrong claim in
+# software, and this is how you find out you were wrong within 60 seconds
+# instead of the night before a deadline.
+#
+# Nobody needs to do anything to turn this on — pushing this file is enough.
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:      # lets you run it manually from the Actions tab
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.9", "3.12"]   # oldest and newest we claim to support
+
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest
+
+      - name: Setup check (should report everything except Ollama)
+        run: python python/misconception/check_setup.py || true
+
+      - name: Run the test suite
+        run: pytest -q
+
+      - name: Smoke test — full pipeline on mock model + sample data
+        run: |
+          python python/misconception/run_experiment.py --mock --sample
+          python python/misconception/analyze.py
+
+      - name: Upload the generated results as an artifact
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: results-py${{ matrix.python-version }}
+          path: python/results/
+          if-no-files-found: warn

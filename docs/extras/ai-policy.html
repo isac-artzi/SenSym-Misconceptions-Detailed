@@ -1,0 +1,698 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Using AI tools on this project — Wrong in a Particular Way</title>
+<link rel="stylesheet" href="../assets/vendor/katex/katex.min.css">
+<link rel="stylesheet" href="../assets/css/style.css">
+<script src="../assets/vendor/katex/katex.min.js"></script>
+<script src="../assets/vendor/katex/auto-render.min.js"></script>
+<script src="../assets/js/detect.js"></script>
+</head>
+<body>
+
+<header class="site">
+  <div class="wrap">
+    <div class="crumbs"><a href="../index.html">Wrong in a Particular Way</a> · Reference</div>
+    <div class="badges"><span class="badge">Reference</span><span class="badge gate">Read before Phase 3</span></div>
+    <h1 class="chapter-title">Using AI tools on this project</h1>
+    <p class="chapter-sub">One principle, a table, and the one problem this project has that almost no other student project has.</p>
+  </div>
+</header>
+
+<main class="wrap">
+
+<p class="lede">Every research project now needs a page like this. Yours needs it more than most,
+because the thing you are studying is a language model and the tool sitting open in the other
+tab is also a language model. That is not an awkward coincidence to be handled in a footnote.
+It is the most interesting methodological problem in your study, and getting it right is a
+large part of what will make anyone believe your numbers.</p>
+
+<div class="objectives">
+  <h3>By the end of this page you can</h3>
+  <ul>
+    <li>State the principle in one sentence and apply it to a case you have not seen before.</li>
+    <li>Say which uses are fine, which are not, and give the reason for each rather than the rule.</li>
+    <li>Explain the circularity problem out loud: why a model-written dataset or a model-assigned label changes the question the study answers.</li>
+    <li>Name what the recall denominator actually counts, and whose opinion it encodes.</li>
+    <li>Write a disclosure line in a progress log and an AI-use statement in the write-up.</li>
+    <li>Argue both sides of the genuinely hard case — a model helping write the experimental prompts — and say what makes it defensible.</li>
+    <li>Find and follow the rules that override this page before you submit anything anywhere.</li>
+  </ul>
+</div>
+
+<h2>1 · The principle</h2>
+
+<div class="box theorem">
+  <span class="lbl">Stated once, and everything else follows from it</span>
+  <p>AI tools are allowed, and for some things actively encouraged, when they help you
+  <strong>learn</strong> or do <strong>mechanical work</strong>. They are not allowed to produce
+  <strong>the things that constitute the research contribution</strong>: the dataset, the labels,
+  the interpretation, the limitations.</p>
+  <p>The test is not <em>did I use AI</em>. The test is: <strong>can I defend every claim in this
+  write-up as my own understanding, out loud, under questioning, with the document closed?</strong></p>
+</div>
+
+<p>That test is worth taking seriously as a description of what you are building this year, not
+as a rule you are being made to obey. The repository will bit-rot. The charts will be
+regenerated. What survives is a person who can stand up, say what the confusion matrix showed,
+say why recall was the headline metric and not accuracy, and answer a hostile follow-up about
+whether the effect could have come from her own writing habits. A judge at a science fair is
+trying, with about six minutes of questions, to find out whether that person exists. So is a
+reviewer. So is your mentor at every check-in.</p>
+
+<p>Which is exactly why these tools are useful here rather than merely tolerated. A patient
+explainer that will rephrase the same idea six different ways is a real asset to someone
+learning statistics alone in a bedroom. The failure mode is not use. The failure mode is
+finishing the year with an artifact and no capacity.</p>
+
+<h2>2 · Allowed, not allowed, and why</h2>
+
+<p>The third column is the one that matters. If you only remember the middle column you will
+have to come back and look things up; if you understand the third column you can decide new
+cases yourself, which is the point.</p>
+
+<table>
+  <thead><tr><th>The use</th><th>Allowed?</th><th>Why</th></tr></thead>
+  <tbody>
+  <tr>
+    <td>Asking for a concept you did not understand, in different words. "Explain what a false
+    negative is as if I had never seen a table."</td>
+    <td><strong>Yes</strong></td>
+    <td>The understanding ends up on your side of the table. That understanding is the thing
+    being built; nothing is substituted for it.</td>
+  </tr>
+  <tr>
+    <td>Pasting an error message or traceback and asking what it means.</td>
+    <td><strong>Yes</strong></td>
+    <td>A dictionary lookup with better manners. Nothing about your research is at stake in the
+    difference between a <code>KeyError</code> and a <code>FileNotFoundError</code>.</td>
+  </tr>
+  <tr>
+    <td>Generating boilerplate: reading a CSV, argument parsing, axis labels and figure sizes in
+    <code>analyze.py</code>.</td>
+    <td><strong>Yes, with review</strong></td>
+    <td>Plumbing is not a finding. But you must be able to explain every line you keep, and the
+    tests must pass — see the box below. A chart you cannot account for axis by axis is one
+    question away from unravelling the whole defence.</td>
+  </tr>
+  <tr>
+    <td>Drafting an email, a schedule, an abstract-length summary of a paper you already read.</td>
+    <td><strong>Yes</strong></td>
+    <td>No research content is being produced. Nobody is claiming your emails are original work.</td>
+  </tr>
+  <tr>
+    <td>Having a model quiz you, or arguing with it about whether your design is sound.</td>
+    <td><strong>Yes</strong></td>
+    <td>This is studying. Apply the test the next day, cold: if you cannot reproduce the
+    argument on a blank page, the session was substitution wearing study's clothes.</td>
+  </tr>
+  <tr>
+    <td><strong>Writing any of the forty student responses.</strong></td>
+    <td><strong>No</strong></td>
+    <td>They <em>are</em> the dataset. A model-written dataset makes the study circular: you
+    would be testing whether one model can detect the misconceptions another model wrote in.
+    That is a different question, and a much less interesting one. Section 3.</td>
+  </tr>
+  <tr>
+    <td>Topping up: you wrote thirty-four and want a model to produce the last six.</td>
+    <td><strong>No</strong></td>
+    <td>Worse than the whole-dataset case, not better. Six items from a different generative
+    process sit inside your positive class as a confound you can never separate out again.</td>
+  </tr>
+  <tr>
+    <td><strong>Assigning the M / C labels.</strong></td>
+    <td><strong>No</strong></td>
+    <td>The labels are the ground truth. If a model produces them you are measuring model-model
+    agreement, not accuracy. Everything downstream inherits that.</td>
+  </tr>
+  <tr>
+    <td>Using a model as the blind second reader for the agreement check in Phase 3.</td>
+    <td><strong>No</strong></td>
+    <td>The second reader exists to test whether a <em>human</em> who was not you can recover
+    your labels from the text alone. A model agreeing with you does not establish that.</td>
+  </tr>
+  <tr>
+    <td><strong>Writing the interpretation of the results.</strong></td>
+    <td><strong>No</strong></td>
+    <td>That paragraph is the contribution. Everything before it is arithmetic that a script
+    already did. Saying what the numbers mean, and what they do not mean, is the research.</td>
+  </tr>
+  <tr>
+    <td><strong>Writing the Limitations section.</strong></td>
+    <td><strong>No</strong></td>
+    <td>This is where you demonstrate that you understand your own study. A model can produce
+    the generic three — small sample, one model, one domain — and will miss every limitation
+    that is specific to what you actually did. Exercise 5.</td>
+  </tr>
+  <tr>
+    <td>Polishing prose you wrote: tightening a clumsy sentence, fixing a comma splice.</td>
+    <td><strong>Yes, with care</strong></td>
+    <td>Editing is not authorship. The order is absolute: content first, always. If the polished
+    version says something you had not decided to say, you have crossed over and should put the
+    sentence back.</td>
+  </tr>
+  <tr>
+    <td>Suggesting wordings for the two experimental prompts.</td>
+    <td><strong>Genuinely hard</strong></td>
+    <td>The prompt is the independent variable, so this is closer to helping design the
+    experiment than to helping write boilerplate. Section 5 argues it through.</td>
+  </tr>
+  </tbody>
+</table>
+
+<div class="box python">
+  <span class="lbl">If a tool touched your code, run these before you commit</span>
+  <div class="cmd"><pre><span class="p">$ </span>cd python
+<span class="p">$ </span>python3 misconception/run_experiment.py --mock --sample
+<span class="p">$ </span>python3 misconception/analyze.py
+<span class="p">$ </span>pytest -q          <span class="c"># from the repository root</span></pre></div>
+  <p>The suite cross-checks every metric against scikit-learn, so a plausible-looking rewrite of
+  <code>compute_metrics</code> that swaps precision and recall fails here rather than in April.
+  Remember that anything produced by <code>--mock</code> or <code>--sample</code> is demo data:
+  useful for proving the plumbing works, never reportable as a result.</p>
+</div>
+
+<h2>3 · The circularity problem</h2>
+
+<p>This is the sharpest idea on the page. Everything in section 2 about the dataset and the
+labels is one argument, applied twice.</p>
+
+<p>Your study compares two prompts on forty responses. The comparison has meaning only because
+of what sits at each end of it. At one end are forty pieces of writing that resemble what a
+confused sixteen-year-old would actually say about passwords. At the other end are forty labels
+saying which of those contain a misconception, assigned by someone who understands the
+misconception. The model under test is measured against both. <strong>If either end is produced
+by a language model, the measurement still produces a number, and the number no longer answers
+the question you asked.</strong></p>
+
+<h3>Take the labels first, because the arithmetic makes it obvious</h3>
+
+<p>Recall, with <strong>M — "this response contains a misconception" — as the positive
+class</strong>, is</p>
+
+$$\text{recall} \;=\; \frac{TP}{TP + FN}$$
+
+<p>Read the denominator carefully. <em>TP + FN</em> is not "the responses that contain a
+misconception". It is <strong>the responses that the labeller said contain a misconception</strong>.
+Every metric in Phase 5 is arithmetic on a table whose rows are somebody's judgement. When that
+somebody is you, having read each response cold and written down a decision you can justify,
+recall means what you want it to mean: of the misconceptions that were really there, what
+fraction did the model catch.</p>
+
+<p>When that somebody is a model, recall becomes: of the items <em>the labelling model</em>
+called M, what fraction did the tested model also call M. That is an agreement statistic between
+two models. It will probably look good, because two language models trained on overlapping text
+tend to be confused by the same things and confident about the same things — which means their
+errors are correlated, which means the agreement is high for a reason that has nothing to do
+with correctness. You would report 90% recall and have measured a family resemblance.</p>
+
+<h3>Now the dataset, which is subtler and worse</h3>
+
+<p>Suppose you ask a model: <em>write eight responses in which a student wrongly believes MFA
+makes an account impossible to hack.</em> You get eight fluent, plausible paragraphs. Here is
+what has quietly happened.</p>
+
+<p>Those paragraphs contain the features that <em>that model</em> associates with that
+misconception — its own paraphrase of the idea, in its own register, with its own tells. Phase 3
+already warned you about tells: the M items shout <em>always</em>, <em>never</em>, <em>100%
+safe</em>, and the C items murmur <em>generally</em>, <em>it depends</em>. A model asked to write
+wrong answers produces that pattern more reliably than you would, not less, because it is
+producing a recognisable genre rather than a recollection of a real student.</p>
+
+<p>Then you run the misconception-aware condition, which hands the model a catalogue entry
+phrased in the same vocabulary the items were generated from. Recall goes to the mid-nineties in
+both conditions. There is no room above that for the catalogue to show an effect, so your
+headline comparison is dead — and if it does show an effect, you cannot tell whether the
+catalogue supplied knowledge or supplied a keyword match. You have measured whether a model can
+recognise its own writing, which was never in doubt.</p>
+
+<div class="box definition">
+  <span class="lbl">Circular, precisely</span>
+  <p>A study is <strong>circular</strong> when something being measured also determines what
+  counts as the right answer. The measurement then cannot come out badly, so it carries no
+  information — a test that everything passes tells you nothing about anything.</p>
+  <p>This is not a rule invented for school projects. Model-generated benchmarks and
+  model-as-judge evaluation are a live, unresolved argument in machine-learning research right
+  now <span class="status cited">cited</span>. If you want to say anything about that argument in
+  your write-up, find and read an actual paper on it and cite that paper — do not cite this page,
+  which is a summary written for you and not evidence of anything.</p>
+</div>
+
+<div class="lab">
+  <div class="lab-title">Lab · the circularity visualiser</div>
+  <p class="lab-desc">Choose who wrote the forty responses and who assigned the labels. The
+  diagram is the inference chain your study rests on; a dashed red loop marks a path where the
+  thing being tested also determines the right answer. The readout prints the question each
+  configuration actually answers — not the question you intended to ask. Exactly one of the six
+  configurations answers the intended one.</p>
+  <canvas id="circ" height="320"></canvas>
+  <div class="controls" id="circctl"></div>
+  <div class="readout" id="circout"></div>
+</div>
+
+<script>
+G.lab(function () {
+  var st = G.controls('circctl', [
+    { k: 'ds', type: 'select', label: 'who wrote the forty responses:',
+      options: [['you',   'you, by hand'],
+                ['same',  'llama3.2:3b — the model under test'],
+                ['other', 'a different, larger model']],
+      value: 'you' },
+    { k: 'lb', type: 'select', label: 'who assigned the M / C labels:',
+      options: [['you',   'you, reading each one cold'],
+                ['model', 'a model']],
+      value: 'you' }
+  ], draw);
+
+  var DS = {
+    you:   'written by you',
+    same:  'written by llama3.2:3b',
+    other: 'written by another model'
+  };
+  var LB = {
+    you:   'ground truth — by you',
+    model: 'ground truth — by a model'
+  };
+
+  var MSG = {
+    'you/you':
+      'INTENDED. You wrote the responses; you assigned the labels.\n' +
+      'Question actually answered: does naming the ten misconceptions raise llama3.2:3b\'s\n' +
+      'recall on human-written responses that a human judged to contain them?\n' +
+      'That is the study. Nothing in the chain shares a source with the thing under test.',
+    'you/model':
+      'CIRCULAR (labels). The denominator of recall, TP + FN, is now a model\'s opinion.\n' +
+      'Question actually answered: how often does llama3.2:3b agree with the labelling model?\n' +
+      'Two models trained on overlapping text are confused by the same things, so agreement\n' +
+      'is high for reasons unrelated to correctness. That is not accuracy, and cannot be.',
+    'same/you':
+      'CIRCULAR (dataset). The model under test wrote the exam it is now sitting.\n' +
+      'Question actually answered: can llama3.2:3b recognise misconceptions it produced on\n' +
+      'request, in its own vocabulary and its own register?\n' +
+      'Expect both conditions near ceiling, and no room left for the catalogue to show anything.',
+    'same/model':
+      'FULLY CIRCULAR. One model wrote the items, labelled them, and is graded against them.\n' +
+      'Question actually answered: is llama3.2:3b self-consistent across three prompts?\n' +
+      'That is a real question about model reliability — but it says nothing about students,\n' +
+      'nothing about misconceptions, and nothing about whether the catalogue helps.',
+    'other/you':
+      'NOT CIRCULAR, BUT NOT THE STUDY EITHER. A larger model wrote the items; you labelled them.\n' +
+      'Question actually answered: can llama3.2:3b detect misconceptions as a larger model\n' +
+      'imagines a confused student writing them?\n' +
+      'Nobody has shown those resemble real student writing, so the finding does not reach a\n' +
+      'classroom. This one fails on external validity rather than on circularity.',
+    'other/model':
+      'CIRCULAR (labels), and the items are synthetic on top of that.\n' +
+      'Question actually answered: how often do two models agree about a third model\'s idea\n' +
+      'of a confused student?\n' +
+      'There is no human anywhere in this chain, and no claim about the world survives it.'
+  };
+
+  function box(fr, x0, y0, x1, y1, title, sub, col) {
+    fr.rect(x0, y0, x1, y1, { fill: col, alpha: 0.08, stroke: col, width: 2 });
+    fr.text((x0 + x1) / 2, (y0 + y1) / 2 + 0.035, title, { color: col, align: 'center' });
+    fr.text((x0 + x1) / 2, (y0 + y1) / 2 - 0.085, sub, { color: G.COL.muted, align: 'center' });
+  }
+
+  function draw() {
+    var cv = G.canvas('circ'); if (!cv) return;
+    var fr = G.frame(cv.ctx, cv.w, cv.h, {
+      xmin: 0, xmax: 4, ymin: 0, ymax: 1,
+      margin: { left: 10, right: 10, top: 14, bottom: 14 }
+    });
+    fr.axes({ xticks: 0, yticks: 0, grid: false });
+
+    var loopData  = (st.ds === 'same');
+    var loopLabel = (st.lb === 'model');
+
+    var colA = loopData ? G.COL.rose : (st.ds === 'other' ? G.COL.amber : G.COL.accent);
+    var colB = loopLabel ? G.COL.rose : G.COL.accent;
+
+    box(fr, 0.06, 0.60, 1.18, 0.94, '40 responses', DS[st.ds], colA);
+    box(fr, 0.06, 0.10, 1.18, 0.44, 'labels: M or C', LB[st.lb], colB);
+    box(fr, 1.56, 0.60, 2.64, 0.94, 'llama3.2:3b', 'under test · predicts M / C', G.COL.violet);
+    box(fr, 2.96, 0.35, 3.94, 0.69, 'confusion matrix', 'recall = TP/(TP+FN)', G.COL.ink);
+
+    /* wiring */
+    fr.line([[1.18, 0.77], [1.52, 0.77]], { color: G.COL.muted, width: 1.5 });
+    fr.text(1.56, 0.77, '→', { color: G.COL.muted, align: 'right', dx: 2, dy: 5 });
+    fr.line([[2.64, 0.77], [2.80, 0.77], [2.80, 0.60], [2.92, 0.60]],
+            { color: G.COL.muted, width: 1.5 });
+    fr.text(2.96, 0.60, '→', { color: G.COL.muted, align: 'right', dx: 2, dy: 5 });
+    fr.line([[1.18, 0.27], [2.80, 0.27], [2.80, 0.46], [2.92, 0.46]],
+            { color: G.COL.muted, width: 1.5 });
+    fr.text(2.96, 0.46, '→', { color: G.COL.muted, align: 'right', dx: 2, dy: 5 });
+    fr.text(1.98, 0.295, 'compared against the labels', { color: G.COL.muted, align: 'center' });
+
+    /* red loops: a source that also decides the right answer */
+    if (loopData) {
+      fr.line([[2.10, 0.94], [2.10, 0.985], [0.62, 0.985], [0.62, 0.945]],
+              { color: G.COL.rose, width: 2, dash: [6, 4] });
+      fr.text(0.66, 0.955, '↑', { color: G.COL.rose, align: 'left' });
+    }
+    if (loopLabel) {
+      fr.line([[3.45, 0.35], [3.45, 0.025], [0.62, 0.025], [0.62, 0.095]],
+              { color: G.COL.rose, width: 2, dash: [6, 4] });
+      fr.text(0.66, 0.10, '↑', { color: G.COL.rose, align: 'left' });
+    }
+    if (loopData || loopLabel) {
+      fr.legend([['a model on both sides', G.COL.rose]]);
+    } else if (st.ds === 'other') {
+      fr.legend([['synthetic items, human labels', G.COL.amber]]);
+    } else {
+      fr.legend([['no shared source — the study', G.COL.accent]]);
+    }
+
+    G.say('circout', MSG[st.ds + '/' + st.lb]);
+  }
+  draw();
+});
+</script>
+
+<p>Notice what the visualiser does <em>not</em> say. It never says the circular configurations
+produce no number, or a low number. They produce a perfectly ordinary confusion matrix with
+perfectly ordinary metrics, and if you did not draw the chain you would have no way of telling
+from the output that anything was wrong. That is why this rule has to be applied before the run,
+not diagnosed after it.</p>
+
+<h2>4 · Disclosure</h2>
+
+<p>Two places, and both are short.</p>
+
+<p><strong>In every progress log</strong>, the <code>Tools used</code> line that is already at the
+bottom of <code>progress/TEMPLATE.md</code>. One plain sentence per use: what you asked, and what
+you did with the answer. Write <code>none</code> if none.</p>
+
+<div class="box example">
+  <span class="lbl">Template · progress log</span>
+<pre>Tools used: asked an AI assistant &lt;what you asked&gt;, after &lt;what
+prompted the question&gt;. Used the answer to &lt;what you then did
+yourself&gt;. &lt;Anything you checked it against.&gt;</pre>
+  <p><strong>Good.</strong> "Asked an AI assistant why my recall came out as <code>undefined</code>
+  rather than 0 when the model predicted C for everything. Understood that the denominator
+  <em>TP + FN</em> was zero, checked it against the table by hand, and added the zero-denominator
+  case to my Phase 5 notes so I do not report it as 0%."</p>
+  <p><strong>Bad.</strong> "Used AI a bit this week."</p>
+  <p>The second is not bad because it admits less. It is bad because it is unusable: six weeks
+  later neither of us can tell whether the undefined-metric distinction is something you know or
+  something you were once told. The first takes twenty seconds and is a genuine part of the
+  record.</p>
+</div>
+
+<p><strong>In the final write-up</strong>, a short statement, normally at the end of the methods
+or just before the references. It is a paragraph, not a confession.</p>
+
+<div class="box example">
+  <span class="lbl">Template · write-up</span>
+<pre>AI use statement. All forty student responses and all forty
+M/C labels in this study were written by the author. No language
+model contributed to the dataset, the labels, the interpretation
+of the results, or the limitations. An AI assistant was used for
+&lt;list: e.g. explaining statistical concepts during study,
+diagnosing Python errors, drafting plotting boilerplate that the
+author reviewed, and copy-editing prose the author had already
+written&gt;. &lt;If relevant: candidate wordings for the experimental
+prompts were discussed with an AI assistant; every wording tried,
+including those suggested by the assistant, is recorded in
+progress/prompt-log.md.&gt; The author is responsible for every
+claim made here.</pre>
+</div>
+
+<p>Disclosure is normal professional practice. Most journals and many competitions now require a
+statement of this kind, and their reason for requiring it is not suspicion — it is that a reader
+cannot evaluate a method they cannot see. The asymmetry is worth stating plainly:
+<strong>disclosure is never penalised; non-disclosure is the only thing that is.</strong> No
+quantity of disclosed use produces a worse outcome here, because disclosed use is a fact we can
+both work with. If the <code>Tools used</code> lines start showing that whole paragraphs are
+arriving from outside, the response is a conversation about how you are working, not a sanction.
+Undisclosed use is different in kind: it corrupts the record, and a research record that cannot
+be trusted is worth nothing at all.</p>
+
+<div class="box warning">
+  <span class="lbl">Competition and school rules override this page</span>
+  <p>Science-fair programmes, your school's academic-integrity policy, and any journal or
+  showcase you submit to each set their own rules about AI use and disclosure. <strong>Those rules
+  are the binding authority. This page is not.</strong></p>
+  <p>They also change, sometimes between one year and the next, which is exactly why no specific
+  competition's rules are quoted here — a rule copied into a web page in one August is a liability
+  the following spring. Before you submit anything anywhere: find the current rules for that
+  specific venue, read the section on AI use and on disclosure forms, and bring anything ambiguous
+  to your mentor rather than deciding alone. Doing this a week before a deadline is a normal part
+  of submitting; doing it the night before is how projects get withdrawn.</p>
+</div>
+
+<h2>5 · The genuinely hard one: prompts written with a model</h2>
+
+<p>Everything above was reasonably clear-cut. This one is not, and pretending otherwise would
+make the page less useful.</p>
+
+<p>The two prompts in <code>python/misconception/prompts.py</code> are the independent variable.
+They are the single thing that differs between your two conditions. Everything else — model,
+temperature, responses, labels, parsing — is held fixed precisely so that any difference in the
+results can be attributed to them. So asking a model to help write them is not like asking for a
+CSV loader. It is closer to asking for help designing the experiment.</p>
+
+<p><strong>The case for forbidding it.</strong> If the treatment itself was authored elsewhere,
+what exactly did you contribute? And a model asked to "write a good prompt for detecting
+misconceptions" will produce something fluent that you did not reason your way to, which is
+awkward when a judge asks why the output-format instruction is repeated twice at the end.</p>
+
+<p><strong>The case against forbidding it.</strong> A prompt is not a claim. It is a piece of
+apparatus, and you were always going to arrive at it by trial: write one, run it on the twelve
+demo items, notice that a third of the replies are unparseable, make the format instruction
+blunter, run it again. That loop is legitimate whether the suggestion for the next wording comes
+from a model, from a friend, or from staring at the wall. Forbidding it outright would not stop
+it happening; it would only stop it being written down, which is strictly worse for everyone.</p>
+
+<p><strong>And here is where the real danger actually lives</strong>, which is not authorship at
+all. Suppose you try eleven wordings. Suppose you evaluate each one against your real forty
+responses, see which gives the misconception-aware condition its biggest lead, and report that
+one. Every step felt reasonable. The result is worthless, because you have selected the wording
+that flattered your hypothesis out of eleven chances to find one, and you would have stopped
+searching the moment a wording worked. That is <strong>researcher degrees of freedom</strong> —
+the same problem <a href="../phases/phase-5-analysis.html">Phase 5</a> raises about choosing which
+metric to headline after seeing the numbers.
+The remedy is identical in both places, and it is not restraint. It is disclosure of the whole
+search.</p>
+
+<div class="box verify">
+  <span class="lbl">The honest resolution</span>
+  <ul>
+    <li><strong>Allowed</strong>, including asking a model for candidate wordings.</li>
+    <li><strong>Every prompt you try is recorded</strong> in <code>progress/prompt-log.md</code>:
+    the wording, where it came from — your head, a model, an example you read — and why you kept
+    or dropped it. Committing each version of <code>prompts.py</code> gives you the wordings for
+    free in the git history; the log is for the reasons, which git cannot record.</li>
+    <li><strong>Develop them on demo data</strong> — <code>--mock --sample</code>, the twelve
+    items — not on your forty. Tuning a prompt against the real dataset is how a selection effect
+    gets in.</li>
+    <li><strong>Edit both prompts symmetrically.</strong> If the baseline gets a blunter format
+    instruction, so does the misconception-aware one. The two must differ in exactly one respect:
+    the catalogue.</li>
+    <li><strong>Freeze before the real run.</strong> After you have seen the real results, a
+    changed prompt means a new run that is exploratory and reported as such — not a replacement
+    for the first one.</li>
+  </ul>
+  <p>A reader who can see all eleven wordings and your reasons can judge your method. A reader
+  shown only the winner cannot. The prompt log is what converts an uncomfortable grey area into
+  an inspectable one, and it takes about ninety seconds a week to maintain.</p>
+</div>
+
+<h2>6 · Exercises</h2>
+
+<p>All five are judgement calls, and none has a one-word answer. Argue from the third column of
+the table, not from the second.</p>
+
+<div class="exercise">
+  <div class="ex-head">Exercise 6.1 <span class="stars">★★</span><span class="tag">thinking</span></div>
+  <div class="ex-body"><p>You have written eighteen of the twenty M items and have run out of
+  ideas. You ask a model: <em>what do students typically get wrong about password managers?</em>
+  You take two of the ideas it lists, and write the two responses yourself, in your own words.
+  Acceptable?</p></div>
+  <details><summary>Solution</summary><div class="solution">
+    <p><strong>Acceptable, with disclosure and one real caveat.</strong> An idea is not the
+    dataset. The forty pieces of writing are the dataset, and you wrote all forty. Nothing in the
+    inference chain in section 3 has changed: the items are human-written, the labels are yours,
+    and the model under test is measured against both.</p>
+    <p>The caveat is about the <em>catalogue</em>, which is a separate research artifact from the
+    responses. The ten misconceptions are supposed to be things students actually believe, and the
+    evidence for that should come from teachers, from published misconception research, or from
+    your own observation. A misconception that exists only because a language model listed it is a
+    conjecture about students, not an observation of them, and it should be marked as such. If you
+    add one, note where it came from, and be able to say at the check-in which entries in
+    <code>misconceptions.csv</code> have a source behind them and which do not.</p>
+    <p>Disclosure line: "Asked an AI assistant for common student misunderstandings about password
+    managers when I ran out of ideas at eighteen items; used two of the ideas, wrote both responses
+    myself, and flagged both catalogue entries as unsourced."</p>
+  </div></details>
+</div>
+
+<div class="exercise">
+  <div class="ex-head">Exercise 6.2 <span class="stars">★★</span><span class="tag">thinking</span></div>
+  <div class="ex-body"><p>Phase 3 asks for a blind second reader so you can compute percentage
+  agreement and Cohen's kappa. Nobody in your house wants to label forty responses about
+  passwords. You ask a large model to do it instead, and report the resulting kappa. Acceptable?</p></div>
+  <details><summary>Solution</summary><div class="solution">
+    <p><strong>Not acceptable</strong>, and the reason is worth being precise about, because the
+    tempting objection — "but the model is not the model under test, so there is no circularity"
+    — is half right.</p>
+    <p>It is right that this is not the labels problem from section 3: your labels are still
+    yours, and the metrics still measure the tested model against your judgement. What breaks is
+    what kappa <em>means</em>. The second reader exists to answer one question: <em>is the
+    distinction I claim to be labelling recoverable from the text by someone other than me?</em>
+    A high kappa with a second human says the construct is real and legible, not private to your
+    head. A high kappa with a model says two systems agree, one of which has exactly the
+    correlated-error problem section 3 describes; a low kappa tells you almost nothing, since you
+    cannot ask the model what it was thinking and get a trustworthy answer.</p>
+    <p>The honest paths are: find one human — a classmate, a sibling, a teacher, twenty minutes
+    each — or report that you could not obtain a second reader and name it in Limitations as a
+    genuine weakness. The second option is not a failure. "The dataset was written and labelled by
+    a single person, so no inter-rater agreement could be computed" is a sentence a judge respects,
+    and it is exactly the kind of limitation Exercise 6.5 is about.</p>
+  </div></details>
+</div>
+
+<div class="exercise">
+  <div class="ex-head">Exercise 6.3 <span class="stars">★★★</span><span class="tag">thinking</span></div>
+  <div class="ex-body"><p>You wrote all forty items and all forty labels yourself. Worried about
+  the tells Phase 3 warned about, you paste the forty into a model with the labels removed and ask:
+  <em>which of these do you think are meant to contain an error, and what surface features gave it
+  away?</em> Acceptable? And if so, what do you do with the answer?</p></div>
+  <details><summary>Solution</summary><div class="solution">
+    <p><strong>Acceptable, and it is a good idea</strong> — but the second half of the question is
+    where the real content is, because there is a way to do this that quietly ruins the study.</p>
+    <p>Why it is fine in principle: you are running a diagnostic <em>on</em> your dataset, not
+    producing it. The items and the labels remain yours. Nor is there any contamination worry of
+    the kind people imagine: a call to Ollama is stateless, so a model that reads your items today
+    remembers nothing about them during the real run.</p>
+    <p>The trap is different and sharper. Suppose the model correctly picks nineteen of your twenty
+    M items and tells you it did so from the words <em>always</em>, <em>never</em> and
+    <em>completely</em>. If you now go through and edit until that model can no longer tell,
+    you have <strong>tuned the dataset against the thing you are measuring</strong>. Your forty
+    items are no longer forty independent samples of student-like writing; they are forty items
+    selected for being hard for one particular model, and the recall you report afterwards is a
+    number about that tuning process, not about misconception detection.</p>
+    <p>The defensible version: treat the list of surface cues as a general style checklist. Apply
+    it uniformly to all forty items — if <em>always</em> is banned it is banned in the C items too
+    — do one pass, and stop. Do not iterate against the model's verdicts. Record what you did and
+    the fact that you did one pass, because a reader who knows you screened for lexical tells
+    trusts the dataset more, and a reader who discovers it later trusts it less.</p>
+  </div></details>
+</div>
+
+<div class="exercise">
+  <div class="ex-head">Exercise 6.4 <span class="stars">★★</span><span class="tag">arithmetic</span></div>
+  <div class="ex-body"><p>Your real run finishes. Baseline recall is 11 of 20; misconception-aware
+  recall is 13 of 20. You paste both confusion matrices into a model and ask what they mean. It
+  replies that the misconception-aware prompt improved recall by ten percentage points, consistent
+  with your hypothesis. Which part of that exchange was acceptable, and what is wrong with the
+  answer?</p></div>
+  <details><summary>Solution</summary><div class="solution">
+    <p><strong>Asking was fine; using the reply as your interpretation would not be.</strong> The
+    line runs between "what does this number mean" — a definition question, allowed — and "tell me
+    what I found", which is the contribution.</p>
+    <p>Now the substance, which is why you have to be the one writing this paragraph. The reply is
+    arithmetically right and inferentially wrong. Recall is computed over the twenty M items only,
+    so the sample size behind each figure is 20, not 40. Wilson intervals:</p>
+    <p>13/20 = 65%, 95% interval <strong>43% to 82%</strong>.<br>
+    11/20 = 55%, 95% interval <strong>34% to 74%</strong>.</p>
+    <p>The intervals overlap across almost their entire length. The whole result rests on two
+    items changing their verdict. A single response you might have labelled either way, or the
+    ordinary run-to-run variation you will see when you run twice at temperature 0, is enough to
+    erase it or double it.</p>
+    <p>So the honest interpretation is: <em>recall was higher in the misconception-aware condition
+    (13/20 versus 11/20), but with n = 20 in the positive class the confidence intervals overlap
+    substantially and this pilot cannot distinguish a real effect from noise. The direction is
+    consistent with the prediction registered in Phase 1; the magnitude is not established.</em>
+    A model will not volunteer that paragraph unless you already know to ask for it, which is the
+    argument for writing it yourself.</p>
+  </div></details>
+</div>
+
+<div class="exercise">
+  <div class="ex-head">Exercise 6.5 <span class="stars">★★★</span><span class="tag">writing</span></div>
+  <div class="ex-body"><p>You ask a model to draft the Limitations section, read what it produces,
+  agree with most of it, and rewrite it entirely in your own words, keeping the points you agree
+  with and deleting the rest. Nothing generated survives verbatim. Acceptable?</p></div>
+  <details><summary>Solution</summary><div class="solution">
+    <p><strong>No</strong> — and this is the subtlest case on the page, because the usual objection
+    does not apply. Nobody is claiming a generated sentence as their own; every word is yours.</p>
+    <p>The problem is that in a Limitations section the <em>list</em> is the work, not the prose.
+    A model that has never seen your repository can produce the generic three: small sample, a
+    single model, a single domain. Those are true, and a reader learns nothing from them, because
+    they are true of every pilot ever run. What a judge is actually testing is whether you can name
+    the limitations that are specific to <em>this</em> study — and those are only visible from
+    inside it:</p>
+    <ul>
+      <li>One person wrote both the responses and the labels, so the labels may encode that
+      person's writing habits rather than an independent judgement.</li>
+      <li>The catalogue and the M items share vocabulary, so the misconception-aware prompt may be
+      matching words rather than recognising concepts — the very thing the study claims to
+      measure.</li>
+      <li>Two runs at temperature 0 differed on some items, so a difference of one or two verdicts
+      is inside the noise floor of the instrument.</li>
+      <li>Unparseable replies were counted separately rather than defaulted to C, which keeps the
+      metrics honest but means the denominators need stating every time.</li>
+      <li>The forty responses are what one person imagines a confused student writing, not
+      collected student work.</li>
+    </ul>
+    <p>Not one of those is available to a model, and every one of them is worth more than the
+    generic three. If you start from a generated draft you will anchor on its list and stop
+    thinking — the failure is not plagiarism, it is that you will not notice what is missing. Write
+    it cold, from your own log, then use the tool afterwards to tighten sentences if you like.
+    Content first, always.</p>
+  </div></details>
+</div>
+
+<h2>7 · Verification</h2>
+
+<div class="box verify">
+  <span class="lbl">Before the check-in</span>
+  <ul>
+    <li>I can state the principle in one sentence, without looking at this page.</li>
+    <li>I can explain, out loud, why a model-written dataset changes the question the study
+    answers — and why the resulting numbers still look completely normal.</li>
+    <li>I can say what <em>TP + FN</em> counts and whose judgement it encodes.</li>
+    <li>Every progress log so far has a <code>Tools used</code> line, or the word <code>none</code>.</li>
+    <li>Every prompt wording I have tried is in <code>progress/prompt-log.md</code> with its
+    origin and the reason I kept or dropped it.</li>
+    <li>I have found the current AI-use and disclosure rules for whatever I intend to submit to,
+    and asked about anything ambiguous.</li>
+    <li>Everything in the write-up is something I could defend under questioning with the document
+    closed.</li>
+  </ul>
+</div>
+
+<div class="box aside">
+  <span class="lbl">Going deeper (optional)</span>
+  <p>The same scepticism points back at this site. These pages were written by a person and contain
+  errors, and the errors that survive proofreading are the plausible ones. The epistemic chips are
+  there partly for that reason: <span class="status cited">cited</span> means somebody is being
+  trusted, <span class="status observed">observed</span> means a number came out of code you can
+  rerun, <span class="status proved">proved</span> means the arithmetic is on the page and you can
+  check it. If a claim here disagrees with your own output, one of us is wrong, and finding out
+  which is a good afternoon either way. Bring it to the call.</p>
+  <p>That disposition — provisional trust in every source, including the confident ones, including
+  this one — is what the <code>Tools used</code> line is really training. Related:
+  <a href="unstuck.html">how to get unstuck</a> for the procedure to run <em>before</em> you open a
+  chat window, <a href="../phases/phase-3-dataset.html">Phase 3</a> for the ceiling effect and the
+  second reader, and <a href="glossary.html">the glossary</a> for the terms used here.</p>
+</div>
+
+<div class="pager"><a href="unstuck.html">← How to get unstuck</a><a href="../index.html">Course index →</a></div>
+
+</main>
+
+<footer class="site">
+  <div class="wrap">
+    <strong>Wrong in a Particular Way</strong> · Reference · Using AI tools ·
+    <a href="../index.html">index</a> ·
+    <a href="../extras/glossary.html">glossary</a> ·
+    <a href="../extras/unstuck.html">stuck?</a>
+  </div>
+</footer>
+
+</body>
+</html>

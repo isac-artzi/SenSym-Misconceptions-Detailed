@@ -1,0 +1,547 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Setup · The setup track — Wrong in a Particular Way</title>
+<link rel="stylesheet" href="../assets/vendor/katex/katex.min.css">
+<link rel="stylesheet" href="../assets/css/style.css">
+<script src="../assets/vendor/katex/katex.min.js"></script>
+<script src="../assets/vendor/katex/auto-render.min.js"></script>
+<script src="../assets/js/detect.js"></script>
+</head>
+<body>
+
+<header class="site">
+  <div class="wrap">
+    <div class="crumbs"><a href="../index.html">Wrong in a Particular Way</a> · Setup · Start here</div>
+    <div class="badges"><span class="badge">Setup track</span><span class="badge win">Win: charts on your screen before you install anything large</span></div>
+    <h1 class="chapter-title">The setup track: what order, and why</h1>
+    <p class="chapter-sub">Four short pages, about an hour, most of it spent waiting for downloads.</p>
+  </div>
+</header>
+
+<main class="wrap">
+
+<p class="lede">Setup is where projects like this quietly lose a fortnight, almost always for the
+same reason: two things are broken at once and there is no way to tell which is which. This
+page is the orientation. It tells you what order to do the three installs in, what each one
+buys you, and how to arrange things so that when something fails you already know which layer
+it failed in.</p>
+
+<div class="objectives">
+  <h3>By the end of this page you can</h3>
+  <ul>
+    <li>State the order of the setup track and give the reason for it in one sentence.</li>
+    <li>Say what <code>--mock --sample</code> does and why it is the most useful fact here.</li>
+    <li>Name the three layers an error can live in, and sort a real error message into one.</li>
+    <li>Budget your time across the three steps rather than discovering the download at midnight.</li>
+    <li>Say what breaks if you skip any one step, and what does <em>not</em> break.</li>
+    <li>Explain why the dataset — not the install — is the long pole of this project.</li>
+  </ul>
+</div>
+
+<h2>1 · The order</h2>
+
+<p>Three installs, in this order, and the order is not arbitrary.</p>
+
+<div class="sem-grid">
+  <a class="week-card" href="python.html"><span class="wk">Step 1 · first</span><div class="tt">Python, the repo, and the first run</div></a>
+  <a class="week-card milestone" href="ollama.html"><span class="wk">Step 2 · second</span><div class="tt">Ollama and the local model</div></a>
+  <a class="week-card" href="git.html"><span class="wk">Step 3 · last</span><div class="tt">Git, the small version</div></a>
+</div>
+
+<p>The rule behind the ordering is one sentence: <strong>get the pipeline provably running on a
+fake model before you add a real one.</strong> Step 1 ends with charts written to
+<code>python/results/</code> — real files, produced by the real analysis code — with no model
+anywhere on your machine. Only then do you install Ollama.</p>
+
+<p>The reason is diagnostic, not aesthetic. Suppose you install everything at once and then run
+the experiment and it fails. The failure could be in your Python, in the packages, in the
+Ollama server, in the model name, or in the data files. Five candidates, and testing them
+requires changing one thing at a time anyway — so you may as well have added them one at a
+time in the first place. <strong>Debugging your code and your model install simultaneously is
+the trap.</strong> Each layer added on its own turns a five-way mystery into a one-way one: the
+thing that broke is the thing you just changed.</p>
+
+<div class="box definition">
+  <span class="lbl">Three layers · learn to name them</span>
+  <p><strong>The machine layer</strong> — is Python there, are the four packages installed, is
+  the repository on disk. Errors look like <code>command not found</code> or
+  <code>ModuleNotFoundError</code>.</p>
+  <p><strong>The model layer</strong> — is Ollama installed, is its server running, is
+  <code>llama3.2:3b</code> downloaded, does the name match the config. Errors mention
+  <code>localhost:11434</code> or <code>model not found</code>.</p>
+  <p><strong>The project layer</strong> — your code, your prompts, your forty responses. Errors
+  are about columns, labels, counts and unparseable verdicts.</p>
+  <p>Nearly every hour lost on a project like this is lost because an error from one layer was
+  treated as an error from another. Sorting the message into a layer before touching anything is
+  most of what debugging actually is.</p>
+</div>
+
+<h2>2 · The single most useful fact on this track</h2>
+
+<p>Here it is, and it is worth reading twice.</p>
+
+<div class="box win">
+  <span class="lbl">The whole pipeline runs with no Ollama, no model, and no data at all</span>
+  <div class="cmd"><pre><span class="p">$ </span>cd python
+<span class="p">$ </span>python3 misconception/run_experiment.py --mock --sample
+<span class="p">$ </span>python3 misconception/analyze.py</pre></div>
+  <p>That produces <code>python/results/metrics.csv</code>,
+  <code>python/results/comparison.png</code> and
+  <code>python/results/confusion_matrices.png</code> in about a second, on a laptop with no
+  language model installed and an empty <code>data/responses.csv</code>.</p>
+</div>
+
+<p>Two flags are doing the work, and they are independent of each other. <code>--mock</code>
+replaces the call to the model with a fake one that returns a canned verdict instantly, so
+nothing touches the network and nothing needs Ollama. <code>--sample</code> reads the twelve
+demo responses in <code>python/data/sample/</code> instead of the forty you have not written
+yet. Together they mean the pipeline is testable from the moment you clone the repository.</p>
+
+<div class="box warning">
+  <span class="lbl">And the corresponding rule</span>
+  <p>Numbers produced by <code>--mock</code> or <code>--sample</code> are <strong>demo
+  output</strong>. The mock model does not read the response it is judging in any meaningful
+  way, and the twelve sample items were written by somebody else. No number from either goes
+  into your write-up, ever, not even as an illustration. They exist to prove the plumbing
+  works — which is a completely different job from producing a result, and an important one.</p>
+</div>
+
+<p>This changes what setup is <em>for</em>. Setup is not a gate you must pass before the project
+starts. Two thirds of the project — the six code TODOs in Phase 2, the forty responses in
+Phase 3, every chart, and the entire test suite — never need a model at all. If Ollama defeats
+your laptop for a week, you keep working the whole week.</p>
+
+<h2>3 · What is unlocked when</h2>
+
+<p>The lab below makes that concrete. Tick what is installed on your machine right now and read
+what you are able to do.</p>
+
+<div class="lab">
+  <div class="lab-title">Lab · what you can do right now</div>
+  <p class="lab-desc">Five things you have or have not installed, five things the project asks
+  you to do. Start with only Python ticked and add things in the track's order. Notice how many
+  boxes turn green <em>before</em> Ollama is ticked at all — that count is the argument for the
+  order, and the reason step 2 is allowed to be the slow one.</p>
+  <canvas id="ready" height="300"></canvas>
+  <div class="controls" id="readyctl"></div>
+  <div class="readout" id="readyout"></div>
+</div>
+
+<script>
+G.lab(function () {
+  var st = G.controls('readyctl', [
+    { k: 'py',   type: 'check', label: 'Python 3.9+',            value: true  },
+    { k: 'pkg',  type: 'check', label: 'the four packages',      value: false },
+    { k: 'oll',  type: 'check', label: 'Ollama running',         value: false },
+    { k: 'mod',  type: 'check', label: 'llama3.2:3b pulled',     value: false },
+    { k: 'data', type: 'check', label: 'my 40 responses',        value: false }
+  ], draw);
+
+  /* Each capability lists exactly what it depends on. These are read off the
+     code, not invented: analyze.py imports pandas and matplotlib and nothing
+     else external; run_experiment.py --mock never constructs an HTTP request. */
+  var CAPS = [
+    { t: 'run the test suite   ·  pytest -q',
+      s: 'run the tests',           need: ['py', 'pkg'] },
+    { t: 'run the mock pipeline   ·  run_experiment.py --mock --sample',
+      s: 'run the mock pipeline',   need: ['py', 'pkg'] },
+    { t: 'produce the charts   ·  analyze.py',
+      s: 'produce charts',          need: ['py', 'pkg'] },
+    { t: 'run the real pipeline   ·  the model, on real prompts',
+      s: 'run the real pipeline',   need: ['py', 'pkg', 'oll', 'mod'] },
+    { t: 'report a result you can defend',
+      s: 'report a result',         need: ['py', 'pkg', 'oll', 'mod', 'data'] }
+  ];
+  var NAME = { py: 'Python', pkg: 'the packages', oll: 'Ollama',
+               mod: 'the model', data: 'your dataset' };
+
+  function draw() {
+    var cv = G.canvas('ready'); if (!cv) return;
+    var fr = G.frame(cv.ctx, cv.w, cv.h, {
+      xmin: 0, xmax: 1, ymin: 0, ymax: 5,
+      margin: { left: 10, right: 10, top: 30, bottom: 12 }
+    });
+    fr.axes({ xticks: 0, yticks: 0, grid: false });
+    fr.text(0.012, 5.07, 'THE FIVE THINGS THIS PROJECT ASKS YOU TO DO',
+            { color: G.COL.muted });
+
+    var can = [], cannot = [];
+    CAPS.forEach(function (c, i) {
+      var missing = c.need.filter(function (k) { return !st[k]; });
+      var ok = missing.length === 0;
+      (ok ? can : cannot).push(c.s);
+      var col = ok ? G.COL.green : G.COL.rose;
+      var top = 5 - i;
+      fr.rect(0.012, top - 0.82, 0.988, top - 0.18,
+              { fill: col, alpha: ok ? 0.14 : 0.06, stroke: col, width: 2 });
+      fr.text(0.03, top - 0.56, c.t, { color: ok ? G.COL.ink : G.COL.muted });
+      fr.text(0.97, top - 0.56,
+              ok ? 'UNLOCKED' : 'needs ' + missing.map(function (k) { return NAME[k]; }).join(' + '),
+              { color: col, align: 'right' });
+    });
+
+    var lines = [];
+    lines.push(can.length + ' of 5 unlocked.');
+    lines.push(can.length
+      ? 'You can right now:  ' + can.join(',  ') + '.'
+      : 'You can do nothing in this project yet. Everything starts with Python — step 1.');
+    lines.push(cannot.length
+      ? 'You cannot yet:  ' + cannot.join(',  ') + '.'
+      : 'Nothing is blocked. Setup is finished and the rest is research.');
+
+    if (!st.py) {
+      lines.push('\nPython is the floor. No box on this list turns green without it, which is\nwhy it is step 1 and why step 1 has no alternatives.');
+    } else if (!st.pkg) {
+      lines.push('\nEvery box here runs through pandas and matplotlib. Until the packages are\ninstalled, installing Ollama buys you exactly nothing.');
+    } else if (!(st.oll && st.mod)) {
+      lines.push('\nLook at what just happened: three of the five are green and there is no\nlanguage model on this machine. That is the entire argument for the order —\nthe pipeline is proven before the slow, breakable install is attempted.');
+    } else if (!st.data) {
+      lines.push('\nThe install is finished and the pipeline is proven. The only thing between\nyou and a reportable result is the forty responses — Phase 3, the long pole\nof this project, and the part no download can do for you.');
+    }
+    G.say('readyout', lines.join('\n'));
+  }
+  draw();
+});
+</script>
+
+<p>The shape of that picture is the point. Three of the five capabilities are unlocked by
+Python and four packages — a ten-minute job. The fourth needs the model, and the fifth needs
+something no installer can give you: forty responses that you wrote and labelled yourself.</p>
+
+<h2>4 · The time budget</h2>
+
+<p>Roughly an hour in total, and most of that hour is a progress bar rather than you doing
+anything. Times are <span class="status observed">observed</span> from setups like this one on
+ordinary home wifi; a school network can easily double the download row.</p>
+
+<table>
+  <thead><tr><th>Step</th><th>What it installs</th><th>Time</th><th>Of which, waiting</th></tr></thead>
+  <tbody>
+  <tr><td><a href="python.html">1 · Python and the repo</a></td><td>Python 3.9+, four packages, the repository folder</td><td>15–20 min<br><span class="muted">5 if Python is already there</span></td><td>~5 min</td></tr>
+  <tr><td><a href="ollama.html">2 · Ollama and the model</a></td><td>The Ollama app, then <code>llama3.2:3b</code> — about 2.0 GB</td><td>25–35 min</td><td>~25 min</td></tr>
+  <tr><td><a href="git.html">3 · Git</a></td><td>Git, and somewhere to push to</td><td>10–15 min</td><td>~0</td></tr>
+  <tr><td><strong>Total</strong></td><td></td><td><strong>about an hour</strong></td><td><strong>about half of it</strong></td></tr>
+  </tbody>
+</table>
+
+<p>Because half of it is waiting, do not sit and watch it. Start the model download at the
+beginning of step 2 and read the rest of that page — or better, open Phase 3 and start drafting
+responses — while it runs. The download does not care whether you are looking at it.</p>
+
+<div class="box python">
+  <span class="lbl">The four commands that matter on this track</span>
+  <div class="cmd"><pre><span class="p">$ </span>cd path/to/SenSym-misconception-aware-llm/python
+<span class="p">$ </span>python3 misconception/check_setup.py
+<span class="p">$ </span>python3 misconception/run_experiment.py --mock --sample
+<span class="p">$ </span>python3 misconception/analyze.py</pre></div>
+  <p>Everything on the setup track is in service of getting those to run. The test suite is run
+  from the repository root instead, one level up from <code>python/</code>:</p>
+  <div class="cmd"><pre><span class="p">$ </span>pytest -q</pre></div>
+  <p style="margin-bottom:0"><code>check_setup.py</code> is the one to keep rerunning. It prints
+  <code>[OK]</code> for things that work, <code>[TODO]</code> for things that are expected to be
+  unfinished on a fresh clone, and <code>[FIX]</code> for things that are genuinely broken. Only
+  <code>[FIX]</code> is a problem.</p>
+</div>
+
+<h2>5 · What breaks if you skip a step</h2>
+
+<p>Skipping is not always wrong — one row of this table is genuinely optional for weeks. The
+point is to know which one.</p>
+
+<table>
+  <thead><tr><th>If you skip</th><th>The first thing that breaks</th><th>What you see</th><th>Layer</th></tr></thead>
+  <tbody>
+  <tr>
+    <td>Python 3.9+</td>
+    <td>Everything. Nothing in the project runs.</td>
+    <td><code>command not found: python3</code></td>
+    <td>machine</td>
+  </tr>
+  <tr>
+    <td><code>pip install -r requirements.txt</code></td>
+    <td>Every script, on its import line, before it does any work</td>
+    <td><code>ModuleNotFoundError: No module named 'pandas'</code></td>
+    <td>machine</td>
+  </tr>
+  <tr>
+    <td>The <code>--mock --sample</code> run</td>
+    <td>Nothing, today. Later: your first real failure has five possible causes instead of one, because nothing was ever known to work.</td>
+    <td>No error — that is exactly the problem</td>
+    <td>—</td>
+  </tr>
+  <tr>
+    <td>Installing Ollama, or starting its server</td>
+    <td>Only the real run. Tests, mock runs and charts are untouched.</td>
+    <td><code>Could not reach Ollama at http://localhost:11434/api/generate</code></td>
+    <td>model</td>
+  </tr>
+  <tr>
+    <td><code>ollama pull llama3.2:3b</code></td>
+    <td>The real run, at the first item, after the server answers</td>
+    <td><code>model 'llama3.2:3b' not found</code></td>
+    <td>model</td>
+  </tr>
+  <tr>
+    <td>Git</td>
+    <td>Nothing runs differently. You lose the ability to say which version of the code produced which numbers, and the ability to undo a bad afternoon.</td>
+    <td>No error, and that is why people skip it</td>
+    <td>project</td>
+  </tr>
+  <tr>
+    <td>Writing your forty responses</td>
+    <td>The real experiment refuses to start rather than quietly using demo data</td>
+    <td><code>ERROR: data/responses.csv has no real rows yet.</code></td>
+    <td>project</td>
+  </tr>
+  </tbody>
+</table>
+
+<p>Notice the shape of the last column. Two rows produce no error at all. Those are the two that
+cost the most, because a missing safety net announces itself only at the moment you needed
+it.</p>
+
+<div class="box example">
+  <span class="lbl">Why Git is last and not first</span>
+  <p>Most programming courses teach version control on day one. This track puts it third, on
+  purpose: Git is the only step whose absence breaks nothing today, so putting it first spends
+  your patience on the step with the least immediate payoff — and patience is finite on a
+  Tuesday evening.</p>
+  <p>It is still not optional. By Phase 4 you will have two runs of the same experiment that
+  disagree slightly, and the question "what was different about the code that produced this
+  one?" becomes answerable or unanswerable depending on whether you did step 3. Do it before
+  you start writing data, not after.</p>
+</div>
+
+<h2>6 · Exercises</h2>
+
+<p>These are all thinking exercises. None of them needs a computer, and doing them properly
+before you install anything will save you more time than reading the next page twice.</p>
+
+<div class="exercise">
+  <div class="ex-head">Exercise 0.1 <span class="stars">★</span><span class="tag">thinking</span></div>
+  <div class="ex-body">
+    <p>You run <code>python3 misconception/run_experiment.py --mock --sample</code> and get:</p>
+    <div class="out"><i>ModuleNotFoundError: No module named 'pandas'</i></div>
+    <p>Which layer is this in, and what is the fix? Name one thing you should specifically
+    <em>not</em> do next.</p>
+  </div>
+  <details><summary>Solution</summary><div class="solution">
+    <p><strong>Machine layer.</strong> The message is from Python's import machinery: it looked
+    for a package called <code>pandas</code> and there was no such thing installed. It has
+    nothing to do with the model, the data or your code — the script never got as far as running
+    a single line of its own logic.</p>
+    <p><strong>The fix</strong> is <code>pip install -r requirements.txt</code> from the
+    repository root, which installs pandas, requests, matplotlib and scikit-learn. Then rerun
+    <code>python3 misconception/check_setup.py</code> and confirm all four package lines say
+    <code>[OK]</code>.</p>
+    <p><strong>What not to do:</strong> do not go and install Ollama. This is the classic wrong
+    move — the run failed, Ollama is the scary uninstalled thing, so it must be Ollama's fault.
+    It is not, and you can prove it without leaving your chair: the flag you passed was
+    <code>--mock</code>, and mock mode never contacts a model. Sorting the error into a layer
+    first is what stops you from spending an evening on the wrong install.</p>
+  </div></details>
+</div>
+
+<div class="exercise">
+  <div class="ex-head">Exercise 0.2 <span class="stars">★★</span><span class="tag">thinking</span></div>
+  <div class="ex-body">
+    <p>A classmate cloning the same repository sends you this:</p>
+    <div class="out"><i>LLMError: Could not reach Ollama at http://localhost:11434/api/generate</i></div>
+    <p>and says "but I ran it with <code>--mock</code>, so it shouldn't need Ollama at all — the
+    website is wrong." Is the website wrong? What actually happened?</p>
+  </div>
+  <details><summary>Solution</summary><div class="solution">
+    <p>The website is not wrong, and this is a nice piece of reasoning because the conclusion is
+    forced rather than guessed.</p>
+    <p>In mock mode the code calls <code>ask_llm_mock()</code>, which returns a canned reply and
+    never builds an HTTP request. The connection error is raised inside <code>ask_llm()</code>,
+    which is a different function. So the appearance of this error is <em>proof</em> that the
+    real path ran — that is, the run was not in mock mode, whatever the person believed.</p>
+    <p>Two likely causes, both worth checking before anything else: the flag was mistyped
+    (<code>-mock</code> with one dash, or <code>--Mock</code>), or the flag was attached to the
+    wrong command — <code>analyze.py</code> does not take <code>--mock</code>, and neither does
+    <code>check_setup.py</code>. Have them paste the exact command line rather than describing
+    it.</p>
+    <p>The general habit: <strong>an error message tells you which code path executed.</strong>
+    When the message contradicts what you think you ran, believe the message. This one costs
+    thirty seconds if you reason about it and an hour if you start installing things.</p>
+  </div></details>
+</div>
+
+<div class="exercise">
+  <div class="ex-head">Exercise 0.3 <span class="stars">★★</span><span class="tag">by hand</span></div>
+  <div class="ex-body">
+    <p>Here is real <code>check_setup.py</code> output. Say which lines require action, in what
+    order, and which require none.</p>
+    <div class="out">  <b>[OK]</b>   Python 3.11 (need 3.9+)
+  <b>[OK]</b>   package: pandas
+  <b>[OK]</b>   package: requests
+    <i>[FIX]</i>  package: matplotlib
+         -&gt; pip install matplotlib
+  <b>[OK]</b>   package: scikit-learn
+  [TODO] data/misconceptions.csv — 0 real row(s)
+  [TODO] data/responses.csv — 0 real row(s)
+  [TODO] Ollama is running</div>
+  </div>
+  <details><summary>Solution</summary><div class="solution">
+    <p><strong>One line requires action: the <code>[FIX]</code>.</strong> Run
+    <code>pip install matplotlib</code> — or better,
+    <code>pip install -r requirements.txt</code>, which is the same install plus insurance
+    against a second package having gone missing the same way.</p>
+    <p><strong>The three <code>[TODO]</code> lines require nothing.</strong> They are exactly
+    what a correct fresh clone looks like. The two data files still hold their template
+    placeholder rows because you have not reached Phase 3, and Ollama is not installed because
+    you have not reached step 2. The script separates <code>[TODO]</code> from <code>[FIX]</code>
+    precisely so that a first run does not look like a disaster.</p>
+    <p><strong>Order matters slightly:</strong> fix matplotlib first, because
+    <code>analyze.py</code> imports it and cannot draw the charts without it — so the missing
+    package blocks the mock run that would otherwise be your next move. Then rerun
+    <code>check_setup.py</code>, confirm the line has flipped to <code>[OK]</code>, and go
+    straight to <code>--mock --sample</code>.</p>
+    <p>Reading this output correctly is a small skill with a large payoff: the distinction
+    between "broken" and "not yet reached" is the same distinction the whole setup order is
+    built on.</p>
+  </div></details>
+</div>
+
+<div class="exercise">
+  <div class="ex-head">Exercise 0.4 <span class="stars">★★</span><span class="tag">thinking</span></div>
+  <div class="ex-body">
+    <p>It is Tuesday. You have exactly one free hour, and school wifi that will take about forty
+    minutes to pull a 2 GB model. Write down the order you would actually do things in, and
+    justify it in two sentences.</p>
+  </div>
+  <details><summary>Solution</summary><div class="solution">
+    <p>A defensible plan:</p>
+    <ol>
+      <li><strong>Minutes 0–15.</strong> Step 1 completely: Python, the repository,
+      <code>pip install -r requirements.txt</code>, <code>check_setup.py</code>. This is the
+      step everything else depends on and it does not involve a big download.</li>
+      <li><strong>Minute 15.</strong> Install Ollama and start <code>ollama pull
+      llama3.2:3b</code> — then leave it running and stop watching it.</li>
+      <li><strong>Minutes 15–25, while it downloads.</strong> Run
+      <code>run_experiment.py --mock --sample</code> and <code>analyze.py</code>, open the two
+      PNGs in <code>python/results/</code>, and run <code>pytest -q</code>. The download is using
+      the network; these use the processor. They do not compete.</li>
+      <li><strong>Minutes 25–55.</strong> Step 3, Git — also small — and then open Phase 3 and
+      start drafting responses.</li>
+      <li><strong>Whenever the pull finishes.</strong> Rerun <code>check_setup.py</code> and
+      check the two Ollama lines.</li>
+    </ol>
+    <p><strong>The justification:</strong> the download is the only step whose duration you
+    cannot influence, so it should be started as early as possible and overlapped with
+    everything that does not depend on it; and because the mock pipeline needs nothing from the
+    model, there is a genuine half hour of useful work available while the bar fills.</p>
+    <p>If instead you had done the three steps strictly in series with nothing overlapped, the
+    same hour would have ended with a working install and no idea whether the pipeline runs.</p>
+  </div></details>
+</div>
+
+<div class="exercise">
+  <div class="ex-head">Exercise 0.5 <span class="stars">★★</span><span class="tag">thinking</span></div>
+  <div class="ex-body">
+    <p>Someone reasonable argues: "The mock model is fake. Testing with it proves nothing about
+    whether the study works, so it is a waste of ten minutes." Answer them — and concede the
+    part of the objection that is correct.</p>
+  </div>
+  <details><summary>Solution</summary><div class="solution">
+    <p><strong>Concede this much:</strong> they are right that mock output carries no scientific
+    information. The mock model does not read the response in any meaningful sense, so the
+    confusion matrix it produces is arithmetic on noise. Any conclusion drawn from those numbers
+    would be worthless, which is why the rule is that they never appear in the write-up.</p>
+    <p><strong>But the mock run is not testing the study. It is testing everything around
+    the study.</strong> Passing it establishes that Python runs, the packages import, the CSV
+    files parse, the prompt builder produces a string, the verdict parser turns a reply into
+    <code>M</code> or <code>C</code>, the results directory is writable, the metric code runs,
+    and matplotlib can save a PNG. That is a long list of things that can be broken, and every
+    one of them would otherwise be discovered later, mixed in with a model that might also be
+    broken.</p>
+    <p><strong>The measurable payoff</strong> is in how many candidate causes a future failure
+    has. After a successful mock run, a failure in the real run has essentially one plausible
+    cause — the model layer, the only thing that changed. Without it, the same failure has five.
+    Ten minutes now to divide your future debugging time by five is an excellent trade.</p>
+    <p>This is the same logic as the test suite, and the same logic as changing one prompt at a
+    time in Phase 4. It is the habit the whole project is built on.</p>
+  </div></details>
+</div>
+
+<div class="exercise">
+  <div class="ex-head">Exercise 0.6 <span class="stars">★★★</span><span class="tag">writing</span></div>
+  <div class="ex-body">
+    <p>Your school laptop refuses to install Ollama and it is not going to be resolved this
+    month. Using the readiness lab above, write three or four sentences to your mentor saying
+    precisely what you can still do, what you cannot, and what you need. Be specific about which
+    phases are affected.</p>
+  </div>
+  <details><summary>Solution</summary><div class="solution">
+    <p>A good message is short, states the blocked capability rather than the feeling, and
+    arrives with a proposal. Something like:</p>
+    <blockquote>Ollama will not install on the school laptop — the installer is blocked. Python,
+    the packages and the repository are all fine: <code>check_setup.py</code> is green except
+    the two Ollama lines, and <code>--mock --sample</code> produces the charts in
+    <code>python/results/</code>. So Phase 2 and Phase 3 are unaffected and I am carrying on with
+    the forty responses. The only thing blocked is the one real run in Phase 4, which needs one
+    afternoon on a machine that will take the install — can I use a home computer for that, or
+    should we do it together on a call?</blockquote>
+    <p><strong>Why this version works.</strong> It names the layer (model, not machine or
+    project), gives the evidence that the other two layers are healthy, scopes the damage to
+    exactly one phase, and asks a question with two concrete answers rather than an open plea
+    for help. A mentor can reply to it in one line.</p>
+    <p>Compare with "setup isn't working, I'm stuck" — which is the same situation, but costs a
+    week because it takes three emails to establish what the lab above shows at a glance: four of
+    the five capabilities were never in danger.</p>
+  </div></details>
+</div>
+
+<h2>7 · Verification</h2>
+
+<div class="box verify">
+  <span class="lbl">Before you start step 1</span>
+  <ul>
+    <li>I can state the order — Python and the repo, then Ollama, then Git — and give the reason
+    in one sentence.</li>
+    <li>I know that <code>--mock --sample</code> runs the whole pipeline with no model and no
+    data of my own, and I know why that matters.</li>
+    <li>I know that numbers from <code>--mock</code> or <code>--sample</code> never go into the
+    write-up.</li>
+    <li>I can name the three layers an error can live in, and sort
+    <code>ModuleNotFoundError</code> and <code>Could not reach Ollama</code> into the right
+    ones.</li>
+    <li>I have set aside about an hour, and I know that roughly half of it is a download I should
+    start early and not watch.</li>
+    <li>I know which single step breaks nothing today and is still not optional.</li>
+  </ul>
+</div>
+
+<div class="box aside">
+  <span class="lbl">Going deeper (optional)</span>
+  <p>The pattern in this page has a name outside of setup: <strong>bisection</strong>. Faced with
+  a system that fails and many possible causes, you do not test causes at random — you arrange
+  things so that each test cuts the number of remaining candidates roughly in half. Adding one
+  layer at a time is bisection applied in advance, before the bug exists.</p>
+  <p>You will use it again in three places on this project, and it is worth noticing each time:
+  when the six code TODOs are done one at a time against a test suite rather than all at once;
+  when a prompt change in Phase 4 is made alone so that the difference in the numbers can be
+  attributed to it; and when a disagreement between two runs at temperature 0 is investigated by
+  re-running a single item rather than the whole experiment. The tooling changes and the move
+  does not.</p>
+</div>
+
+<div class="pager"><a href="../index.html">← Course index</a><a href="python.html">Setup 1 · Python and the repo →</a></div>
+
+</main>
+
+<footer class="site">
+  <div class="wrap">
+    <strong>Wrong in a Particular Way</strong> · Setup, start here ·
+    <a href="../index.html">index</a> ·
+    <a href="../extras/glossary.html">glossary</a> ·
+    <a href="../extras/unstuck.html">stuck?</a>
+  </div>
+</footer>
+
+</body>
+</html>

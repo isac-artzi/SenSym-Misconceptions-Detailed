@@ -1,0 +1,921 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Phase 3 · Forty responses, and the trap in them — Wrong in a Particular Way</title>
+<link rel="stylesheet" href="../assets/vendor/katex/katex.min.css">
+<link rel="stylesheet" href="../assets/css/style.css">
+<script src="../assets/vendor/katex/katex.min.js"></script>
+<script src="../assets/vendor/katex/auto-render.min.js"></script>
+<script src="../assets/js/detect.js"></script>
+</head>
+<body>
+
+<header class="site">
+  <div class="wrap">
+    <div class="crumbs"><a href="../index.html">Wrong in a Particular Way</a> · Phase 3</div>
+    <div class="badges"><span class="badge">The project</span><span class="badge gate">Gate: the dataset either works or gets rebuilt</span></div>
+    <h1 class="chapter-title">Forty responses, and the trap in them</h1>
+    <p class="chapter-sub">Writing the only part of this project nobody else can write for you, in a way that can actually measure something.</p>
+  </div>
+</header>
+
+<main class="wrap">
+
+<p class="lede">Everything upstream of here is installation and typing. This is the phase where
+the study is either made or quietly destroyed, and the destruction is silent: the numbers come
+out looking <em>excellent</em>, both conditions score in the nineties, and the experiment has
+measured nothing but your own writing habits. This page is mostly about not doing that. Budget
+two weeks, and expect to throw some items away.</p>
+
+<div class="objectives">
+  <h3>By the end of this phase you can</h3>
+  <ul>
+    <li>Explain what a ceiling effect is, and say out loud why it would end this study.</li>
+    <li>Write a misconception item that is realistic, plausible, and about exactly one idea.</li>
+    <li>Recognise a "hard" item — correct-sounding but wrong, or wrong-sounding but correct — and say why those are worth ten easy ones.</li>
+    <li>Justify 20 M and 20 C, and state the majority-class baseline that balance buys you.</li>
+    <li>Run a blind second labelling, compute percentage agreement, and compute Cohen's kappa from a 2×2 table.</li>
+    <li>Fill in <code>responses.csv</code> and <code>misconceptions.csv</code> without the comma trap eating a row.</li>
+    <li>Decide, with a stated rule rather than a feeling, whether the dataset is ready for Phase 4.</li>
+  </ul>
+</div>
+
+<h2>1 · The trap this page exists to prevent</h2>
+
+<p>Here is the failure, written out plainly so you can recognise it before it happens.</p>
+
+<p>You sit down to write twenty responses containing a misconception. Because you know which
+ones are supposed to be wrong, you write them wrong. They fill up with <em>always</em>,
+<em>never</em>, <em>impossible</em>, <em>100% safe</em>. Then you write twenty correct
+responses, and because you know those are supposed to be right, they come out careful and
+hedged: <em>it depends</em>, <em>generally</em>, <em>although</em>. Every M item shouts and
+every C item murmurs.</p>
+
+<p>Now run the study. The baseline prompt scores 97%. The misconception-aware prompt scores
+97%. You have not discovered that the catalogue does not help. You have discovered that a
+three-billion-parameter model can tell shouting from murmuring, which was never in doubt.
+The two conditions cannot differ, because there is no room above 97% for the better one to
+occupy. That is a <strong>ceiling effect</strong>, and it is the single most common way a small
+study like this produces a month of work and no finding.</p>
+
+<div class="box warning">
+  <span class="lbl">The rule to internalise</span>
+  <p><strong>If your model scores near 100% under both prompts, suspect your dataset before you
+  celebrate.</strong> An experiment can only detect a difference in the space between the floor
+  and the ceiling. Your floor is fixed at 50% by the design (section 4). Your ceiling is set
+  entirely by how hard your items are, and that is the one thing you control this phase.</p>
+</div>
+
+<div class="lab">
+  <div class="lab-title">Lab · the ceiling-effect simulator</div>
+  <p class="lab-desc">One slider: how obviously different your twenty M items are from your
+  twenty C items. Push it right and both prompts climb toward 100%. Watch the shaded band —
+  the space between the two conditions, which is the <em>only</em> thing your experiment can
+  measure — get squeezed out of existence. Read the last line of the readout at each setting.
+  It says what you would be entitled to conclude.</p>
+  <canvas id="ceil" height="330"></canvas>
+  <div class="controls" id="ceilctl"></div>
+  <div class="readout" id="ceilout"></div>
+</div>
+
+<script>
+G.lab(function () {
+  /* These two curves are a CARTOON, not a simulation of your data and not a
+     measurement of anything. Their only job is to have the right shape: both
+     conditions bounded above by 100%, the aware condition above the baseline,
+     and the gap between them forced to zero as the items get easier, because
+     there is nowhere left for the better prompt to go. Treat every number in
+     this lab as illustrative. */
+  function base(d)  { return 0.52 + 0.48 * Math.pow(d, 1.6); }
+  function aware(d) { return 0.70 + 0.30 * Math.pow(d, 0.7); }
+
+  function word(d) {
+    if (d < 0.15) return 'as subtle as real student writing gets';
+    if (d < 0.40) return 'subtle — a reader has to think';
+    if (d < 0.65) return 'noticeable at a glance';
+    if (d < 0.85) return 'heavy-handed';
+    return 'a parody of itself';
+  }
+
+  var st = G.controls('ceilctl', [
+    { k: 'd', type: 'range', label: 'how obviously different your M and C items are',
+      min: 0, max: 100, step: 1, value: 25,
+      fmt: function (v) { return v + '%'; } }
+  ], draw);
+
+  function draw() {
+    var cv = G.canvas('ceil'); if (!cv) return;
+    var d = st.d / 100;
+
+    var fr = G.frame(cv.ctx, cv.w, cv.h, {
+      xmin: 0, xmax: 1, ymin: 0.4, ymax: 1.0,
+      margin: { left: 60, bottom: 50, top: 20, right: 18 }
+    });
+    fr.axes({
+      xlabel: 'how obviously different the two groups are  →',
+      ylabel: 'accuracy on 40 items',
+      xticks: 5, yticks: 6,
+      xfmt: function (v) { return Math.round(100 * v) + '%'; },
+      yfmt: function (v) { return Math.round(100 * v) + '%'; }
+    });
+
+    /* the region where nothing is measurable any more */
+    fr.rect(0.85, 0.4, 1.0, 1.0, { fill: G.COL.rose, alpha: 0.09 });
+
+    /* the measurable band, drawn as solid overlapping slices so there are no
+       seams; alpha would stripe where the slices overlap */
+    var N = 120, i, x0, x1, xm;
+    for (i = 0; i < N; i++) {
+      x0 = i / N; x1 = (i + 1.4) / N; if (x1 > 1) x1 = 1;
+      xm = (x0 + x1) / 2;
+      fr.rect(x0, base(xm), x1, aware(xm), { fill: '#d9ece8' });
+    }
+
+    var pts = [], ptsB = [];
+    for (i = 0; i <= 200; i++) {
+      var x = i / 200;
+      pts.push([x, aware(x)]);
+      ptsB.push([x, base(x)]);
+    }
+    fr.hline(0.5, { color: G.COL.rose, dash: [5, 4] });
+    fr.text(0.83, 0.515, 'majority-class baseline, 50% — worth nothing',
+            { color: G.COL.rose, align: 'right' });
+    fr.line(ptsB, { color: G.COL.muted, width: 2.4 });
+    fr.line(pts,  { color: G.COL.accent, width: 2.4 });
+
+    fr.vline(d, { color: G.COL.ink });
+    fr.dot(d, base(d),  { color: G.COL.muted,  r: 4.5, ring: true });
+    fr.dot(d, aware(d), { color: G.COL.accent, r: 4.5, ring: true });
+
+    var kB = Math.round(40 * base(d)), kA = Math.round(40 * aware(d));
+    var Z = kA - kB;
+    var lab = d > 0.72;   /* flip the label inward before it runs off the right edge */
+    fr.text(d, Math.min(0.93, (base(d) + aware(d)) / 2),
+            lab ? Z + ' items  ' : '  ' + Z + ' items',
+            { color: G.COL.accent2, align: lab ? 'right' : 'left' });
+    fr.text(0.925, 0.435, 'ceiling', { color: G.COL.rose, align: 'center' });
+
+    fr.legend([['misconception_aware', G.COL.accent],
+               ['baseline', G.COL.muted],
+               ['what you can measure', '#8ec9bf']], { left: true });
+
+    var wB = G.wilson(kB, 40), wA = G.wilson(kA, 40);
+    var verdict;
+    if (d >= 0.85) {
+      verdict = 'What you could conclude here: NOTHING. Both prompts are up against the ceiling,\n' +
+                'the gap is ' + Z + ' item' + (Z === 1 ? '' : 's') + ', and what you have measured is your own writing style —\n' +
+                'M items that shout, C items that murmur. A month of work, no finding.';
+    } else if (d <= 0.08) {
+      verdict = 'The far LEFT is the opposite failure. The gap is ' + Z + ' items, but the baseline is\n' +
+                'barely clear of the 50% floor: these are items nobody can label reliably,\n' +
+                'including you, and a second reader would disagree with you all over them.\n' +
+                'The useful region is in between, around a quarter of the way along.';
+    } else if (Z >= 6) {
+      verdict = 'A gap of ' + Z + ' items out of 40 is large enough to be worth reporting. This is the\n' +
+                'region to aim for: items a careful reader has to stop and think about, where\n' +
+                'the catalogue has something to contribute that the model did not already have.';
+    } else if (Z >= 3) {
+      verdict = 'A gap of ' + Z + ' items is small. It might be real and it might be noise, and with\n' +
+                'n = 40 you would not be able to tell those apart with any confidence.';
+    } else {
+      verdict = 'A gap of ' + Z + ' item' + (Z === 1 ? '' : 's') + ' is not a result. There is nothing here to report.';
+    }
+    G.say('ceilout',
+      'obviousness ' + st.d + '%  —  ' + word(d) + '\n\n' +
+      'baseline             ' + G.pad(kB, 2) + '/40   ' + G.pad(G.pct(kB / 40, 1), 6) +
+        '   95% Wilson [' + G.pct(wB[0], 1) + ', ' + G.pct(wB[1], 1) + ']\n' +
+      'misconception_aware  ' + G.pad(kA, 2) + '/40   ' + G.pad(G.pct(kA / 40, 1), 6) +
+        '   95% Wilson [' + G.pct(wA[0], 1) + ', ' + G.pct(wA[1], 1) + ']\n' +
+      'difference           ' + Z + ' items\n\n' +
+      verdict);
+  }
+  draw();
+});
+</script>
+
+<p>Two things in that picture are worth saying in words. First, the intervals are enormous: at
+n = 40 a 95% Wilson interval is roughly twenty-five percentage points wide in the middle of
+the range, so the honest question is never "did the aware prompt win" but "did it win by
+enough to see through that". Second, two intervals overlapping does <em>not</em> by itself
+mean there is no difference — both conditions run over the same forty items, so Phase 5's
+comparison is paired and more sensitive than eyeballing two intervals. None of that helps if
+the gap is zero. No test can find a difference your dataset made impossible.</p>
+
+<h2>2 · What a good item looks like</h2>
+
+<p>Five properties. Each one has a test you can apply in about five seconds.</p>
+
+<table>
+  <thead><tr><th>Property</th><th>The test</th></tr></thead>
+  <tbody>
+  <tr><td><strong>Realistic</strong></td><td>Could a real tenth-grader have written this in a real class? Read it aloud. If it sounds like a textbook or like a cartoon, it fails.</td></tr>
+  <tr><td><strong>Plausible</strong></td><td>Does the wrong one contain a grain of truth pushed too far? A misconception people actually hold is never absurd — that is why they hold it.</td></tr>
+  <tr><td><strong>A student's voice</strong></td><td>First person, contractions, a specific detail. "My password is 24 characters" beats "Passwords should be long".</td></tr>
+  <tr><td><strong>One misconception</strong></td><td>If an item contains two errors, and the model catches one, is that M? You will not be able to answer consistently across forty items, so do not create the problem.</td></tr>
+  <tr><td><strong>Long enough to reason about</strong></td><td>Roughly one to three sentences. Under a sentence there is nothing to detect; over three you are testing reading comprehension instead.</td></tr>
+  </tbody>
+</table>
+
+<p>The twelve demo items in <code>python/data/sample/responses.csv</code> are written to that
+standard, so they are a useful target even though no number computed from them is ever a
+result. Here are four of them beside a weak rewrite of the same idea — the version you will
+write by accident at eleven at night with nine items left to go.</p>
+
+<table>
+  <thead><tr><th>Truth</th><th>Weak — do not write this</th><th>Good — the demo set's version</th><th>What the weak one leaks</th></tr></thead>
+  <tbody>
+  <tr>
+    <td><strong>M</strong></td>
+    <td>"A really long password can never ever be cracked, it is 100% impossible."</td>
+    <td>"My password is 24 characters so it's basically uncrackable. Length is the only thing that really matters for password strength." <em>(S01)</em></td>
+    <td>Three absolute words in one sentence. A keyword matcher wins without reading.</td>
+  </tr>
+  <tr>
+    <td><strong>C</strong></td>
+    <td>"Password strength is a function of entropy over the character set, per NIST SP 800-63B."</td>
+    <td>"Length helps a lot, but a long password made of common words can still be guessed by a dictionary attack. It needs to be long and unpredictable." <em>(S03)</em></td>
+    <td>Nobody in your grade talks like that. The register alone marks it C.</td>
+  </tr>
+  <tr>
+    <td><strong>M</strong></td>
+    <td>"Changing your password always makes you completely safe, guaranteed."</td>
+    <td>"Our school makes us reset our password every 60 days, which is the main reason school accounts are more secure than personal ones." <em>(S06)</em></td>
+    <td>The weak one is a slogan. The good one is a belief a real person holds for a real reason.</td>
+  </tr>
+  <tr>
+    <td><strong>C</strong></td>
+    <td>"MFA is good but not perfect."</td>
+    <td>"Two-factor is the single best thing I've turned on, though I switched from SMS codes to an authenticator app because SMS can be intercepted." <em>(S12)</em></td>
+    <td>Six words is not enough to reason about. There is no claim there to be right or wrong about.</td>
+  </tr>
+  </tbody>
+</table>
+
+<div class="box example">
+  <span class="lbl">A diagnostic you can actually run — and it is free</span>
+  <p>The fake model in <code>--mock</code> mode is not a model at all. Open
+  <code>python/misconception/llm_client.py</code> and read <code>ask_llm_mock</code>: it looks
+  for nine words — <code>always</code>, <code>never</code>, <code>impossible</code>,
+  <code>guarantee</code>, <code>completely</code>, <code>definitely</code>,
+  <code>can't be</code>, <code>cannot be</code>, <code>safe from</code> — says M if it finds
+  one, then deliberately flips about 30% of its own answers so the confusion matrix has all
+  four boxes filled in.</p>
+  <p>So run <code>--mock</code> on <em>your</em> forty items. If the keyword rule is right on a
+  fraction $p$ of them, the mock's reported accuracy is about</p>
+  $$a_{\text{mock}} = 0.7p + 0.3(1-p) = 0.3 + 0.4p,
+    \qquad\text{so}\qquad p \approx \frac{a_{\text{mock}} - 0.3}{0.4}.$$
+  <p>A well-written dataset should leave the keyword rule near chance, $p \approx 0.5$, which
+  shows up as a mock accuracy near 50%. A mock accuracy near 70% means $p \approx 1$: nine
+  words are separating your two groups, and so will anything else.
+  <span class="status observed">observed</span> The flip is deterministic rather than random,
+  so on any particular forty items the realised rate is only near 0.3 — treat this as a smoke
+  alarm, not a measurement.</p>
+</div>
+
+<h2>3 · The hard cases are the only valuable ones</h2>
+
+<p>An easy item is one where both prompts get it right. It contributes to both accuracies
+equally and to the difference between them not at all. Forty easy items produce two identical
+numbers and no study. <strong>The entire signal in this experiment lives in the items that one
+prompt gets and the other does not</strong>, and those are, necessarily, the hard ones. Aim for
+roughly a third of your set to be items you had to think about yourself.</p>
+
+<p>There are two kinds, and you want both.</p>
+
+<div class="box example">
+  <span class="lbl">A wrong response that sounds right</span>
+  <p><em>"Our school makes us reset our password every 60 days, which is the main reason school
+  accounts are more secure than personal ones."</em> (S06, truth&nbsp;=&nbsp;M)</p>
+  <p>Calm, institutional, no absolutes, and completely mistaken. Scheduled rotation is the
+  belief being tested: NIST SP 800-63B recommends <em>against</em> requiring periodic password
+  changes, because forced rotation pushes people toward predictable increments and does nothing
+  if the credential has already leaked. <span class="status cited">cited</span> A model that
+  detects this has done something a keyword matcher cannot. A model that misses it produces a
+  false negative, and false negatives are what recall is about.</p>
+</div>
+
+<div class="box example">
+  <span class="lbl">A correct response that sounds wrong</span>
+  <p><em>"I only change a password if there's a reason to — a breach notice or a login I don't
+  recognize. Rotating on a schedule just makes people pick predictable patterns."</em>
+  (S07, truth&nbsp;=&nbsp;C)</p>
+  <p>Read quickly, this sounds like a student defending laziness, and a naive reader marks it M.
+  It is right, and for the right reason. This item is the mirror of S06 and belongs in the set
+  precisely because it punishes a model that has learned "mentions not changing passwords → M"
+  instead of learning the actual claim. Items like this are where a false positive comes from,
+  and false positives are what precision is about.</p>
+</div>
+
+<p>Both of those are <em>hard</em>. Neither is <em>unlabelable</em>, and the difference between
+those two words is the whole of section 6. Here is one that crosses the line:</p>
+
+<div class="box warning">
+  <span class="lbl">Hard, versus impossible — do not confuse them</span>
+  <p><em>"I write all my passwords in a notebook I keep in a drawer at home, and they're all
+  different."</em></p>
+  <p>Is that M or C? It depends entirely on the threat model. Against a remote attacker it is
+  fine and arguably good practice; against someone with physical access to the house it is not.
+  There is no defensible single label, so a second reader will disagree with you no matter what
+  you choose, and the item measures the coin-flip rather than the model.</p>
+  <p><strong>Hard means a thoughtful reader agrees with you after thinking. Impossible means a
+  thoughtful reader disagrees with you after thinking.</strong> Keep the first, cut the second.
+  If you love an item like this, the fix is to add the missing context to the item itself —
+  make the student mention the threat they have in mind — not to argue for your label.</p>
+</div>
+
+<h2>4 · Balance, and why exactly twenty and twenty</h2>
+
+<p>Twenty M and twenty C, four responses for each of ten misconceptions: two M and two C per
+misconception. That structure is doing two separate jobs, and both are worth being able to
+defend out loud.</p>
+
+<p><strong>Job one: it fixes the floor.</strong> The dumbest possible model ignores the text
+entirely and always guesses whichever label is more common. Its accuracy is the
+majority-class baseline:</p>
+
+$$\text{majority baseline} \;=\; \frac{\max(n_M,\, n_C)}{n_M + n_C}.$$
+
+<p>With 20 and 20 that is exactly $20/40 = 0.5$. Every number you report afterwards can be
+read against a floor of 50% that a reader does not have to be told twice. Let it drift to 28 M
+and 12 C and the floor moves to $28/40 = 70\%$: a model scoring 68% is now performing
+<em>worse than a rock</em>, and an unwary reader who sees "68% accuracy" thinks it did fine.
+<code>load_responses()</code> in <code>run_experiment.py</code> prints a warning when
+$|n_M - n_C| > 0.3n$ for exactly this reason, but a warning is not a substitute for getting
+it right.</p>
+
+<p><strong>Job two: it stops the topic from doing the work.</strong> This is the subtler one.
+Suppose all your password-length items are M and all your MFA items are C. A model can then
+score brilliantly by recognising the topic and never engaging with the claim, and you would
+have no way to tell that apart from real detection. Putting two M and two C on
+<em>every</em> misconception means the topic carries no information about the label, so the
+only thing left to distinguish them is the thing you actually care about.</p>
+
+<div class="box definition">
+  <span class="lbl">The positive class, stated once and used everywhere</span>
+  <p>Throughout this project the positive class is <strong>M</strong>: "this response contains
+  a misconception." Every metric is with respect to it.</p>
+  $$\text{recall} = \frac{TP}{TP + FN}, \qquad \text{precision} = \frac{TP}{TP + FP}.$$
+  <p>Recall is the headline: of the misconceptions that really were there, what fraction did
+  the model catch. A tutor that stays silent while a student holds a dangerous belief has done
+  the expensive kind of damage. If a denominator is zero the metric is <strong>undefined</strong>,
+  not zero — <code>G.metrics</code> returns <code>null</code> and prints "undefined", and you
+  should write it that way too.</p>
+</div>
+
+<h2>5 · Label them yourself, cold</h2>
+
+<p>Before you ask anyone else, do it yourself, at least a week after writing them, without
+looking at your labels. This is not a formality. An item you cannot re-label correctly from
+memory is an item nobody can label.</p>
+
+<div class="lab">
+  <div class="lab-title">Lab · the labelling drill</div>
+  <p class="lab-desc">Twelve real items from <code>python/data/sample/responses.csv</code>,
+  shuffled, one at a time. Decide M or C before you look at the recorded label. The matrix
+  scores <em>you</em> against that label — the headings say "model said" because for the next
+  two minutes you are the classifier, which is exactly the comparison Phase 5 runs on
+  <code>llama3.2:3b</code>. Notice which items you get wrong. Those are the good ones.</p>
+  <div class="card-lab" id="drill">
+    <p class="resp"><span class="rid" id="drillid">—</span><span id="drilltext"></span></p>
+    <div class="choices">
+      <button type="button" data-v="M">M — contains a misconception</button>
+      <button type="button" data-v="C">C — correct</button>
+      <button type="button" data-v="reset">start over</button>
+    </div>
+    <div class="verdict" id="drillverdict"></div>
+  </div>
+  <div id="drillmx" style="margin-top:16px"></div>
+  <div class="readout" id="drillout"></div>
+</div>
+
+<script>
+/* This lab keeps state across clicks, so it is registered with G.ready rather
+   than G.lab: G.lab re-runs its callback on every window resize, which would
+   quietly wipe the tally. There is no canvas here, so there is nothing that
+   needs re-measuring anyway. */
+G.ready(function () {
+  var host = document.getElementById('drill');
+  if (!host) return;
+
+  var order, idx, tally, missed;
+
+  function start() {
+    /* Seeded, so every reader sees the same order and the demo items do not
+       arrive in their M,M,C,C file order, which would give the game away. */
+    var r = G.rng(90210), a = G.SAMPLE.slice(), i, j, t;
+    for (i = a.length - 1; i > 0; i--) {
+      j = Math.floor(r() * (i + 1));
+      t = a[i]; a[i] = a[j]; a[j] = t;
+    }
+    order = a; idx = 0; missed = [];
+    tally = { tp: 0, fn: 0, fp: 0, tn: 0 };
+    var vd = document.getElementById('drillverdict');
+    vd.className = 'verdict'; vd.textContent = '';
+    show();
+  }
+
+  function show() {
+    var idEl = document.getElementById('drillid');
+    var txEl = document.getElementById('drilltext');
+    if (idx < order.length) {
+      idEl.textContent = order[idx].id + '  ·  item ' + (idx + 1) + ' of ' + order.length +
+                         '  ·  written about ' + order[idx].mis;
+      txEl.textContent = order[idx].text;
+    } else {
+      idEl.textContent = 'all twelve labelled';
+      txEl.textContent = 'Read the tally below, then press "start over" if you want another go.';
+    }
+    G.matrix('drillmx', tally, { fnNote: 'you read straight past a misconception' });
+    report();
+  }
+
+  function judge(v) {
+    if (idx >= order.length) return;
+    var it = order[idx], agree = (v === it.truth);
+    if (v === 'M' && it.truth === 'M') tally.tp++;
+    else if (v === 'C' && it.truth === 'M') tally.fn++;
+    else if (v === 'M' && it.truth === 'C') tally.fp++;
+    else tally.tn++;
+    if (!agree) missed.push(it.id);
+    var vd = document.getElementById('drillverdict');
+    vd.className = 'verdict ' + (agree ? 'right' : 'wrong');
+    vd.textContent = agree
+      ? 'You said ' + v + '. The recorded label is ' + it.truth + '. Agreed.'
+      : 'You said ' + v + '. The recorded label is ' + it.truth + '. Disagreed — ' +
+        it.id + ' is one of the interesting ones.';
+    idx++;
+    show();
+  }
+
+  function report() {
+    var n = tally.tp + tally.fn + tally.fp + tally.tn;
+    if (!n) {
+      G.say('drillout',
+        'Nothing labelled yet. Rows are the recorded label, columns are what you said,\n' +
+        'and the positive class is M — the same arrangement Phase 5 uses for the model.\n\n' +
+        'These are the twelve DEMO items. No number computed from them is a result.');
+      return;
+    }
+    var hits = tally.tp + tally.tn;
+    var txt = 'Labelled ' + n + ' of 12.    Agreement with the recorded label: ' +
+              hits + '/' + n + ' = ' + G.pct(hits / n, 0) + '\n';
+    txt += missed.length
+      ? 'You disagreed on: ' + missed.join(', ') + '\n\n'
+      : '\n';
+    if (n < order.length) {
+      txt += 'Keep going — the last few are the ones that decide the picture.';
+    } else if (missed.length === 0) {
+      txt += 'Twelve out of twelve. On a set this small that is plausible, but it is also the\n' +
+             'warning from section 1: if a careful reader agrees effortlessly, both prompts\n' +
+             'will too, and there is no room left between them for a result to live in.\n' +
+             'When you write your own forty, aim to make yourself hesitate.';
+    } else {
+      txt += 'You disagreed with the recorded label on ' + missed.length + ' of 12, and that is the point of\n' +
+             'this lab. Those items are not mistakes — not yours and not the writer\'s. They are\n' +
+             'the ones where the answer takes real thought, and they are the only items on which\n' +
+             'the baseline and misconception-aware prompts can possibly differ. A dataset with\n' +
+             'none of them produces two identical numbers.';
+    }
+    txt += '\n\nDemo data. Never report a number computed from these twelve.';
+    G.say('drillout', txt);
+  }
+
+  Array.prototype.forEach.call(host.querySelectorAll('.choices button'), function (b) {
+    b.addEventListener('click', function () {
+      var v = b.getAttribute('data-v');
+      if (v === 'reset') start(); else judge(v);
+    });
+  });
+
+  start();
+});
+</script>
+
+<h2>6 · The second reader, and how much you agreed</h2>
+
+<p>You are the worst possible judge of whether your own labels are obvious, because you wrote
+them and you remember what you meant. So hand a subset to somebody else — a friend, a parent,
+a sibling, the mentor — and have them label it blind.</p>
+
+<div class="box definition">
+  <span class="lbl">How to run it properly</span>
+  <p>Take at least 10 of your 40 items, ideally with equal numbers of your M and your C.
+  Strip the <code>ground_truth</code> column. Give them the misconception catalogue and one
+  sentence of instruction: <em>"mark M if this response contains one of these misconceptions,
+  C if it does not."</em> Do not sit next to them. Do not explain any item. Collect their
+  labels, then compare.</p>
+  <p><strong>If a human cannot reliably agree with you, the model has no chance, and the
+  problem is the label rather than the model.</strong> That sentence is the reason this step
+  exists, and it is worth a line in your write-up whichever way it comes out.</p>
+</div>
+
+<h3>Percentage agreement</h3>
+
+<p>The simple version, and a perfectly respectable thing to report:</p>
+
+$$p_o \;=\; \frac{\text{items you both gave the same label}}{\text{items you both labelled}}.$$
+
+<p>Say you both label 10 items and agree on 9. Then $p_o = 0.9$, and you write "the second
+rater agreed with my label on 9 of 10 items (90%)". Nothing wrong with that. The weakness is
+that it flatters you: with two labels, two people guessing at random agree about half the
+time, so 90% is really only most of the way from 50 to 100, not from 0 to 100.</p>
+
+<h3>Cohen's kappa <span class="status cited">cited</span></h3>
+
+<p>Cohen's kappa is the standard fix. It subtracts off the agreement you would expect by
+chance and rescales what is left, so that 0 means "no better than chance" and 1 means
+"perfect". <span class="status cited">cited</span> (Cohen, 1960, <em>A Coefficient of
+Agreement for Nominal Scales</em>, <em>Educational and Psychological Measurement</em> 20(1),
+37–46.)</p>
+
+$$\kappa \;=\; \frac{p_o - p_e}{1 - p_e},
+\qquad p_e \;=\; ab + (1-a)(1-b),$$
+
+<p>where $a$ is the fraction of items <em>you</em> called M and $b$ is the fraction the second
+reader called M. The $p_e$ term is the probability two people would land on the same label by
+luck alone, given how often each of them says M.</p>
+
+<div class="box theorem">
+  <span class="lbl">A shortcut that is exactly true for a balanced subset <span class="status proved">proved</span></span>
+  <p>If your half of the subset is exactly balanced — you labelled as many M as C, so
+  $a = \tfrac{1}{2}$ — then</p>
+  $$p_e = \tfrac{1}{2}b + \tfrac{1}{2}(1-b) = \tfrac{1}{2}
+  \qquad\text{whatever the second reader does,}$$
+  <p>and substituting into the definition gives</p>
+  $$\kappa = \frac{p_o - \tfrac12}{1 - \tfrac12} = 2p_o - 1.$$
+  <p>So on a balanced subset, 90% agreement is $\kappa = 0.8$, 85% is $0.7$, 80% is $0.6$, and
+  70% is $0.4$. Two lines of algebra, and it means you can sanity-check any kappa you compute
+  in your head. It also shows why kappa is the more honest number: 70% agreement sounds
+  respectable and $\kappa = 0.4$ does not, and $\kappa = 0.4$ is telling the truth.</p>
+</div>
+
+<div class="box example">
+  <span class="lbl">Worked, on ten items</span>
+  <p>You and your reader both label 10 items. You called 5 of them M; they called 4 M. You
+  agree on 9 (both said M on 4 items, both said C on 5), and on the tenth you said M and they
+  said C.</p>
+  <p>$p_o = 9/10 = 0.9$. &nbsp; $a = 5/10 = 0.5$, &nbsp; $b = 4/10 = 0.4$.</p>
+  <p>$p_e = (0.5)(0.4) + (0.5)(0.6) = 0.20 + 0.30 = 0.50$.</p>
+  <p>$\kappa = (0.9 - 0.5)/(1 - 0.5) = 0.4/0.5 = \mathbf{0.80}$ — which is what the shortcut
+  above predicts, since $2(0.9) - 1 = 0.8$.</p>
+</div>
+
+<p>The conventional reading of kappa is Landis and Koch's: 0.41–0.60 moderate, 0.61–0.80
+substantial, 0.81–1.00 almost perfect. <span class="status cited">cited</span> (Landis &amp;
+Koch, 1977, <em>Biometrics</em> 33(1), 159–174.) Those bands are convention, not mathematics —
+nothing computes them, people agreed on them — so quote them as a convention and not as a law.
+For this project, <strong>aim for $\kappa \geq 0.6$, which on a balanced subset means agreeing
+on at least 8 of 10</strong>.</p>
+
+<div class="box aside">
+  <span class="lbl">If kappa is one step too far</span>
+  <p>Report raw percentage agreement and say so plainly: "a second rater labelled 10 of the 40
+  responses without seeing my labels; we agreed on 9 (90%)." That is honest, checkable, and
+  more than most work at this level does. What is <em>not</em> acceptable is skipping the
+  second reader and asserting that the labels are obvious. The number is small; the absence of
+  the number is not.</p>
+</div>
+
+<div class="box warning">
+  <span class="lbl">The result you must not misread</span>
+  <p>Perfect agreement is not automatically good news. If your reader agrees on 10 of 10
+  <em>and says it was easy</em>, you have evidence for the section 1 problem, not against it.
+  So ask them the second question: <em>"which ones did you have to think about?"</em> If the
+  answer is "none of them", go back and make some items harder. Write their answer down; it is
+  data.</p>
+</div>
+
+<h2>7 · The two files, and the comma that eats them</h2>
+
+<p>Both files already exist in <code>python/data/</code> with placeholder rows starting
+<code>&lt;</code>. The loaders drop any row whose text field still begins with that character,
+so a half-finished file behaves sensibly instead of crashing.</p>
+
+<p><code>misconceptions.csv</code> — exactly 10 rows, four columns:</p>
+
+<div class="out">misconception_id,statement,why_wrong,real_world_consequence</div>
+
+<p><code>responses.csv</code> — exactly 40 rows, five columns:</p>
+
+<div class="out">response_id,misconception_id,ground_truth,response_text,notes</div>
+
+<table>
+  <thead><tr><th>Column</th><th>What goes in it</th></tr></thead>
+  <tbody>
+  <tr><td><code>response_id</code></td><td><code>R01</code> to <code>R40</code>. Must be unique; the loader stops on duplicates.</td></tr>
+  <tr><td><code>misconception_id</code></td><td><code>M01</code>–<code>M10</code>, matching a row in <code>misconceptions.csv</code>.</td></tr>
+  <tr><td><code>ground_truth</code></td><td>Capital <code>M</code> or capital <code>C</code>, nothing else, no trailing space. This column is your entire experiment.</td></tr>
+  <tr><td><code>response_text</code></td><td>The student's answer, one to three sentences. The only field the model ever sees.</td></tr>
+  <tr><td><code>notes</code></td><td>For you. Why you labelled it that way, what made it hard, who else read it. The pipeline never reads this column, so write freely — and your Phase 5 self will thank you.</td></tr>
+  </tbody>
+</table>
+
+<div class="box warning">
+  <span class="lbl">Save as CSV, not xlsx, and mind the commas</span>
+  <p>Writing these in Excel or Google Sheets is the right move: type normally, and the quoting
+  is handled for you on export. But you must <strong>File → Save As → CSV</strong>. An
+  <code>.xlsx</code> sitting in <code>python/data/</code> is invisible to the loader, which
+  opens <code>responses.csv</code> by name and will tell you the file is not there.</p>
+  <p>If you type a row by hand in a text editor, any field containing a comma has to be wrapped
+  in double quotes. Miss one and you get a row with too many fields:</p>
+  <div class="out">R08,M02,C,I only change a password if there is a reason to, like a breach notice.,</div>
+  <p>which pandas counts as six fields where the header promised five:</p>
+  <div class="out"><i>pandas.errors.ParserError: Error tokenizing data. C error: Expected 5 fields in line 9, saw 6</i></div>
+  <p>The fix is one pair of quotes:</p>
+  <div class="out">R08,M02,C,<b>"</b>I only change a password if there is a reason to, like a breach notice.<b>"</b>,</div>
+  <p>The nastier version of this bug does not crash. If the stray comma is in the
+  <em>first</em> data row, pandas can quietly shift every field one column left, so
+  <code>ground_truth</code> ends up holding a fragment of somebody's sentence. That is why
+  <code>load_responses()</code> checks every label against <code>{M, C}</code> and stops with
+  the offending <code>response_id</code> rather than running eighty model calls on garbage.</p>
+</div>
+
+<h2>8 · The gate</h2>
+
+<p>Rebuilding here is a normal outcome, not a failure, and it is far cheaper than rebuilding
+after two runs and a written-up analysis. It usually means rewriting a handful of items, not
+starting over.</p>
+
+<div class="box python">
+  <span class="lbl">Run these before you say you are done</span>
+  <div class="cmd"><pre><span class="p">$ </span>cd python
+<span class="p">$ </span>python3 misconception/check_setup.py
+<span class="p">$ </span>python3 misconception/run_experiment.py --mock
+<span class="p">$ </span>python3 misconception/analyze.py
+<span class="p">$ </span>pytest ../ -q</pre></div>
+  <p>Note the missing <code>--sample</code>: this run uses <strong>your</strong> forty items
+  with the fake model. You are not looking at whether the numbers are good — they are fake and
+  cannot be good. You are looking for two things: that all forty rows load with the counts
+  <code>(20 misconception, 20 correct)</code>, and that the mock accuracy is near 50% rather
+  than near 70%, per the diagnostic in section 2.</p>
+</div>
+
+<div class="box verify">
+  <span class="lbl">Before the check-in — the gate criteria</span>
+  <ul>
+    <li><code>misconceptions.csv</code> has 10 real rows and no <code>&lt;placeholder&gt;</code> text left.</li>
+    <li><code>responses.csv</code> has 40 real rows, and the run prints <code>(20 misconception, 20 correct)</code>.</li>
+    <li>Every misconception has exactly 2 M and 2 C written about it.</li>
+    <li>Every item is one to three sentences, in a student's voice, about one misconception.</li>
+    <li>I read all forty aloud and none of them sounded like a robot or a slogan.</li>
+    <li>At least a third of the items are ones I had to think about myself.</li>
+    <li><code>--mock</code> on my own data scores near 50%, not near 70%.</li>
+    <li>A second reader labelled at least 10 items blind; I have the number, and $\kappa \geq 0.6$ or agreement $\geq 8/10$.</li>
+    <li>I asked the second reader which items were hard, and wrote down what they said.</li>
+    <li>Items where we disagreed have been rewritten, relabelled with a written reason, or cut.</li>
+  </ul>
+</div>
+
+<h2>9 · Exercises</h2>
+
+<div class="exercise">
+  <div class="ex-head">Exercise 3.1 <span class="stars">★★</span><span class="tag">writing</span></div>
+  <div class="ex-body"><p>Take misconception M02, "changing passwords often makes accounts
+  safer." Write one <strong>hard M</strong> item and one <strong>hard C</strong> item for it.
+  Hard means: a thoughtful reader will get it right, but only after stopping. Then write one
+  sentence for each saying what makes it hard.</p></div>
+  <details><summary>Solution</summary><div class="solution">
+    <p><strong>Hard M:</strong> <em>"I keep the same base password but add the month on the
+    end and change it every 30 days, so even if one gets leaked it's already out of date by
+    the time anyone tries it."</em></p>
+    <p>What makes it hard: there are no absolutes anywhere in it, the student sounds
+    thoughtful and organised, and the sentence contains a real security concept (a leaked
+    credential going stale). The error is buried in the mechanism — a predictable increment is
+    trivially guessable once one version leaks, so the rotation buys almost nothing. A keyword
+    matcher sees "leaked", "changed", "30 days" and has no basis for a verdict.</p>
+    <p><strong>Hard C:</strong> <em>"I haven't changed my email password in two years and I'm
+    not planning to. It's long, random, only used on that one site, and nothing has shown up in
+    a breach check."</em></p>
+    <p>What makes it hard: it <em>sounds</em> like textbook negligence, and it opens with the
+    exact behaviour a naive reader has been taught to flag. It is correct: with a unique,
+    high-entropy credential and no evidence of compromise, scheduled rotation adds no security,
+    which is the position NIST SP 800-63B takes.
+    <span class="status cited">cited</span></p>
+    <p>Notice that this pair is genuinely mirrored: the M item changes its password and is
+    wrong, the C item refuses to and is right. That mirroring is what stops the model from
+    scoring by keyword, and it is the thing to aim for on all ten misconceptions.</p>
+  </div></details>
+</div>
+
+<div class="exercise">
+  <div class="ex-head">Exercise 3.2 <span class="stars">★</span><span class="tag">arithmetic</span></div>
+  <div class="ex-body"><p>You run out of time and submit 28 M items and 12 C items. (a) What is
+  the majority-class baseline? (b) A model that outputs <code>M</code> for every single item
+  without reading it — what are its accuracy, recall and precision, with M as the positive
+  class? (c) Why is this a problem for the write-up even if your model scores 75%?</p></div>
+  <details><summary>Solution</summary><div class="solution">
+    <p><strong>(a)</strong> $\max(28,12)/40 = 28/40 = 0.70$, so the floor is <strong>70%</strong>.</p>
+    <p><strong>(b)</strong> Always-M gives $TP = 28$, $FN = 0$, $FP = 12$, $TN = 0$.
+    Accuracy $= (28+0)/40 = 70\%$. Recall $= 28/(28+0) = 100\%$ — it catches every
+    misconception, by refusing to ever say C. Precision $= 28/(28+12) = 70\%$. A model with
+    perfect recall that has learned nothing at all.</p>
+    <p><strong>(c)</strong> Because 75% is now only five points above a rock, and you have to
+    say so. Worse, the headline metric of this study is recall, and the degenerate model has
+    perfect recall — so on an unbalanced set a high recall no longer distinguishes a good model
+    from a broken one. Balance is what keeps recall meaningful. With 20 and 20, always-M gives
+    accuracy 50%, recall 100%, precision 50%, and the 50% precision immediately gives it away.</p>
+  </div></details>
+</div>
+
+<div class="exercise">
+  <div class="ex-head">Exercise 3.3 <span class="stars">★★</span><span class="tag">thinking</span></div>
+  <div class="ex-body"><p>Your second reader labels 10 items blind. Decide, for each case, what
+  you do next and why. (a) They agree on 10 of 10 and say it took five minutes. (b) They agree
+  on 8 of 10. (c) They agree on 6 of 10. (d) They agree on 9 of 10, but the one disagreement is
+  an item you already suspected was ambiguous.</p></div>
+  <details><summary>Solution</summary><div class="solution">
+    <p><strong>(a) 10/10, easy.</strong> The labels are safe and the <em>items</em> may not be.
+    Perfect effortless agreement is exactly what a ceiling-effect dataset produces. Go back and
+    ask them which items required thought; if the answer is "none", rewrite a handful of items
+    to be harder, in the style of section 3, and re-run the diagnostic in section 2. Do not
+    treat 10/10 as a green light on its own.</p>
+    <p><strong>(b) 8/10.</strong> On a balanced subset $\kappa = 2(0.8) - 1 = 0.6$, which just
+    reaches the target. Proceed, but look at both disagreements individually. For each: either
+    rewrite the item so the intended reading is unambiguous, keep the label and write down in
+    <code>notes</code> the rule that justifies it, or cut it. Report the agreement figure in
+    your methods either way.</p>
+    <p><strong>(c) 6/10.</strong> $\kappa = 2(0.6) - 1 = 0.2$ — barely above chance. Stop.
+    Do not run the experiment. Two people cannot agree what these items mean, so any model
+    score is measuring the disagreement rather than the model. Sit down with the reader, go
+    through all ten out loud, find out whether the problem is the items, the misconception
+    statements, or the one-sentence instruction you gave them, and fix that before writing
+    anything else.</p>
+    <p><strong>(d) 9/10 on a known-ambiguous item.</strong> The healthiest of the four. Your
+    own suspicion and an independent reader landed on the same item, which is evidence that
+    your judgement about difficulty is calibrated. Rewrite that one item to supply the missing
+    context, or cut it and write a replacement so the 20/20 balance survives. Report
+    $\kappa = 0.8$ and mention the rewrite.</p>
+  </div></details>
+</div>
+
+<div class="exercise">
+  <div class="ex-head">Exercise 3.4 <span class="stars">★★</span><span class="tag">arithmetic</span></div>
+  <div class="ex-body"><p>You and a second reader both label 20 items. Compute Cohen's kappa,
+  showing every step, and say in one sentence what it means.</p>
+  <table>
+    <thead><tr><th></th><th>reader said M</th><th>reader said C</th></tr></thead>
+    <tbody>
+    <tr><th>you said M</th><td>8</td><td>2</td></tr>
+    <tr><th>you said C</th><td>1</td><td>9</td></tr>
+    </tbody>
+  </table></div>
+  <details><summary>Solution</summary><div class="solution">
+    <p><strong>Step 1 — observed agreement.</strong> The diagonal is where you agreed:
+    $8 + 9 = 17$ out of $8+2+1+9 = 20$. So $p_o = 17/20 = 0.85$.</p>
+    <p><strong>Step 2 — the marginals.</strong> You said M on $8 + 2 = 10$ items, so
+    $a = 10/20 = 0.50$. The reader said M on $8 + 1 = 9$ items, so $b = 9/20 = 0.45$.</p>
+    <p><strong>Step 3 — chance agreement.</strong>
+    $p_e = ab + (1-a)(1-b) = (0.50)(0.45) + (0.50)(0.55) = 0.225 + 0.275 = 0.50$.</p>
+    <p><strong>Step 4 — kappa.</strong>
+    $\kappa = \dfrac{p_o - p_e}{1 - p_e} = \dfrac{0.85 - 0.50}{0.50} = \dfrac{0.35}{0.50}
+    = \mathbf{0.70}$.</p>
+    <p><strong>Check.</strong> Your marginal is exactly $a = 0.5$, so the shortcut applies:
+    $2p_o - 1 = 2(0.85) - 1 = 0.70$. Agreed.</p>
+    <p><strong>Meaning.</strong> "Substantial" agreement on the Landis–Koch convention
+    <span class="status cited">cited</span> — comfortably past the 0.6 target, so the dataset
+    passes this criterion. Note that the raw 85% figure and the $\kappa = 0.70$ figure are the
+    same fact stated twice; kappa is not more accurate, it is just harder to oversell.</p>
+  </div></details>
+</div>
+
+<div class="exercise">
+  <div class="ex-head">Exercise 3.5 <span class="stars">★★</span><span class="tag">arithmetic</span></div>
+  <div class="ex-body"><p>You run <code>run_experiment.py --mock</code> on your own forty items
+  and <code>analyze.py</code> reports an accuracy of 67.5% (27 of 40) for both conditions.
+  (a) Using the relation from section 2, roughly how many of your items does the nine-word
+  keyword rule get right? (b) What should you do? (c) Why are both conditions identical in
+  mock mode, and is that a bug?</p></div>
+  <details><summary>Solution</summary><div class="solution">
+    <p><strong>(a)</strong> $p \approx (a_{\text{mock}} - 0.3)/0.4 = (0.675 - 0.3)/0.4
+    = 0.375/0.4 = 0.9375$, which on forty items is about <strong>37 or 38 of them</strong>.
+    Nine words — <code>always</code>, <code>never</code>, <code>impossible</code>,
+    <code>guarantee</code>, <code>completely</code>, <code>definitely</code>,
+    <code>can't be</code>, <code>cannot be</code>, <code>safe from</code> — are separating your
+    two groups almost perfectly.</p>
+    <p><strong>(b)</strong> Rebuild. Search your <code>response_text</code> column for those
+    nine strings, and for every hit either delete the absolute word or move it into a C item
+    where it is used correctly ("no password is <em>completely</em> safe, so I also use MFA").
+    A real model will find that vocabulary at least as easily as the keyword rule did, both
+    prompts will score in the nineties, and you will be at the right-hand end of the Lab 1
+    picture with nothing to report. Re-run the mock and aim for something near 50%.</p>
+    <p><strong>(c)</strong> Not a bug. The comment in <code>ask_llm_mock</code> says so
+    explicitly: the fake model ignores the prompt it was given and looks only at the response
+    text, so there is nothing for the two prompts to influence. Identical conditions in mock
+    mode are the expected result; conditions that diverge under <code>--mock</code> would mean
+    something was genuinely wrong. The point of the mock run is the plumbing and this
+    diagnostic, never the numbers.</p>
+  </div></details>
+</div>
+
+<div class="exercise">
+  <div class="ex-head">Exercise 3.6 <span class="stars">★</span><span class="tag">by hand</span></div>
+  <div class="ex-body"><p>Here are three rows a student typed straight into a text editor.
+  Which will load, which will crash, and which is the dangerous one? Fix each broken row.</p>
+  <div class="out">R11,M03,M,MFA means nobody can get into my account ever.,
+R12,M03,C,It helps a lot, but SIM swapping is still a real risk.,worth a second read
+R13,M03,C,"I use an app rather than SMS, because SMS codes can be intercepted.",</div></div>
+  <details><summary>Solution</summary><div class="solution">
+    <p><strong>R11 loads.</strong> Five fields, no commas inside any of them, empty
+    <code>notes</code>. Fine as written.</p>
+    <p><strong>R12 is broken.</strong> The comma after "a lot" splits
+    <code>response_text</code> into two fields, so the row has six where the header promised
+    five, and pandas raises
+    <code>ParserError: Error tokenizing data. C error: Expected 5 fields in line N, saw 6</code>.
+    Fix by quoting the text field:</p>
+    <div class="out">R12,M03,C,<b>"</b>It helps a lot, but SIM swapping is still a real risk.<b>"</b>,worth a second read</div>
+    <p><strong>R13 loads.</strong> It has a comma, but the field is quoted, so the parser knows
+    the comma is content rather than a separator. This is the correct pattern.</p>
+    <p><strong>The dangerous one.</strong> R12, but not because it crashes — a crash is the
+    good outcome, since it tells you immediately. The dangerous case is the same mistake made
+    in the <em>first</em> data row: pandas may then infer the wider shape and silently shift
+    every field one column left, so <code>ground_truth</code> ends up holding a sentence
+    fragment and the run proceeds on nonsense. <code>load_responses()</code> catches that by
+    refusing any label that is not exactly <code>M</code> or <code>C</code>, which is why that
+    check is worth its four lines. Easiest prevention of all: type the whole thing in a
+    spreadsheet and export as CSV, and never hand-quote anything.</p>
+  </div></details>
+</div>
+
+<div class="exercise">
+  <div class="ex-head">Exercise 3.7 <span class="stars">★★★</span><span class="tag">thinking</span></div>
+  <div class="ex-body"><p>Suppose your dataset turns out easy enough that the
+  <em>baseline</em> prompt scores 39 of 40. (a) What is the largest improvement the
+  misconception-aware prompt could possibly show, in items and in percentage points? (b) The
+  95% Wilson interval for 39/40 is [87.1%, 99.6%]. Compare its width to the answer in (a).
+  (c) What does this tell you about the value of the study, and what is the fix?</p></div>
+  <details><summary>Solution</summary><div class="solution">
+    <p><strong>(a)</strong> The aware prompt cannot score more than 40 of 40, so the maximum
+    possible improvement is <strong>1 item</strong>, which is $1/40 = 2.5$ percentage points.
+    That is the entire effect size available to you, before you have run anything.</p>
+    <p><strong>(b)</strong> The interval on 39/40 alone is $99.6 - 87.1 = 12.5$ points wide.
+    The largest effect the design could possibly show is 2.5 points, so the whole measurable
+    effect is about one fifth of the uncertainty on a single condition. (The paired comparison
+    in Phase 5 is more sensitive than comparing two intervals, but a one-item difference is
+    still a single flipped item, and a single flipped item is not a finding.)</p>
+    <p><strong>(c)</strong> The study is dead on arrival: the dataset has left no room for an
+    effect to appear in, so both "the catalogue helps" and "the catalogue does not help" would
+    produce roughly the same numbers, and you cannot tell them apart. This is Lab 1's
+    right-hand end, in arithmetic rather than in pictures.</p>
+    <p>The fix is a dataset fix, not an analysis fix, and no amount of cleverness in Phase 5
+    recovers it. Rewrite items until the baseline lands somewhere in the middle of the range —
+    the sweet spot on the Lab 1 curve is around a quarter of the way along, where the baseline
+    is well above the 50% floor but well short of the ceiling. That is also, not
+    coincidentally, where your second reader has to stop and think.</p>
+    <p>One honest caveat worth writing in your discussion: you do not get to tune the dataset
+    <em>after</em> seeing the baseline's real score and then report the difference as if it
+    were a clean prediction. Do the hardening now, on the basis of the mock diagnostic and the
+    second reader, and freeze the dataset before the run in Phase 4. Deciding what counts as
+    good data after you have seen the answer is how honest people produce dishonest results.</p>
+  </div></details>
+</div>
+
+<h2>10 · Verification</h2>
+
+<div class="box verify">
+  <span class="lbl">What to bring to the check-in</span>
+  <ul>
+    <li>Both CSV files, committed, with no placeholder rows left.</li>
+    <li>The line from the run that reads <code>Loaded 40 answers  (20 misconception, 20 correct)</code>.</li>
+    <li>The mock accuracy on your own data, and what you concluded from it.</li>
+    <li>Your second reader's name, how many items they labelled, and the agreement figure — raw percentage at minimum, kappa if you got there.</li>
+    <li>Two items you rewrote after the blind labelling, with the old and new versions.</li>
+    <li>One sentence answering: "if both prompts score 95%, what will you say about your dataset?"</li>
+  </ul>
+</div>
+
+<div class="box aside">
+  <span class="lbl">Going deeper (optional)</span>
+  <p><strong>More than two readers.</strong> Cohen's kappa handles exactly two. For three or
+  more, or for readers who did not all label the same items, the usual measures are Fleiss'
+  kappa and Krippendorff's alpha. <span class="status cited">cited</span> You do not need
+  either here, and reaching for them on 10 items with 2 readers would be decoration. Knowing
+  the names is worth two minutes; implementing them is not.</p>
+  <p><strong>Adjudication.</strong> In larger studies disagreements are not thrown out: a third
+  reader settles them, and the paper reports the pre-adjudication agreement alongside the final
+  labels. You do a miniature version of this whenever you rewrite an item after a disagreement.
+  What makes it legitimate rather than fudging is deciding the rule <em>before</em> you look at
+  which way the disagreement went, and reporting the pre-adjudication number too.</p>
+  <p><strong>Where the ceiling effect gets its name.</strong> It is standard vocabulary in
+  psychometrics for a test on which too many people score at or near the maximum, so the test
+  cannot rank them. <span class="status cited">cited</span> Your forty items are the test and
+  the two prompts are the two candidates taking it — which is the sentence to be able to say
+  at the check-in without looking at this page.</p>
+</div>
+
+<div class="pager"><a href="phase-2-code.html">← Phase 2 · Six TODOs</a><a href="phase-4-run.html">Phase 4 · The real run →</a></div>
+
+</main>
+
+<footer class="site">
+  <div class="wrap">
+    <strong>Wrong in a Particular Way</strong> · Phase 3 ·
+    <a href="../index.html">index</a> ·
+    <a href="../extras/glossary.html">glossary</a> ·
+    <a href="../extras/unstuck.html">stuck?</a>
+  </div>
+</footer>
+
+</body>
+</html>

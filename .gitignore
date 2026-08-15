@@ -1,0 +1,35 @@
+# ── Python ──────────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+env/
+.pytest_cache/
+.ruff_cache/
+*.egg-info/
+
+# ── Editors / OS ────────────────────────────────────────────────────────
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# ── Experiment outputs ──────────────────────────────────────────────────
+# Generated files are ignored by default so the repo stays clean and you
+# never accidentally commit a half-finished run.
+#
+# BUT: once you have a FINAL run you're reporting in your paper, commit it
+# on purpose so the numbers in the paper are traceable to the data that
+# produced them:
+#
+#     git add -f python/results/metrics.csv python/results/predictions_*.csv
+#
+# Note the full path. A pattern with a slash inside it is anchored to the
+# repository root, so a bare `results/*` would NOT match python/results/ one
+# level down. `git check-ignore -v <path>` tells you which rule actually fired.
+python/results/*
+!python/results/.gitkeep
+
+# Your working notes, if you keep them in the repo
+notes/
+*.local.md

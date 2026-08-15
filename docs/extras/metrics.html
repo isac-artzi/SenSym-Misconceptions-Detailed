@@ -1,0 +1,962 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Reference · The metrics playground — Wrong in a Particular Way</title>
+<link rel="stylesheet" href="../assets/vendor/katex/katex.min.css">
+<link rel="stylesheet" href="../assets/css/style.css">
+<script src="../assets/vendor/katex/katex.min.js"></script>
+<script src="../assets/vendor/katex/auto-render.min.js"></script>
+<script src="../assets/js/detect.js"></script>
+</head>
+<body>
+
+<header class="site">
+  <div class="wrap">
+    <div class="crumbs"><a href="../index.html">Wrong in a Particular Way</a> · Reference</div>
+    <div class="badges"><span class="badge">Reference</span><span class="badge win">Win: you can read any confusion matrix on sight</span></div>
+    <h1 class="chapter-title">The metrics playground</h1>
+    <p class="chapter-sub">Five metrics, one 2×2 table, and three labs that show what each of them hides.</p>
+  </div>
+</header>
+
+<main class="wrap">
+
+<p class="lede">Every number this project reports comes out of a single four-cell table. This
+page is the place to come back to when you have forgotten which one precision is, and the page
+to point a reader at when they ask what your headline number means. It is mostly sliders: read
+a paragraph, then go and break something in the lab underneath it.</p>
+
+<div class="objectives">
+  <h3>By the end of this page you can</h3>
+  <ul>
+    <li>State which class is the positive class here, and say why the whole page depends on it.</li>
+    <li>Compute accuracy, precision, recall, F1 and specificity from a 2×2 table by hand.</li>
+    <li>Spot the always-says-M trap from accuracy alone, and say why 50% is worth nothing.</li>
+    <li>Explain why precision can be <em>undefined</em>, and why writing 0 there is a lie.</li>
+    <li>Say what the harmonic mean in F1 is punishing, and show it with two numbers.</li>
+    <li>Read a Wilson interval and state how wide the fog is at n = 40.</li>
+    <li>Say how many items would be needed to resolve a 10-point difference, and what to do
+    about the fact that you have forty.</li>
+  </ul>
+</div>
+
+<h2>1 · The one table everything comes from</h2>
+
+<p>Forty responses go into the model. For each one there are two facts: what the response
+<em>really</em> was, which you decided when you wrote it, and what the model <em>said</em>.
+Two facts with two values each gives four possible combinations, and every metric on this page
+is some ratio of those four counts. There is nothing else in the machine.</p>
+
+<div class="box definition">
+  <span class="lbl">The positive class is M</span>
+  <p><strong>M</strong> means "this response contains a misconception". <strong>C</strong> means
+  "this response is correct". <strong>M is the positive class</strong>, so "true positive" means
+  <em>the model correctly said a misconception was present</em>.</p>
+  <p>This is a choice, not a law, and it is the choice that makes precision and recall mean what
+  they mean. Flip it — call C positive — and every number on this page changes. A metric quoted
+  without its positive class is not a result; it is a number. Say "recall with respect to M"
+  the first time it appears in anything you write.</p>
+</div>
+
+<div id="basematrix"></div>
+<p class="muted">An illustrative table, used throughout this page so the arithmetic is always
+checkable. It is not a result: no number on this page comes from a real run.</p>
+
+<script>
+G.ready(function () {
+  G.matrix('basematrix', { tp: 14, fn: 6, fp: 3, tn: 17 });
+});
+</script>
+
+<p>Read the four cells as sentences. <strong>TP = 14</strong>: fourteen responses really did
+contain a misconception and the model said so. <strong>FN = 6</strong>: six really did and the
+model said nothing — six students walked away still believing that rotating a password monthly
+protects them. <strong>FP = 3</strong>: three responses were fine and got corrected anyway.
+<strong>TN = 17</strong>: seventeen were fine and were left alone.</p>
+
+<p>The two error cells are not interchangeable. A false negative is a student who keeps a wrong
+belief about security. A false positive is a student who is told off for being right. Both are
+bad; only one of them ends with somebody's account taken. That asymmetry is the entire reason
+recall is this project's headline metric, and it is a design decision you should be able to
+defend out loud.</p>
+
+<p>The five definitions, once, properly:</p>
+
+$$\text{accuracy}=\frac{TP+TN}{TP+FN+FP+TN}\qquad
+\text{precision}=\frac{TP}{TP+FP}\qquad
+\text{recall}=\frac{TP}{TP+FN}$$
+
+$$F_1=\frac{2\cdot\text{precision}\cdot\text{recall}}{\text{precision}+\text{recall}}\qquad
+\text{specificity}=\frac{TN}{TN+FP}$$
+
+<p>Two of those are worth reading aloud until they stick. <strong>Recall divides by the column
+of things that were really there</strong> — of the misconceptions present, what fraction did the
+model catch. <strong>Precision divides by the row of alarms it raised</strong> — of the times it
+shouted, how often was it right. Recall is about what you missed; precision is about whether to
+trust the shouting. People swap them constantly, including in published papers.</p>
+
+<h2>2 · Lab 1 · The full playground</h2>
+
+<p>Four sliders, one for each cell. Nothing is constrained: you can build a table with no
+positive items at all, or with fifteen false alarms and one true positive, and watch what each
+metric does about it. The bars carry 95% Wilson intervals, and the dashed line is the
+majority-class baseline — the score you get for free by always guessing whichever class is
+bigger.</p>
+
+<div class="lab">
+  <div class="lab-title">Lab 1 · Every metric, live</div>
+  <p class="lab-desc">Start by dragging false negatives up and watching recall fall while
+  accuracy barely moves. Then push TP and FP both to 0 and read what precision does. Then find
+  two different tables with the same accuracy and completely different recall — that pair is the
+  reason accuracy is never reported alone.</p>
+  <canvas id="pg" height="300"></canvas>
+  <div class="controls" id="pgctl"></div>
+  <div id="pgtable"></div>
+  <div class="metrics-row" id="pgtiles"></div>
+  <div class="readout" id="pgout"></div>
+</div>
+
+<h2>3 · Scenario presets</h2>
+
+<p>Seven tables worth knowing on sight. Each button snaps the sliders in Lab 1; the moral
+appears here and the full picture updates above.</p>
+
+<div class="controls" id="presetctl"></div>
+<div class="readout" id="presetout"></div>
+
+<table>
+  <thead><tr><th>Preset</th><th>TP / FN / FP / TN</th><th>The moral</th></tr></thead>
+  <tbody>
+  <tr><td><strong>perfect</strong></td><td>20 / 0 / 0 / 20</td>
+      <td>100% everything. On forty hand-written items this is suspicious rather than
+      impressive: it usually means the M items were written too obviously wrong.</td></tr>
+  <tr><td><strong>always says M</strong></td><td>20 / 0 / 20 / 0</td>
+      <td><strong>The trap.</strong> Recall 100%, precision 50%, accuracy 50%, F1 66.7%. A
+      classifier that has learned nothing and answers M every time. If you report only recall,
+      it looks perfect.</td></tr>
+  <tr><td><strong>always says C</strong></td><td>0 / 20 / 0 / 20</td>
+      <td>Recall 0%, precision <em>undefined</em>, accuracy 50%. It raised no alarms, so "what
+      fraction of its alarms were right" has no answer. Specificity is a flawless 100%.</td></tr>
+  <tr><td><strong>cautious tutor</strong></td><td>8 / 12 / 1 / 19</td>
+      <td>Precision 88.9%, recall 40.0%. Almost never wrong when it speaks, and silent about
+      twelve of the twenty misconceptions. Trustworthy and nearly useless.</td></tr>
+  <tr><td><strong>twitchy tutor</strong></td><td>19 / 1 / 14 / 6</td>
+      <td>Recall 95.0%, precision 57.6%. Catches nearly everything by correcting nearly
+      everyone. A student would stop reading its feedback by Tuesday.</td></tr>
+  <tr><td><strong>coin flip</strong></td><td>10 / 10 / 10 / 10</td>
+      <td>Every metric 50%. The reference point for "no information at all" when the classes are
+      balanced.</td></tr>
+  <tr><td><strong>the illustrative pilot</strong></td><td>14 / 6 / 3 / 17</td>
+      <td>Accuracy 77.5%, precision 82.4%, recall 70.0%, F1 75.7%. The shape a real run might
+      plausibly have — and its accuracy interval still runs from 62% to 88%.</td></tr>
+  </tbody>
+</table>
+
+<div class="box warning">
+  <span class="lbl">Undefined is not zero</span>
+  <p>Click <strong>always says C</strong>. TP = 0 and FP = 0, so precision is 0/0. That is
+  <strong>undefined, not zero</strong>. <code>G.metrics</code> returns <code>null</code> and
+  <code>G.pct</code> prints <code>undefined</code> on purpose: printing 0.0% would assert that
+  every alarm the model raised was wrong, which is a different claim and a false one, because it
+  raised none.</p>
+  <p>F1 is undefined here too, because it is built from precision. In prose write
+  <em>"precision is undefined: the model raised no alarms"</em>, never <em>"precision was 0"</em>.
+  This distinction is not pedantry. A pipeline that silently turns undefined into zero will
+  average it into a mean and report a number that describes nothing.</p>
+</div>
+
+<script>
+G.lab(function () {
+
+  var st = G.controls('pgctl', [
+    { k: 'tp', type: 'range', label: 'TP', min: 0, max: 20, step: 1, value: 14,
+      fmt: function (v) { return String(v); } },
+    { k: 'fn', type: 'range', label: 'FN', min: 0, max: 20, step: 1, value: 6,
+      fmt: function (v) { return String(v); } },
+    { k: 'fp', type: 'range', label: 'FP', min: 0, max: 20, step: 1, value: 3,
+      fmt: function (v) { return String(v); } },
+    { k: 'tn', type: 'range', label: 'TN', min: 0, max: 20, step: 1, value: 17,
+      fmt: function (v) { return String(v); } }
+  ], draw);
+
+  var host = document.getElementById('pgctl');
+  var ranges = host ? host.querySelectorAll('input[type=range]') : [];
+
+  /* Presets drive the same four sliders by dispatching a real input event, so
+     the slider, its printed value, the state object and the redraw all stay in
+     step. Setting st.tp directly would leave the thumb where it was. */
+  var PRESETS = [
+    ['perf',  'perfect',        [20, 0, 0, 20],
+     'Perfect: every metric 100%. On forty hand-written items, treat this as a warning that\n' +
+     'the M responses were written too obviously wrong, not as a triumph.'],
+    ['allm',  'always says M',  [20, 0, 20, 0],
+     'THE TRAP. Recall 100%, precision 50%, accuracy 50%, F1 66.7%.\n' +
+     'This classifier answers M to everything and has learned nothing. Recall alone would\n' +
+     'call it flawless; accuracy sits exactly on the 50% majority-class floor. Report both.'],
+    ['allc',  'always says C',  [0, 20, 0, 20],
+     'Recall 0%, precision UNDEFINED (0 alarms raised), accuracy 50%, specificity 100%.\n' +
+     'Undefined is not zero. A specificity of 100% is free here and means nothing.'],
+    ['caut',  'cautious tutor', [8, 12, 1, 19],
+     'Precision 88.9%, recall 40.0%, accuracy 67.5%.\n' +
+     'This one almost never raises a false alarm but misses twelve of the twenty\n' +
+     'misconceptions — a cautious tutor. Trustworthy when it speaks; silent too often.'],
+    ['twit',  'twitchy tutor',  [19, 1, 14, 6],
+     'Recall 95.0%, precision 57.6%, accuracy 62.5%.\n' +
+     'It catches nineteen of twenty misconceptions by correcting fourteen students who were\n' +
+     'already right — a twitchy tutor. High recall bought with everybody’s patience.'],
+    ['coin',  'coin flip',      [10, 10, 10, 10],
+     'Every metric 50%. With twenty M and twenty C this is what no information looks like.\n' +
+     'Any result you report has to be argued against this line, not against zero.'],
+    ['pilot', 'the illustrative pilot', [14, 6, 3, 17],
+     'Accuracy 77.5%, precision 82.4%, recall 70.0%, F1 75.7%, specificity 85.0%.\n' +
+     'A plausible shape for a real run: clearly above the 50% floor, and still missing six\n' +
+     'misconceptions. Its 95% accuracy interval runs 62%–88%. Demo numbers, not a result.']
+  ];
+
+  G.controls('presetctl', PRESETS.map(function (p) {
+    return { k: p[0], type: 'button', text: p[1] };
+  }), function (state, key) {
+    PRESETS.forEach(function (p) {
+      if (p[0] !== key) return;
+      for (var i = 0; i < ranges.length && i < 4; i++) {
+        ranges[i].value = String(p[2][i]);
+        ranges[i].dispatchEvent(new Event('input'));
+      }
+      G.say('presetout', p[1].toUpperCase() + '   TP ' + p[2][0] + '  FN ' + p[2][1] +
+            '  FP ' + p[2][2] + '  TN ' + p[2][3] + '\n' + p[3]);
+    });
+  });
+
+  function ci(k, n) {
+    if (!n) return null;
+    var w = G.wilson(k, n);
+    return '95% CI ' + (100 * w[0]).toFixed(0) + '–' + (100 * w[1]).toFixed(0) + '%';
+  }
+
+  function tile(key, val, sub, lead) {
+    return '<div class="metric' + (lead ? ' lead' : '') + '">' +
+           '<div class="mk">' + key + '</div>' +
+           '<div class="mv">' + val + '</div>' +
+           '<div class="mci">' + (sub || '&nbsp;') + '</div></div>';
+  }
+
+  /* Plain English for the shape of the table, because the sentence is the part
+     she will still have in her head next week. */
+  function narrate(m, tp, fn, fp, tn) {
+    if (!m.n) return 'No items at all. Every metric is undefined — there is nothing to divide by.';
+    if (m.rec === null) return 'In words: there are no truly-M items, so recall is undefined — there was nothing to catch.\n' +
+                               'A table with an empty positive class cannot answer this project’s question at all.';
+    if (m.spec === null) return 'In words: there are no truly-C items, so specificity has no denominator.\n' +
+                                'With every item an M, answering M to everything would score 100% recall for free.';
+    if (fn === 0 && tn === 0) return 'In words: it predicted M on all ' + m.n +
+      ' items without distinguishing between them. Recall is 100%\n' +
+      'for free, specificity is 0%, and accuracy sits on the majority-class baseline. This is the trap, not a tutor.';
+    if (tp === 0 && fp === 0) return 'In words: it predicted C on all ' + m.n +
+      ' items and never raised a single alarm, so precision is\n' +
+      'undefined and all ' + fn + ' misconceptions went unmentioned — a silent tutor.';
+
+    var alarm, miss, name;
+    var far = fp / (fp + tn);
+    if (fp === 0)        alarm = 'never raises a false alarm';
+    else if (far < 0.15) alarm = 'almost never raises a false alarm';
+    else if (far < 0.40) alarm = 'raises a false alarm on ' + fp + ' of the ' + (fp + tn) + ' correct responses';
+    else                 alarm = 'corrects ' + fp + ' of the ' + (fp + tn) + ' students who were already right';
+
+    if (fn === 0)                    miss = 'and catches every misconception';
+    else if (fn / (tp + fn) <= 0.15) miss = 'and misses only ' + fn + ' of the ' + (tp + fn) + ' misconceptions';
+    else if (fn / (tp + fn) <= 0.65) miss = 'but misses ' + fn + ' of the ' + (tp + fn) + ' misconceptions';
+    else                             miss = 'but misses ' + fn + ' of the ' + (tp + fn) + ' misconceptions, most of them';
+
+    if (fn === 0 && fp === 0)                       name = 'a perfect run on these items';
+    else if (m.rec >= 0.85 && m.prec < 0.65)        name = 'a twitchy tutor';
+    else if (m.prec >= 0.80 && m.rec <= 0.55)       name = 'a cautious tutor';
+    else if (m.rec >= 0.70 && m.prec >= 0.70)       name = 'a usable tutor, if a leaky one';
+    else if (m.acc <= m.majority)                   name = 'no better than guessing the bigger class';
+    else                                            name = 'a middling tutor';
+
+    return 'In words: this one ' + alarm + ' ' + miss + ' — ' + name + '.';
+  }
+
+  function draw() {
+    var cv = G.canvas('pg'); if (!cv) return;
+
+    var tp = Math.round(st.tp), fn = Math.round(st.fn);
+    var fp = Math.round(st.fp), tn = Math.round(st.tn);
+    var m = G.metrics({ tp: tp, fn: fn, fp: fp, tn: tn });
+
+    G.matrix('pgtable', { tp: tp, fn: fn, fp: fp, tn: tn });
+
+    var accCI  = m.n ? G.wilson(tp + tn, m.n) : null;
+    var precCI = (tp + fp) ? G.wilson(tp, tp + fp) : null;
+    var recCI  = (tp + fn) ? G.wilson(tp, tp + fn) : null;
+    var specCI = (tn + fp) ? G.wilson(tn, tn + fp) : null;
+
+    var tiles = document.getElementById('pgtiles');
+    if (tiles) {
+      tiles.innerHTML =
+        tile('accuracy',    G.pct(m.acc),  m.n ? ci(tp + tn, m.n) : 'n = 0', false) +
+        tile('precision',   G.pct(m.prec), (tp + fp) ? ci(tp, tp + fp) : 'no alarms raised', false) +
+        tile('recall',      G.pct(m.rec),  (tp + fn) ? ci(tp, tp + fn) : 'no M items', true) +
+        tile('F1',          G.pct(m.f1),   'not a proportion — no CI', false) +
+        tile('specificity', G.pct(m.spec), (tn + fp) ? ci(tn, tn + fp) : 'no C items', false) +
+        tile('baseline',    G.pct(m.majority), 'always guess bigger class', false);
+    }
+
+    var fr = G.frame(cv.ctx, cv.w, cv.h, {
+      xmin: -0.90, xmax: 4.70, ymin: 0, ymax: 1.12,
+      margin: { left: 54, bottom: 30, top: 16, right: 16 }
+    });
+    fr.axes({ ylabel: 'score (positive class M)', xticks: 0, yticks: 4,
+              yfmt: function (v) { return v.toFixed(2); } });
+
+    var BARS = [
+      ['accuracy',    m.acc,  G.COL.muted,  accCI],
+      ['precision',   m.prec, G.COL.amber,  precCI],
+      ['recall',      m.rec,  G.COL.accent, recCI],
+      ['F1',          m.f1,   G.COL.violet, null],
+      ['specificity', m.spec, G.COL.green,  specCI]
+    ];
+
+    BARS.forEach(function (b, i) {
+      var v = b[1], col = b[2], w = 0.28;
+      if (v === null) {
+        fr.text(i, 0.50, 'undefined', { color: G.COL.rose, align: 'center' });
+        fr.text(i, 0.43, '0 / 0', { color: G.COL.rose, align: 'center' });
+      } else {
+        fr.rect(i - w, 0, i + w, v, { fill: col, alpha: 0.20, stroke: col, width: 2 });
+        if (b[3]) {
+          fr.line([[i, b[3][0]], [i, b[3][1]]], { color: col, width: 1.6 });
+          fr.line([[i - 0.09, b[3][0]], [i + 0.09, b[3][0]]], { color: col, width: 1.6 });
+          fr.line([[i - 0.09, b[3][1]], [i + 0.09, b[3][1]]], { color: col, width: 1.6 });
+        }
+        var top = b[3] ? Math.max(v, b[3][1]) : v;
+        fr.text(i, top + 0.035, G.pct(v, 0), { color: col, align: 'center' });
+      }
+      fr.text(i, 0.035, b[0], { color: G.COL.ink, align: 'center' });
+    });
+
+    if (m.majority !== null) {
+      fr.hline(m.majority, { color: G.COL.rose, dash: [5, 4] });
+      fr.text(-0.85, m.majority + 0.025, 'baseline ' + G.pct(m.majority, 0),
+              { color: G.COL.rose, align: 'left' });
+    }
+
+    var floor;
+    if (m.acc === null || m.majority === null) {
+      floor = 'With no items there is no baseline to beat.';
+    } else if (m.acc <= m.majority) {
+      floor = 'Accuracy is at or below the majority-class baseline of ' + G.pct(m.majority) +
+              '. This table is worth nothing:\nguessing the bigger class every time would do as well.';
+    } else {
+      floor = 'Accuracy beats the majority-class baseline of ' + G.pct(m.majority) + ' by ' +
+              G.fmt(100 * (m.acc - m.majority), 1) + ' points, and the 95% interval on\n' +
+              'accuracy runs ' + G.pct(accCI[0], 1) + '–' + G.pct(accCI[1], 1) + ' — ' +
+              (accCI[0] > m.majority
+                ? 'its lower end is above the baseline too, which is the version of this claim you can defend.'
+                : 'its lower end is BELOW the baseline, so the gap sits inside the noise.');
+    }
+
+    G.say('pgout',
+      'TP ' + tp + '   FN ' + fn + '   FP ' + fp + '   TN ' + tn + '   (n = ' + m.n + ')\n' +
+      'accuracy ' + G.pct(m.acc) + '   precision ' + G.pct(m.prec) + '   recall ' + G.pct(m.rec) +
+      '   F1 ' + G.pct(m.f1) + '   specificity ' + G.pct(m.spec) + '\n' +
+      narrate(m, tp, fn, fp, tn) + '\n' + floor);
+  }
+
+  draw();
+  G.say('presetout',
+    'THE ILLUSTRATIVE PILOT   TP 14  FN 6  FP 3  TN 17\n' + PRESETS[6][3]);
+});
+</script>
+
+<h2>4 · Lab 2 · Why F1 is a harmonic mean</h2>
+
+<p>F1 is the one metric that is not a simple count divided by another count. It is a mean of
+precision and recall — but the <em>harmonic</em> mean, not the ordinary one you learned in
+school. That choice is doing real work, and the always-says-M preset shows exactly what.</p>
+
+<div class="box example">
+  <span class="lbl">The always-says-M classifier, in two means</span>
+  <p>Precision 0.500, recall 1.000. The <strong>arithmetic</strong> mean is
+  $(0.500 + 1.000)/2 = 0.750$, which sounds like a respectable result for a model that answers
+  M to every item without reading it.</p>
+  <p>The <strong>harmonic</strong> mean, which is what F1 is, gives</p>
+  $$F_1=\frac{2\times 0.500\times 1.000}{0.500+1.000}=\frac{1.000}{1.500}=0.667$$
+  <p>Still generous, but 0.083 lower, and the gap grows the more lopsided the pair becomes. The
+  harmonic mean is punishing <em>imbalance</em>: it is pulled towards the smaller of the two
+  numbers, so a spectacular recall cannot buy its way out of a poor precision.</p>
+</div>
+
+<div class="box theorem">
+  <span class="lbl">The harmonic mean never exceeds the arithmetic mean <span class="status proved">proved</span></span>
+  <p>For positive $a$ and $b$, write $A=\dfrac{a+b}{2}$ and $H=\dfrac{2ab}{a+b}$. Then</p>
+  $$A-H=\frac{(a+b)^2-4ab}{2(a+b)}=\frac{(a-b)^2}{2(a+b)}\;\ge\;0$$
+  <p>because a square is never negative and $a+b>0$. Equality holds exactly when $a=b$. So F1
+  sits at or below the arithmetic mean always, and the shortfall is governed by
+  $(a-b)^2$ — the square of the gap between precision and recall. Doubling the imbalance
+  quadruples the penalty. <span class="qed">&#8718;</span></p>
+</div>
+
+<div class="lab">
+  <div class="lab-title">Lab 2 · The gap between the two means</div>
+  <p class="lab-desc">Recall is held fixed at whatever the first slider says; the curves show F1
+  and the arithmetic mean as precision sweeps from bad to perfect. Set recall to 100% and
+  precision to 50% to reproduce the always-says-M numbers. Then drag precision down towards zero
+  and watch the two curves separate: that widening gap is the penalty for being good at one
+  thing and bad at the other. Set precision equal to recall and the gap closes to nothing.</p>
+  <canvas id="hm" height="300"></canvas>
+  <div class="controls" id="hmctl"></div>
+  <div class="readout" id="hmout"></div>
+</div>
+
+<script>
+G.lab(function () {
+  var pf = function (v) { return (100 * v).toFixed(0) + '%'; };
+
+  var st = G.controls('hmctl', [
+    { k: 'rec', type: 'range', label: 'recall (held fixed)', min: 0.05, max: 1, step: 0.05,
+      value: 1.00, fmt: pf },
+    { k: 'prec', type: 'range', label: 'precision (the marked point)', min: 0.05, max: 1,
+      step: 0.05, value: 0.50, fmt: pf }
+  ], draw);
+
+  function draw() {
+    var cv = G.canvas('hm'); if (!cv) return;
+    var R = st.rec, P = st.prec;
+
+    var fr = G.frame(cv.ctx, cv.w, cv.h, {
+      xmin: 0, xmax: 1, ymin: 0, ymax: 1,
+      margin: { left: 54, bottom: 44, top: 16, right: 16 }
+    });
+    fr.axes({ xlabel: 'precision', ylabel: 'score', xticks: 5, yticks: 5,
+              xfmt: function (v) { return v.toFixed(2); },
+              yfmt: function (v) { return v.toFixed(2); } });
+
+    var i, x, harm = [], arith = [];
+    for (i = 0; i <= 200; i++) {
+      x = i / 200;
+      arith.push([x, (x + R) / 2]);
+      harm.push([x, (x + R) > 0 ? 2 * x * R / (x + R) : 0]);
+    }
+    fr.line(arith, { color: G.COL.violet, width: 2, dash: [6, 4] });
+    fr.line(harm,  { color: G.COL.accent, width: 2.4 });
+
+    var f1 = (P + R) > 0 ? 2 * P * R / (P + R) : 0;
+    var am = (P + R) / 2;
+    fr.line([[P, f1], [P, am]], { color: G.COL.rose, width: 1.6 });
+    fr.dot(P, am, { color: G.COL.violet, r: 4, ring: true });
+    fr.dot(P, f1, { color: G.COL.accent, r: 4, ring: true });
+    fr.text(P, am + 0.045, 'gap ' + G.fmt(am - f1, 3),
+            { color: G.COL.rose, align: P > 0.7 ? 'right' : 'left', dx: P > 0.7 ? -6 : 6 });
+    fr.vline(P, { color: G.COL.line });
+    fr.legend([['arithmetic mean', G.COL.violet], ['F1 (harmonic mean)', G.COL.accent]],
+              { left: true });
+
+    var half = 2 * 0.5 * R / (0.5 + R);
+    G.say('hmout',
+      'recall fixed at ' + G.pct(R, 1) + ', precision ' + G.pct(P, 1) + '\n' +
+      'F1   = 2 × ' + G.fmt(P, 3) + ' × ' + G.fmt(R, 3) + ' / (' + G.fmt(P, 3) +
+        ' + ' + G.fmt(R, 3) + ') = ' + G.fmt(2 * P * R, 3) + ' / ' + G.fmt(P + R, 3) +
+        ' = ' + G.fmt(f1, 3) + '\n' +
+      'mean = (' + G.fmt(P, 3) + ' + ' + G.fmt(R, 3) + ') / 2 = ' + G.fmt(am, 3) + '\n' +
+      'gap  = ' + G.fmt(am - f1, 3) + ', and (P − R)² / (2(P + R)) = ' +
+        G.fmt(Math.pow(P - R, 2) / (2 * (P + R)), 3) + ' — the same number, as proved above.\n' +
+      'At precision 50% with this recall, F1 would be ' + G.fmt(half, 3) +
+        ' against an arithmetic mean of ' + G.fmt((0.5 + R) / 2, 3) + '.\n' +
+      (Math.abs(P - R) < 0.001
+        ? 'Precision equals recall, so both means agree exactly. This is the only case where they do.'
+        : 'F1 sits ' + G.fmt(am - f1, 3) + ' below the arithmetic mean because the two inputs differ by ' +
+          G.fmt(Math.abs(P - R), 3) + '. F1 is pulled towards the smaller one.'));
+  }
+  draw();
+});
+</script>
+
+<p>One more fact about F1 that the algebra hides. Substituting the definitions and simplifying
+gives</p>
+
+$$F_1=\frac{2\,TP}{2\,TP+FP+FN}$$
+
+<p>which contains no $TN$ at all. F1 is completely blind to true negatives. Add a thousand
+correct responses that the model correctly ignores and F1 does not move by a hair, while
+accuracy climbs towards 100%. That is a feature when the positive class is the rare and
+expensive one — and a reason F1 and accuracy can disagree violently about the same table.</p>
+
+<h2>5 · Lab 3 · How wide is the fog at n = 40</h2>
+
+<p>This is the most important picture on the site. Every number you report is a proportion
+measured on forty items, and a proportion measured on forty items is <em>uncertain</em>. Not
+uncertain in a hand-waving way: uncertain by a specific, computable amount, and that amount is
+much larger than most people's intuition.</p>
+
+<p>The interval used here is the <strong>Wilson score interval</strong>, not the textbook
+"estimate ± 1.96 standard errors" normal approximation. The reason is concrete: at 38 out of 40
+the normal approximation gives 88.2% to 101.8%, and an accuracy of 101.8% is not a thing that
+exists. Wilson gives 83.5% to 98.6% and never leaves the interval [0, 1].</p>
+
+<div class="lab">
+  <div class="lab-title">Lab 3 · The shrinking band</div>
+  <p class="lab-desc">Suppose your observed accuracy comes out at exactly the value in the
+  dropdown. The shaded band is the 95% Wilson interval you would report at each sample size; the
+  dashed vertical line is n = 40, where this study actually lives. Drag the slider and notice how
+  slowly the fog clears — the band narrows like one over the square root of n, so halving the
+  width costs four times the data.</p>
+  <canvas id="fog" height="310"></canvas>
+  <div class="controls" id="fogctl"></div>
+  <div class="readout" id="fogout"></div>
+</div>
+
+<script>
+G.lab(function () {
+  var st = G.controls('fogctl', [
+    { k: 'n', type: 'range', label: 'sample size n', min: 10, max: 500, step: 10, value: 40,
+      fmt: function (v) { return String(Math.round(v)); } },
+    { k: 'p', type: 'select', label: 'observed accuracy',
+      options: [['0.50', '50% — the coin flip'],
+                ['0.65', '65%'],
+                ['0.775', '77.5% — the illustrative pilot'],
+                ['0.90', '90%']],
+      value: '0.775' }
+  ], draw);
+
+  /* Smallest n at which the 95% interval is narrower than 10 percentage points.
+     If the interval is wider than the difference you are hunting, the difference
+     is inside the noise and no amount of arguing gets it out. */
+  function nFor(p, target) {
+    for (var n = 10; n <= 20000; n++) {
+      var w = G.wilson(p * n, n);
+      if (w[1] - w[0] <= target) return n;
+    }
+    return null;
+  }
+
+  function draw() {
+    var cv = G.canvas('fog'); if (!cv) return;
+    var n = Math.round(st.n), p = parseFloat(st.p);
+
+    var fr = G.frame(cv.ctx, cv.w, cv.h, {
+      xmin: 10, xmax: 500, ymin: 0, ymax: 1,
+      margin: { left: 54, bottom: 44, top: 16, right: 16 }
+    });
+    fr.axes({ xlabel: 'number of items, n', ylabel: '95% Wilson interval for accuracy',
+              xticks: 7, yticks: 5,
+              xfmt: function (v) { return v.toFixed(0); },
+              yfmt: function (v) { return v.toFixed(2); } });
+
+    /* the band, as thin vertical slices two items wide */
+    var k, w;
+    for (k = 10; k < 500; k += 2) {
+      w = G.wilson(p * k, k);
+      fr.rect(k, w[0], k + 2, w[1], { fill: G.COL.accent, alpha: 0.13 });
+    }
+    var lo = [], hi = [];
+    for (k = 10; k <= 500; k += 2) {
+      w = G.wilson(p * k, k);
+      lo.push([k, w[0]]); hi.push([k, w[1]]);
+    }
+    fr.line(lo, { color: G.COL.accent, width: 2 });
+    fr.line(hi, { color: G.COL.accent, width: 2 });
+    fr.hline(p, { color: G.COL.muted, dash: [3, 3] });
+
+    var here = G.wilson(p * n, n);
+    fr.vline(40, { color: G.COL.rose, width: 1.5, dash: [5, 4] });
+    fr.text(46, 0.055, 'n = 40 — this study', { color: G.COL.rose, align: 'left' });
+
+    fr.line([[n, here[0]], [n, here[1]]], { color: G.COL.ink, width: 2 });
+    fr.dot(n, here[0], { color: G.COL.ink, r: 3.5, ring: true });
+    fr.dot(n, here[1], { color: G.COL.ink, r: 3.5, ring: true });
+    fr.text(n, here[1] + 0.035,
+            (100 * (here[1] - here[0])).toFixed(1) + ' pts wide',
+            { color: G.COL.ink, align: n > 380 ? 'right' : 'left', dx: n > 380 ? -6 : 6 });
+
+    var at40 = G.wilson(p * 40, 40);
+    var need = nFor(p, 0.10);
+
+    G.say('fogout',
+      'observed accuracy ' + G.pct(p, 1) + '\n' +
+      'at n = ' + n + ':  95% CI ' + G.pct(here[0], 1) + ' to ' + G.pct(here[1], 1) +
+        '   — ' + (100 * (here[1] - here[0])).toFixed(1) + ' percentage points wide\n' +
+      (n === 40 ? 'That is this study — forty items. Every number you report sits inside a band this wide.\n'
+                : 'at n = 40:  95% CI ' + G.pct(at40[0], 1) + ' to ' + G.pct(at40[1], 1) +
+                  '   — ' + (100 * (at40[1] - at40[0])).toFixed(1) + ' percentage points wide\n') +
+      'To get the interval below 10 points wide at this accuracy you would need n = ' + need +
+        ' items.\n' +
+      'That is ' + G.fmt(need / 40, 1) + ' times the dataset. Writing ' + (need - 40) +
+        ' more responses by hand is not happening this year,\n' +
+      'so the honest move is to report the interval and call the study a pilot — not to\n' +
+      'pretend the number is sharper than it is.');
+  }
+  draw();
+});
+</script>
+
+<div class="box warning">
+  <span class="lbl">What this means for your write-up</span>
+  <p>At n = 40 with an observed accuracy of 77.5%, the 95% interval runs from 62.5% to 87.7% —
+  <strong>25 percentage points wide</strong>. If the misconception-aware condition scores ten
+  points above baseline, that difference sits comfortably inside both intervals, and you cannot
+  claim it as established from these data alone.</p>
+  <p>This is not a failure of the project. It is the correct reading of forty items, and stating
+  it plainly is what makes the rest of the write-up trustworthy. Report the effect, report the
+  interval, describe the direction, and call it a pilot. A confident claim from a 25-point-wide
+  interval is the single easiest way for a reader to stop believing everything else you wrote.</p>
+</div>
+
+<h2>6 · Quick reference</h2>
+
+<p>Every metric on one screen. The last column is the one to read before you quote a number.</p>
+
+<table>
+  <thead><tr><th>Metric</th><th>Formula</th><th>What it answers</th><th>When it misleads</th></tr></thead>
+  <tbody>
+  <tr>
+    <td><strong>accuracy</strong></td>
+    <td>$\dfrac{TP+TN}{n}$</td>
+    <td>Of all forty responses, what fraction did the model get right?</td>
+    <td>Whenever the classes are unbalanced, and even when balanced: always-says-M scores 50%
+    here while knowing nothing. Never quote it without the baseline.</td>
+  </tr>
+  <tr>
+    <td><strong>precision</strong></td>
+    <td>$\dfrac{TP}{TP+FP}$</td>
+    <td>Of the alarms the model raised, what fraction were real misconceptions?</td>
+    <td>A model that raises one alarm and gets it right scores 100%. Undefined when it raises
+    none. Always pair it with recall.</td>
+  </tr>
+  <tr>
+    <td><strong>recall</strong><br><span class="muted">the headline</span></td>
+    <td>$\dfrac{TP}{TP+FN}$</td>
+    <td>Of the misconceptions that were really there, what fraction did the model catch?</td>
+    <td>A model that answers M to everything scores 100%. Recall alone cannot be the whole
+    report — precision is what stops the always-says-M cheat.</td>
+  </tr>
+  <tr>
+    <td><strong>F1</strong></td>
+    <td>$\dfrac{2PR}{P+R}=\dfrac{2\,TP}{2\,TP+FP+FN}$</td>
+    <td>One number summarising precision and recall together, weighted towards the worse of
+    the two.</td>
+    <td>It hides which of the two is weak, and it ignores $TN$ entirely. It is not a proportion
+    of anything, so a Wilson interval does not apply to it.</td>
+  </tr>
+  <tr>
+    <td><strong>specificity</strong></td>
+    <td>$\dfrac{TN}{TN+FP}$</td>
+    <td>Of the responses that were actually correct, what fraction did the model leave alone?</td>
+    <td>A model that answers C to everything scores 100%. It is recall's mirror image and is
+    free to a silent classifier.</td>
+  </tr>
+  <tr>
+    <td><strong>majority-class baseline</strong></td>
+    <td>$\dfrac{\max(TP+FN,\;FP+TN)}{n}$</td>
+    <td>What accuracy do you get for free by always guessing the bigger class?</td>
+    <td>It is 50% here by construction, so it looks harmless and gets forgotten — which is
+    exactly how a 55% accuracy gets reported as a success.</td>
+  </tr>
+  <tr>
+    <td><strong>false negatives</strong></td>
+    <td>$FN$</td>
+    <td>How many students kept a wrong belief about security?</td>
+    <td>It is a raw count, so it is only comparable between runs of the same size. Here every
+    run is forty items, so it is directly comparable — and it is the number that actually
+    matters.</td>
+  </tr>
+  </tbody>
+</table>
+
+<div class="box python">
+  <span class="lbl">Check this page against the code</span>
+  <p>Nothing here is a special web version of the arithmetic. The four headline formulas live in
+  <code>compute_metrics()</code> in <code>python/misconception/analyze.py</code>, and
+  <code>python/tests/test_pipeline.py</code> cross-checks them against scikit-learn. Run the
+  pipeline on demo data and compare its printed metrics against Lab 1 with the same four counts:</p>
+  <div class="cmd"><pre><span class="p">$ </span>cd python
+<span class="p">$ </span>python3 misconception/run_experiment.py --mock --sample
+<span class="p">$ </span>python3 misconception/analyze.py
+<span class="p">$ </span>pytest ../ -q</pre></div>
+  <p>Two differences to know about, because they will bite you. <code>analyze.py</code> computes
+  only accuracy, precision, recall and F1 — <strong>specificity and the majority-class baseline
+  are not in it</strong>, so those you work out yourself from the printed matrix. And where this
+  page prints <code>undefined</code>, <code>compute_metrics()</code> currently returns
+  <code>0.0</code> for a zero denominator, guarded by <code>if (tp + fp) else 0.0</code>.</p>
+  <p style="margin-bottom:0">So if a run ever prints <code>precision=0.0</code>, check the matrix
+  before you write it down: if <code>TP</code> and <code>FP</code> are both zero, the honest entry
+  is <em>undefined</em>, not zero. Anything produced by <code>--mock</code> or
+  <code>--sample</code> is demo data — it proves the plumbing works and never goes in the
+  write-up.</p>
+</div>
+
+<h2>7 · Five words, defined properly</h2>
+
+<div class="box definition">
+  <span class="lbl">positive class</span>
+  <p>The one of the two labels that precision, recall and F1 are computed <em>about</em>. Here it
+  is <strong>M</strong>. "True positive" means the model said M and M was correct; "false
+  negative" means M was correct and the model said C. Swapping which class is positive gives a
+  completely different set of numbers from the same table, which is why the choice is stated
+  every time and never assumed.</p>
+</div>
+
+<div class="box definition">
+  <span class="lbl">majority-class baseline</span>
+  <p>The accuracy obtained by ignoring the input entirely and always answering with whichever
+  class is more common. Here the design fixes twenty M and twenty C, so the baseline is
+  <strong>50%</strong> by construction. It is the floor a result has to clear before it means
+  anything: an accuracy of 52% is not "slightly good", it is indistinguishable from a model that
+  never looks at the response.</p>
+</div>
+
+<div class="box definition">
+  <span class="lbl">confidence interval</span>
+  <p>A range of values for the underlying rate that are consistent with what you observed. "95%"
+  describes the procedure, not this particular interval: if you repeated the whole study many
+  times, about 95% of the intervals built this way would contain the true rate. This project uses
+  the <strong>Wilson score interval</strong>, <code>G.wilson(k, n)</code>, because the normal
+  approximation is badly behaved at small n and near 0 or 1 — it produces intervals running past
+  100%, which is visibly wrong.</p>
+</div>
+
+<div class="box definition">
+  <span class="lbl">ceiling effect</span>
+  <p>When a measure is already so close to its maximum that an improvement has nowhere to go. If
+  the baseline prompt already scores 95% recall, the misconception-aware prompt can gain at most
+  five points, and the study cannot detect the improvement it was designed to look for — not
+  because the improvement is absent, but because the ruler has run out. This is a real risk in
+  Phase 3: writing misconception responses that are too obviously wrong drives the baseline to the
+  ceiling and destroys the experiment before the model is ever run. The fix is in the dataset, not
+  the statistics.</p>
+</div>
+
+<div class="box definition">
+  <span class="lbl">harmonic mean</span>
+  <p>For two positive numbers, $H = \dfrac{2ab}{a+b}$ — equivalently, the reciprocal of the average
+  of the reciprocals. It is always at or below the arithmetic mean, by exactly
+  $(a-b)^2 / (2(a+b))$, and it is dragged towards the smaller input. F1 uses it so that a model
+  cannot score well by being excellent at precision and hopeless at recall, or the reverse.</p>
+</div>
+
+<h2>8 · Exercises</h2>
+
+<div class="exercise">
+  <div class="ex-head">Exercise 8.1 <span class="stars">★</span><span class="tag">arithmetic</span></div>
+  <div class="ex-body"><p>A run gives $TP = 13$, $FN = 7$, $FP = 2$, $TN = 18$. Compute accuracy,
+  precision, recall, F1, specificity and the majority-class baseline. Show every division. Then
+  check your answers by setting the sliders in Lab 1.</p></div>
+  <details><summary>Solution</summary><div class="solution">
+    <p>First check the table is legal: $13 + 7 + 2 + 18 = 40$, and the positive column
+    $TP + FN = 20$ with the negative column $FP + TN = 20$, as the design requires.</p>
+    <p><strong>accuracy</strong> $= (13 + 18)/40 = 31/40 = 0.775$, so 77.5%.</p>
+    <p><strong>precision</strong> $= 13/(13 + 2) = 13/15 = 0.8667$, so 86.7%. Of the fifteen
+    alarms it raised, thirteen were real.</p>
+    <p><strong>recall</strong> $= 13/(13 + 7) = 13/20 = 0.650$, so 65.0%. Of the twenty
+    misconceptions present, it caught thirteen.</p>
+    <p><strong>F1</strong>: use the short form $2\,TP/(2\,TP + FP + FN) = 26/(26 + 2 + 7) = 26/35
+    = 0.7429$, so 74.3%. The long way agrees:
+    $2 \times 0.8667 \times 0.650 / (0.8667 + 0.650) = 1.1267 / 1.5167 = 0.7429$.</p>
+    <p><strong>specificity</strong> $= 18/(18 + 2) = 18/20 = 0.900$, so 90.0%.</p>
+    <p><strong>baseline</strong> $= \max(20, 20)/40 = 0.500$, so 50.0%.</p>
+    <p>The shape to notice: precision 86.7% well above recall 65.0% means this model is cautious.
+    It is right when it speaks and silent about seven misconceptions. In this project those seven
+    are the expensive cell, so despite the healthy-looking accuracy this run would be reported as
+    a recall problem.</p>
+  </div></details>
+</div>
+
+<div class="exercise">
+  <div class="ex-head">Exercise 8.2 <span class="stars">★</span><span class="tag">by hand</span></div>
+  <div class="ex-body"><p>A classmate builds a "detector" that outputs M for every response
+  without reading it. On your forty items it gets $TP = 20$, $FN = 0$, $FP = 20$, $TN = 0$.
+  Compute all five metrics. Which of them make it look good, and what is the one sentence that
+  demolishes the claim?</p></div>
+  <details><summary>Solution</summary><div class="solution">
+    <p>accuracy $= (20 + 0)/40 = 0.500$ — 50.0%.<br>
+    precision $= 20/(20 + 20) = 20/40 = 0.500$ — 50.0%.<br>
+    recall $= 20/(20 + 0) = 20/20 = 1.000$ — 100.0%.<br>
+    F1 $= 2 \times 20/(40 + 20 + 0) = 40/60 = 0.6667$ — 66.7%.<br>
+    specificity $= 0/(0 + 20) = 0.000$ — 0.0%.</p>
+    <p><strong>Recall makes it look perfect</strong>, and F1 at 66.7% still sounds like a passing
+    grade. Accuracy sits exactly on the 50% majority-class baseline, and specificity is a flat
+    zero: it never once correctly left a good response alone.</p>
+    <p>The sentence: <em>"It answers M to every input, so its accuracy equals the majority-class
+    baseline of 50% and its specificity is 0% — it has not learned anything, it has learned to
+    shout."</em></p>
+    <p>This is why the write-up reports recall <em>and</em> precision <em>and</em> the baseline
+    together. Recall is the headline because missed misconceptions are the expensive error, but a
+    headline metric that can be maxed out by a constant output is only safe when it is quoted
+    beside the metric that catches the cheat.</p>
+  </div></details>
+</div>
+
+<div class="exercise">
+  <div class="ex-head">Exercise 8.3 <span class="stars">★★</span><span class="tag">arithmetic</span></div>
+  <div class="ex-body"><p>The opposite failure: the model answers C to all forty items, giving
+  $TP = 0$, $FN = 20$, $FP = 0$, $TN = 20$. Compute what you can. One metric cannot be computed —
+  which, why, and what exactly do you write in the results table instead?</p></div>
+  <details><summary>Solution</summary><div class="solution">
+    <p>accuracy $= (0 + 20)/40 = 0.500$ — 50.0%.<br>
+    recall $= 0/(0 + 20) = 0/20 = 0.000$ — 0.0%. This <em>is</em> zero: there were twenty
+    misconceptions to catch and it caught none.<br>
+    specificity $= 20/(20 + 0) = 1.000$ — 100.0%, which is free and meaningless.<br>
+    precision $= 0/(0 + 0) = 0/0$ — <strong>undefined</strong>.</p>
+    <p>Precision asks "of the alarms you raised, what fraction were right?" This model raised no
+    alarms, so the question has no answer. Zero would be the answer to a different question —
+    "you raised alarms and every one was wrong" — which is false here. F1 is undefined too,
+    because it is built from precision.</p>
+    <p>In the results table write <code>undefined</code> or <code>—</code> with a footnote:
+    <em>"precision and F1 are undefined: the model predicted M on zero items."</em>
+    <code>G.metrics</code> returns <code>null</code> for both and <code>G.pct</code> prints
+    <code>undefined</code>, deliberately, so that the distinction survives all the way from the
+    arithmetic to the page.</p>
+    <p>Note also that recall 0% and specificity 100% arrive together. A metric that is free to a
+    constant classifier is not evidence of anything, and this pair is the cleanest demonstration
+    of it on the whole page.</p>
+  </div></details>
+</div>
+
+<div class="exercise">
+  <div class="ex-head">Exercise 8.4 <span class="stars">★★</span><span class="tag">by hand</span></div>
+  <div class="ex-body"><p>Model A has precision 0.90 and recall 0.50. Model B has precision 0.70
+  and recall 0.70. Their arithmetic means are identical. Compute F1 for each, then use the
+  identity $A - H = (a-b)^2 / (2(a+b))$ to predict both gaps before you compute them, and confirm.</p></div>
+  <details><summary>Solution</summary><div class="solution">
+    <p>Both arithmetic means are $0.700$: $(0.90 + 0.50)/2 = 0.700$ and $(0.70 + 0.70)/2 = 0.700$.</p>
+    <p><strong>Model A</strong>: $F_1 = 2 \times 0.90 \times 0.50 / (0.90 + 0.50)
+    = 0.900 / 1.400 = 0.6429$.</p>
+    <p><strong>Model B</strong>: $F_1 = 2 \times 0.70 \times 0.70 / (0.70 + 0.70)
+    = 0.980 / 1.400 = 0.700$.</p>
+    <p>Predicted gaps from the identity. For A: $(0.90 - 0.50)^2 / (2 \times 1.400)
+    = 0.160 / 2.800 = 0.0571$, and indeed $0.700 - 0.6429 = 0.0571$. For B:
+    $(0.70 - 0.70)^2 / (2 \times 1.400) = 0$, and indeed $0.700 - 0.700 = 0$.</p>
+    <p>So F1 ranks B above A by 5.7 points even though the two models have the same average
+    performance. That is the harmonic mean doing its job: A's balance is worse, and the penalty
+    scales with the <em>square</em> of the imbalance.</p>
+    <p>For this project the ranking also matches what you actually care about. Model A misses half
+    the misconceptions; Model B misses 30% of them. Since a missed misconception is the error with
+    a real cost, the summary metric preferring B is the summary metric agreeing with the study
+    design.</p>
+  </div></details>
+</div>
+
+<div class="exercise">
+  <div class="ex-head">Exercise 8.5 <span class="stars">★★</span><span class="tag">arithmetic</span></div>
+  <div class="ex-body"><p>The <code>baseline</code> condition gets 27 of 40 right; the
+  <code>misconception_aware</code> condition gets 31 of 40. Compute both 95% Wilson intervals
+  using</p>
+  $$\left[\frac{c-s}{d},\;\frac{c+s}{d}\right],\quad
+  d = 1+\frac{z^2}{n},\quad c = \hat p + \frac{z^2}{2n},\quad
+  s = z\sqrt{\frac{\hat p(1-\hat p)}{n}+\frac{z^2}{4n^2}}$$
+  <p>with $z = 1.96$, $n = 40$. Then say precisely what you may and may not claim.</p></div>
+  <details><summary>Solution</summary><div class="solution">
+    <p>Both share $z^2 = 3.8416$, $d = 1 + 3.8416/40 = 1.09604$, and
+    $z^2/(4n^2) = 3.8416/6400 = 0.00060$.</p>
+    <p><strong>misconception_aware, 31/40, $\hat p = 0.775$.</strong><br>
+    $c = 0.775 + 3.8416/80 = 0.775 + 0.04802 = 0.82302$.<br>
+    $s = 1.96\sqrt{0.775 \times 0.225/40 + 0.00060} = 1.96\sqrt{0.004359 + 0.000600}
+    = 1.96 \times 0.07042 = 0.13803$.<br>
+    Interval $= [(0.82302 - 0.13803)/1.09604,\; (0.82302 + 0.13803)/1.09604]
+    = [0.625,\; 0.877]$ — <strong>62.5% to 87.7%</strong>.</p>
+    <p><strong>baseline, 27/40, $\hat p = 0.675$.</strong><br>
+    $c = 0.675 + 0.04802 = 0.72302$.<br>
+    $s = 1.96\sqrt{0.675 \times 0.325/40 + 0.00060} = 1.96\sqrt{0.005484 + 0.000600}
+    = 1.96 \times 0.07800 = 0.15289$.<br>
+    Interval $= [(0.72302 - 0.15289)/1.09604,\; (0.72302 + 0.15289)/1.09604]
+    = [0.520,\; 0.799]$ — <strong>52.0% to 79.9%</strong>.</p>
+    <p><strong>What you may claim.</strong> The observed difference is 10.0 percentage points in
+    favour of the misconception-aware prompt, and the direction is the one the hypothesis
+    predicted. Both point estimates are above the 50% majority-class baseline.</p>
+    <p><strong>What you may not claim.</strong> The intervals overlap across almost their whole
+    length — 62.5% to 79.9% is common to both. Forty items cannot separate these two conditions.
+    Write "the misconception-aware prompt scored 10 points higher, but with n = 40 the 95%
+    intervals overlap substantially and this pilot cannot establish the difference", and let the
+    reader see the intervals. That sentence is worth more than an overstated one, because it is
+    the sentence a reader can check.</p>
+  </div></details>
+</div>
+
+<div class="exercise">
+  <div class="ex-head">Exercise 8.6 <span class="stars">★★★</span><span class="tag">thinking</span></div>
+  <div class="ex-body"><p>Use Lab 3 to find the sample size at which a 95% interval around an
+  observed accuracy of 77.5% is narrower than 10 percentage points. Compare it with 40. Then
+  answer the real question: given that forty is what you have, name three things you can do that
+  make the study more informative <em>without</em> more data, and one thing you must not do.</p></div>
+  <details><summary>Solution</summary><div class="solution">
+    <p>At 77.5% observed accuracy the interval first drops below 10 points wide at
+    <strong>n = 266</strong>, where it runs about 72.1% to 82.1%. At n = 40 it is 62.5% to 87.7%,
+    <strong>25.2 points wide</strong>. So resolving a 10-point difference would need roughly
+    <strong>6.7 times</strong> the dataset — about 226 further hand-written responses. At the rate
+    good items get written, that is not this year's project.</p>
+    <p>Three things that help without more data:</p>
+    <p><strong>1. Use the same forty responses in both conditions.</strong> The two prompts are run
+    over an identical dataset, so the comparison is <em>paired</em>: every item acts as its own
+    control, and the item-to-item variation that dominates the interval above partly cancels. The
+    quantity to report is which items <em>changed</em> verdict between conditions and in which
+    direction, not just two separate accuracies. For paired binary outcomes the standard test is
+    McNemar's test <span class="status cited">cited</span>, which uses only the disagreement
+    counts; if you want it, it is one function call and needs the per-item results the pipeline
+    already writes.</p>
+    <p><strong>2. Report the error you care about as a count.</strong> "Missed misconceptions fell
+    from 13 to 6 out of 20" is concrete, checkable, and does not pretend to more precision than it
+    has. Counts are honest in a way that a percentage with a hidden interval is not.</p>
+    <p><strong>3. Look at which items moved.</strong> Forty items is a poor sample and an excellent
+    set of cases. If every newly-caught response involves the MFA misconception and none involve
+    the rotation one, that is a finding about <em>what the catalogue supplies</em>, and it does not
+    depend on the interval at all. Qualitative patterns survive small n; precise effect sizes do
+    not.</p>
+    <p><strong>And the thing you must not do:</strong> keep adjusting the prompt, rerunning, and
+    reporting the best result. With intervals this wide, several reruns will produce a flattering
+    number by chance alone, and choosing it turns noise into a claim. Decide the prompts and the
+    metrics before the run, run once, and report what happened — including a rerun that came out
+    differently at temperature 0, which is expected and belongs in the write-up rather than in the
+    bin.</p>
+  </div></details>
+</div>
+
+<h2>9 · Verification</h2>
+
+<div class="box verify">
+  <span class="lbl">Before the check-in</span>
+  <ul>
+    <li>I can state the positive class and say why the choice changes every number.</li>
+    <li>Given a 2×2 table I can compute all five metrics without looking anything up.</li>
+    <li>I can explain the always-says-M trap and the always-says-C trap in one sentence each.</li>
+    <li>I know why precision can be undefined and what I would write in the results table.</li>
+    <li>I can say what the harmonic mean punishes, and demonstrate it with two numbers.</li>
+    <li>I can quote the width of the 95% interval at n = 40 and say what it stops me claiming.</li>
+    <li>My write-up reports recall as the headline, beside precision and the 50% baseline.</li>
+  </ul>
+</div>
+
+<div class="box aside">
+  <span class="lbl">Going deeper (optional)</span>
+  <p>Three things that sit just past the edge of this page and are worth knowing exist.</p>
+  <p><strong>F1 is not the only summary.</strong> The general form is
+  $F_\beta = (1+\beta^2)PR / (\beta^2 P + R)$, which weights recall $\beta$ times as heavily as
+  precision. Since this project holds that a missed misconception costs more than a false alarm,
+  $F_2$ is arguably the more honest summary here than $F_1$. Reporting both, and saying why, is a
+  stronger methods section than picking one silently.</p>
+  <p><strong>The four counts are not four free numbers.</strong> The design fixes twenty M and
+  twenty C, so $TP + FN = 20$ and $FP + TN = 20$ always: the table has exactly two degrees of
+  freedom. That is why Lab 1 lets you break the constraint and the confusion-matrix lab in Phase 1
+  does not. Breaking it on purpose is how you see what the constraint was buying you.</p>
+  <p><strong>Intervals are not the same as tests.</strong> Two overlapping intervals do not prove
+  there is no difference; they say this sample cannot resolve one. Absence of evidence is being
+  reported, not evidence of absence, and the difference between those two sentences is most of
+  what a careful results section is made of.</p>
+</div>
+
+<div class="pager"><a href="../index.html">← Course index</a><a href="glossary.html">Glossary →</a></div>
+
+</main>
+
+<footer class="site">
+  <div class="wrap">
+    <strong>Wrong in a Particular Way</strong> · Reference ·
+    <a href="../index.html">index</a> ·
+    <a href="glossary.html">glossary</a> ·
+    <a href="unstuck.html">stuck?</a>
+  </div>
+</footer>
+
+</body>
+</html>

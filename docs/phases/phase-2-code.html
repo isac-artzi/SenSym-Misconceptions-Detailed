@@ -1,0 +1,827 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Phase 2 · Six TODOs, on fake data — Wrong in a Particular Way</title>
+<link rel="stylesheet" href="../assets/vendor/katex/katex.min.css">
+<link rel="stylesheet" href="../assets/css/style.css">
+<script src="../assets/vendor/katex/katex.min.js"></script>
+<script src="../assets/vendor/katex/auto-render.min.js"></script>
+<script src="../assets/js/detect.js"></script>
+</head>
+<body>
+
+<header class="site">
+  <div class="wrap">
+    <div class="crumbs"><a href="../index.html">Wrong in a Particular Way</a> · Phase 2</div>
+    <div class="badges"><span class="badge">Phase 2</span><span class="badge win">Win: the green line</span></div>
+    <h1 class="chapter-title">Six TODOs, on fake data</h1>
+    <p class="chapter-sub">Writing the six lines that make the pipeline yours, in a mode where a whole run takes one second.</p>
+  </div>
+</header>
+
+<main class="wrap">
+
+<p class="lede">The repository already runs. It ran the moment you cloned it, before you had
+written anything, and it produced charts. That is deliberate, and this page is about the
+machinery that makes it true and how to use it. By the end you will have replaced six pieces
+of borrowed code with your own, watched a warning list shrink to nothing, and seen a green
+line that means the program you just ran contained no code but yours.</p>
+
+<div class="objectives">
+  <h3>By the end of this phase you can</h3>
+  <ul>
+    <li>Explain the reference-fallback mechanism, and why it means a crash is always a real bug.</li>
+    <li>Say which six TODOs the program tracks, and which two it cannot.</li>
+    <li>Do the whole phase in mock mode, and say why debugging against a real model is a mistake.</li>
+    <li>Write the two lines in <code>run_condition()</code> that build a prompt and send it.</li>
+    <li>Write the four pandas expressions that count TP, FN, FP and TN, without mixing up the roles of truth and prediction.</li>
+    <li>Read the sanity check in <code>compute_confusion()</code> and know what a failure of it is telling you.</li>
+    <li>Say what <code>pytest -q</code> does verify, and — more importantly — what it does not.</li>
+  </ul>
+</div>
+
+<h2>1 · Why nothing crashes</h2>
+
+<p>There is a real tension in a project set up for learning. If unfinished code crashes the
+program, you cannot run anything until everything is done, so you never see the shape of the
+finished thing, and you cannot tell <em>my code is wrong</em> apart from <em>my install is
+wrong</em>. But if the code comes pre-filled, you learn nothing by reading it.</p>
+
+<p>This repository does both, through one small function. Every place where you have to write
+something has a worked version sitting behind it. Look at
+<code>python/misconception/todo.py</code>:</p>
+
+<div class="cmd"><pre>def pending(todo_id, value, fallback, *args, **kwargs):
+    if value is not None:
+        return value
+    if todo_id not in _fired:
+        _fired.append(todo_id)
+    return fallback(*args, **kwargs)</pre></div>
+
+<p>That is the entire mechanism. Each TODO site in the code looks like a line you write,
+followed immediately by a call to <code>pending</code>. Here is the real pair from
+<code>run_experiment.py</code>:</p>
+
+<div class="cmd"><pre>prompt = None  # &lt;-- FIX ME
+prompt = todo.pending("TODO 4a", prompt, reference.build_prompt,
+                      condition, item["response_text"], misconceptions)</pre></div>
+
+<p>If your line still says <code>None</code>, <code>pending</code> notes the identifier in a
+list called <code>_fired</code> and calls the worked version in
+<code>python/misconception/reference.py</code> instead. The run completes, the charts appear,
+and at the end <code>todo.report()</code> prints a yellow block naming exactly what was not
+yours. The moment you write something that is not <code>None</code>, your value is returned
+untouched and the identifier never enters the list.</p>
+
+<div class="box definition">
+  <span class="lbl">The consequence worth internalising</span>
+  <p><strong>An unfinished TODO can never crash this program.</strong> Not once, not in any
+  combination. The fallback is always there and always returns something of the right type.</p>
+  <p>So if you see a traceback, it is not "I have not got there yet". It is a real bug — a
+  typo, a wrong column name, a missing file — and it is worth reading properly rather than
+  shrugging at. This is the whole reason the mechanism exists: it removes an entire category
+  of ambiguous failure, so every failure that remains is informative.</p>
+</div>
+
+<div class="lab">
+  <div class="lab-title">Lab · whose code is actually running</div>
+  <p class="lab-desc">Eight TODO markers, in the order the program meets them. Tick the six
+  the program can track and watch the pipeline turn from borrowed to yours; the readout prints
+  the warning block you would actually see at the end of that run. Notice that the two on the
+  left never change colour, and ask yourself why the program cannot know about them.</p>
+  <canvas id="pipe" height="270"></canvas>
+  <div class="controls" id="pipectl"></div>
+  <div class="readout" id="pipeout"></div>
+</div>
+
+<script>
+G.lab(function () {
+  /* The six tracked slots, in the order LOCATIONS lists them in
+     python/misconception/todo.py. TODO 2 and TODO 3 are in LOCATIONS too but
+     have no pending() call anywhere, so they can never fire. */
+  var TRACKED = [
+    { k: 't4a', id: 'TODO 4a', fn: 'build prompt',      file: 'run_experiment.py' },
+    { k: 't4b', id: 'TODO 4b', fn: 'ask model',         file: 'run_experiment.py' },
+    { k: 't5a', id: 'TODO 5a', fn: 'count TP',          file: 'analyze.py' },
+    { k: 't5b', id: 'TODO 5b', fn: 'count FN',          file: 'analyze.py' },
+    { k: 't5c', id: 'TODO 5c', fn: 'count FP',          file: 'analyze.py' },
+    { k: 't5d', id: 'TODO 5d', fn: 'count TN',          file: 'analyze.py' }
+  ];
+  var UNTRACKED = [
+    { id: 'TODO 2', fn: 'read prompt A', file: 'prompts.py' },
+    { id: 'TODO 3', fn: 'all 10, or 1?', file: 'prompts.py' }
+  ];
+
+  var st = G.controls('pipectl', TRACKED.map(function (t) {
+    return { k: t.k, type: 'check', label: t.id, value: false };
+  }), draw);
+
+  function draw() {
+    var cv = G.canvas('pipe'); if (!cv) return;
+    var fr = G.frame(cv.ctx, cv.w, cv.h, {
+      xmin: 0, xmax: 8, ymin: 0, ymax: 1,
+      margin: { left: 8, right: 8, top: 12, bottom: 26 }
+    });
+    fr.axes({ xticks: 0, yticks: 0, grid: false });
+
+    /* file bands, so it is obvious which file each marker lives in */
+    var BANDS = [
+      [0, 2, 'prompts.py'], [2, 4, 'run_experiment.py'], [4, 8, 'analyze.py']
+    ];
+    BANDS.forEach(function (b) {
+      fr.rect(b[0] + 0.03, 0.12, b[1] - 0.03, 0.90,
+              { fill: G.COL.wash, alpha: 0.9, stroke: G.COL.line, width: 1 });
+      fr.text((b[0] + b[1]) / 2, 0.795, b[2], { color: G.COL.muted, align: 'center',
+              font: '11px -apple-system, Segoe UI, Roboto, sans-serif' });
+    });
+
+    var done = 0;
+    function box(i, id, fn, col, note) {
+      fr.rect(i + 0.11, 0.31, i + 0.89, 0.66,
+              { fill: col, alpha: 0.14, stroke: col, width: 2 });
+      fr.text(i + 0.5, 0.545, id, { color: col, align: 'center' });
+      fr.text(i + 0.5, 0.415, fn, { color: G.COL.muted, align: 'center',
+              font: '10.5px -apple-system, Segoe UI, Roboto, sans-serif' });
+      fr.text(i + 0.5, 0.20, note, { color: col, align: 'center',
+              font: '10.5px -apple-system, Segoe UI, Roboto, sans-serif' });
+    }
+
+    UNTRACKED.forEach(function (t, i) {
+      box(i, t.id, t.fn, G.COL.muted, 'not tracked');
+    });
+    TRACKED.forEach(function (t, i) {
+      var mine = !!st[t.k];
+      if (mine) done++;
+      box(i + 2, t.id, t.fn, mine ? G.COL.green : G.COL.amber,
+          mine ? 'yours' : 'reference');
+    });
+    for (var a = 1; a < 8; a++) {
+      fr.text(a, 0.50, '›', { color: G.COL.line, align: 'center',
+              font: '15px -apple-system, Segoe UI, Roboto, sans-serif' });
+    }
+
+    var missing = TRACKED.filter(function (t) { return !st[t.k]; });
+    var expA = missing.filter(function (t) { return t.file === 'run_experiment.py'; });
+    var expB = missing.filter(function (t) { return t.file === 'analyze.py'; });
+
+    function block(name, list) {
+      if (!list.length) {
+        return name + ':  ✓ Nothing fell back — this run was entirely your code.';
+      }
+      return name + ':  ⚠  ' + list.length + ' TODO(s) not done — the worked versions ' +
+             'were used.\n           ' +
+             list.map(function (t) { return t.id; }).join('   ');
+    }
+
+    G.say('pipeout',
+      done + ' of 6 tracked markers are yours.\n\n' +
+      block('run_experiment.py --mock --sample', expA) + '\n' +
+      block('analyze.py                       ', expB) + '\n\n' +
+      (missing.length
+        ? 'The two scripts count separately: each is its own process, so each prints its\n' +
+          'own list. Six green ticks means both lines came out green, not one.'
+        : 'Both lines green. TODO 2 and TODO 3 are still on you — the program has no way\n' +
+          'to check a decision you made in your head. Nobody is watching but you.'));
+  }
+  draw();
+});
+</script>
+
+<h2>2 · Mock mode, and the one-second loop</h2>
+
+<p>Do every part of this phase with the fake model and the demo data. The command is the one
+you have already run:</p>
+
+<div class="box python">
+  <span class="lbl">Run these, in this order, after every change</span>
+  <div class="cmd"><pre><span class="p">$ </span>cd python
+<span class="p">$ </span>python3 misconception/run_experiment.py --mock --sample
+<span class="p">$ </span>python3 misconception/analyze.py</pre></div>
+  <p>And, from the repository root rather than from <code>python/</code>:</p>
+  <div class="cmd"><pre><span class="p">$ </span>pytest -q</pre></div>
+  <p style="margin-bottom:0"><code>--mock</code> swaps the real model for
+  <code>ask_llm_mock()</code>, a keyword rule that answers instantly and needs nothing
+  installed. <code>--sample</code> swaps your (still empty) data files for the twelve demo
+  responses in <code>python/data/sample/</code>. Together they take about a second.</p>
+</div>
+
+<p>A real run is eighty calls to a three-billion-parameter model and takes minutes. A mock run
+takes one second. That difference is not convenience, it is a different way of working: at one
+second you change a line and look, change a line and look, twenty times in ten minutes. At
+five minutes you change three things at once because waiting is boring, and then you cannot
+tell which one fixed it.</p>
+
+<div class="box warning">
+  <span class="lbl">Never debug your code and your model at the same time</span>
+  <p>If you run against Ollama while your own code is unfinished, every failure has two
+  possible sources and you have to rule one out before you can think about the other. Mock
+  mode removes one of them entirely. When your code is right in mock mode, and it then breaks
+  against the real model, you have learned something specific and useful: the difference is
+  the model.</p>
+  <p>Everything on this page — all six TODOs, both scripts, the tests, the charts — can be
+  finished without Ollama ever being installed.</p>
+</div>
+
+<div class="box aside">
+  <span class="lbl">The fake model gives both conditions identical results. That is correct.</span>
+  <p><code>ask_llm_mock()</code> ignores the prompt it is handed and looks only at the student
+  response inside it, so <code>baseline</code> and <code>misconception_aware</code> come out
+  exactly the same. There is no model for the prompt to influence. Seeing two identical rows in
+  <code>metrics.csv</code> is evidence the plumbing works, not evidence the experiment failed.</p>
+  <p>Everything <code>--mock</code> and <code>--sample</code> produce is
+  <strong>demo data</strong>. Not a single number from this page goes into your write-up.</p>
+</div>
+
+<h2>3 · The eight markers, six of which the program can check</h2>
+
+<p><code>todo.py</code> holds a dictionary called <code>LOCATIONS</code> with eight entries.
+Six of them have a matching <code>pending()</code> call somewhere in the code and can
+therefore fire. Two of them do not exist anywhere except in that dictionary, because what they
+ask for is a decision, not a value — and no program can check whether you made a decision.
+The phase title says six because six is what the machine counts.</p>
+
+<h3>TODO 2 — <code>prompts.py</code> · <code>build_baseline_prompt()</code></h3>
+
+<p><strong>What it asks.</strong> Read the plain prompt out loud and confirm two things: that
+it clearly asks for what you want, and that it does not accidentally hint at any specific
+misconception. Then delete the TODO block.</p>
+
+<p><strong>What the reference does.</strong> Nothing. There is no fallback for this one; the
+prompt is already written and already works. The work is entirely in your reading of it.</p>
+
+<p><strong>Why it matters more than it looks.</strong> If the baseline prompt mentioned
+password length, or rotation, or MFA, then the "plain" condition would secretly be a
+misconception-aware condition with a shorter list, and the difference you measure in Phase 5
+would be a difference between two things you cannot name. There is a test that guards this,
+<code>test_baseline_prompt_does_not_leak_the_misconception_list</code>, and it is worth
+opening.</p>
+
+<p><strong>How you know it is right.</strong> You can state, in one sentence, the single
+difference between prompt A and prompt B. If your sentence has an "and" in it, one of the two
+prompts has drifted.</p>
+
+<h3>TODO 3 — <code>prompts.py</code> · <code>build_misconception_aware_prompt()</code></h3>
+
+<p><strong>What it asks.</strong> Read <code>numbered_list</code> until you can say what string
+it produces, then answer a question in writing: should the model see all ten misconceptions
+every time, or only the one that response is about?</p>
+
+<p><strong>What the reference does.</strong> Again, nothing — the code already shows all ten.
+The point is that you can defend that choice, out loud, without notes.</p>
+
+<p><strong>Hint, not answer.</strong> Think about what a deployed system would actually know at
+the moment it reads a student's sentence. Then think about what your recall number would mean
+if the model had been told in advance which of the ten to look for.</p>
+
+<p><strong>How you know it is right.</strong> You have written a short paragraph, in your notes
+file, that says what showing only the relevant misconception would do to the numbers and why
+that would be the wrong experiment.</p>
+
+<h3>TODO 4a — <code>run_experiment.py</code> · <code>run_condition()</code></h3>
+
+<p><strong>What it asks.</strong> One line. Replace <code>prompt = None</code> with a call to
+<code>build_prompt(...)</code>, which is already imported at the top of the file.</p>
+
+<p><strong>What the reference does.</strong> <code>reference.build_prompt()</code> imports the
+two builders directly and branches on the condition name: <code>baseline</code> gets the plain
+builder, anything else gets the aware one. Your version should use the dispatcher in
+<code>prompts.py</code> instead, which is stricter — it raises <code>ValueError</code> on a
+condition it does not recognise rather than silently treating a typo as
+<code>misconception_aware</code>.</p>
+
+<p><strong>Hint.</strong> Open <code>prompts.py</code> and read the signature of
+<code>build_prompt</code>. It wants three things in a fixed order. Two of them are already
+parameters of <code>run_condition()</code>; the third is a column of the row you are looping
+over, and the loop calls that row <code>item</code>.</p>
+
+<p><strong>How you know it is right.</strong> <code>TODO 4a</code> stops appearing in the
+warning block, and the progress dots and crosses printed during the run are unchanged from
+before you touched it. If they change, you built a different prompt from the one the reference
+built, and you should find out why.</p>
+
+<h3>TODO 4b — <code>run_experiment.py</code> · <code>run_condition()</code></h3>
+
+<p><strong>What it asks.</strong> One line. Replace <code>raw_reply = None</code> with a call
+that sends the prompt to the model and returns its raw text.</p>
+
+<p><strong>What the reference does.</strong> <code>reference.ask_model(ask_fn, prompt)</code>
+returns <code>ask_fn(prompt)</code>. That is the whole function.</p>
+
+<p><strong>Hint.</strong> Look four lines above the loop. There is a local variable called
+<code>ask</code> which has already been set to either the real client or the mock one,
+depending on <code>--mock</code>. Use it. If you reach past it and call
+<code>ask_llm</code> directly, your code will work perfectly and then try to contact Ollama in
+mock mode, which is exactly the confusion this design exists to prevent.</p>
+
+<p><strong>How you know it is right.</strong> The run still completes in about a second with
+<code>--mock</code>, and <code>TODO 4b</code> leaves the warning block. If it suddenly takes
+minutes or raises <code>LLMError</code>, you bypassed <code>ask</code>.</p>
+
+<h3>TODO 5a–5d — <code>analyze.py</code> · <code>compute_confusion()</code></h3>
+
+<p><strong>What they ask.</strong> Four lines, one per box of the confusion matrix, counting
+rows of a dataframe. The dataframe is called <code>scored</code> and has already had the
+unparseable replies removed. Two constants are in scope at the top of the file:
+<code>M</code> is <code>"M"</code> and <code>C</code> is <code>"C"</code>.</p>
+
+<p><strong>What the reference does.</strong> One function,
+<code>reference.count(scored, truth_col, pred_col, truth_val, pred_val)</code>, covers all four
+by taking the two labels as arguments. It filters on both columns with <code>&amp;</code> and
+returns the length. Your four lines are that same expression written out four times with the
+letters swapped around.</p>
+
+<p><strong>How you know it is right.</strong> Three independent signals, in order of strength:
+the four counts add up to <code>len(scored)</code> and the program does not exit; all four
+identifiers leave the warning block; and <code>analyze.py</code> prints
+<code>scikit-learn cross-check: MATCH ✓</code>.</p>
+
+<div class="box warning">
+  <span class="lbl">The mistake that is very easy to make here</span>
+  <p>The four counts are about <strong>two</strong> columns. It is genuinely tempting to write
+  the true-positive line as "the rows where the model said M":</p>
+  <div class="cmd"><pre>tp = len(scored[scored["prediction"] == M])          # WRONG</pre></div>
+  <p>That is not the true positives. That is every alarm the model raised, real or false — it
+  is \(TP + FP\). The word <em>true</em> in "true positive" is not describing the model's
+  confidence; it is describing whether the model's positive was <em>correct</em>, which is a
+  fact about your label, not about the model. A count that never looks at
+  <code>ground_truth</code> cannot possibly be a count of correctness.</p>
+  <p>The same trap sits in front of all four. Every one of the four lines must mention both
+  <code>ground_truth</code> and <code>prediction</code>. If one of yours mentions only one
+  column, it is wrong, whatever number it produces.</p>
+</div>
+
+<p>The safety net catches it, which is the nice part. Immediately after your four lines,
+<code>compute_confusion()</code> does this:</p>
+
+<div class="cmd"><pre>total = tp + fn + fp + tn
+if total != len(scored):
+    sys.exit(...)</pre></div>
+
+<p>Every scored row lands in exactly one of four boxes, so the four counts must sum to the
+number of scored rows. With the wrong true-positive line above, the demo data gives
+\(8 + 2 + 4 + 2 = 16\) against twelve scored items, and the program stops and tells you so.
+An error message that arrives four lines after the mistake is a gift; hunting a silently wrong
+recall three weeks later is not.</p>
+
+<h2>4 · Which box does this land in?</h2>
+
+<p>Before you write the four lines, do the four counts by hand once. Positive class is
+<strong>M</strong>, "this response contains a misconception", throughout — every metric on this
+site is measured against it:</p>
+
+$$\text{recall}=\frac{TP}{TP+FN},\qquad \text{precision}=\frac{TP}{TP+FP}$$
+
+<p>Recall asks: of the misconceptions that were really there, what fraction did the model
+catch. Precision asks: of the alarms it raised, what fraction were real. A false negative is a
+misconception the tutor stayed silent about, which is the error this project cares about most.</p>
+
+<div class="lab">
+  <div class="lab-title">Lab · which cell does this land in</div>
+  <p class="lab-desc">The twelve demo responses, with the label from
+  <code>python/data/sample/responses.csv</code> and the verdict the fake model actually gave on
+  the run above. For each one, pick the box it belongs in. The grid keeps score by cell, so if
+  you are systematically confusing one pair you will see it. When all twelve are classified the
+  grid is the confusion matrix <code>analyze.py</code> prints.</p>
+  <div class="card-lab" id="cellcard"></div>
+  <canvas id="cellcv" height="290"></canvas>
+  <div class="controls" id="cellctl"></div>
+  <div class="readout" id="cellout"></div>
+</div>
+
+<script>
+G.lab(function () {
+  /* Predictions are not invented: these are the verdicts ask_llm_mock() returned
+     for S01..S12 on the run shown on this page, read out of
+     python/results/predictions_baseline.csv. Truth comes from G.SAMPLE, which is
+     python/data/sample/responses.csv. */
+  var PRED = ['M', 'M', 'M', 'M', 'M', 'C', 'C', 'C', 'C', 'M', 'M', 'M'];
+  var CELLS = ['TP', 'FN', 'FP', 'TN'];
+  var NAMES = { TP: 'true positive', FN: 'false negative',
+                FP: 'false positive', TN: 'true negative' };
+
+  function cellOf(t, p) {
+    if (t === 'M') return p === 'M' ? 'TP' : 'FN';
+    return p === 'M' ? 'FP' : 'TN';
+  }
+
+  var idx = 0;                       /* which item is on the card */
+  var seen = [];                     /* {cell, ok, chose} per answered item */
+  var last = null;                   /* feedback line for the card */
+
+  var st = G.controls('cellctl', [
+    { k: 'reset', type: 'button', text: 'start over' }
+  ], function () { idx = 0; seen = []; last = null; draw(); });
+
+  function pick(chosen) {
+    var it = G.SAMPLE[idx];
+    var right = cellOf(it.truth, PRED[idx]);
+    seen.push({ cell: right, ok: chosen === right, chose: chosen });
+    last = (chosen === right)
+      ? { ok: true,  msg: it.id + ' is a ' + right + ' — ' + NAMES[right] + '.' }
+      : { ok: false, msg: it.id + ' is a ' + right + ', not a ' + chosen +
+                          '. Truth ' + it.truth + ', model said ' + PRED[idx] + '.' };
+    idx++;
+    draw();
+  }
+
+  function card() {
+    var host = document.getElementById('cellcard');
+    if (!host) return;
+    if (idx >= G.SAMPLE.length) {
+      host.innerHTML = '<div class="resp"><span class="rid">all twelve classified</span>' +
+        'That grid below is exactly what <code>analyze.py</code> prints for the demo data: ' +
+        'TP 4, FN 2, FP 4, TN 2. Press <em>start over</em> to go again.</div>';
+      return;
+    }
+    var it = G.SAMPLE[idx];
+    var html =
+      '<div class="resp"><span class="rid">' + it.id + ' · item ' + (idx + 1) +
+      ' of 12 · your label: ' + it.truth + ' · the model said: ' + PRED[idx] + '</span>' +
+      it.text + '</div><div class="choices"></div>' +
+      '<div class="verdict' + (last ? (last.ok ? ' right' : ' wrong') : '') + '">' +
+      (last ? last.msg : 'Truth first, then the prediction. Which box?') + '</div>';
+    host.innerHTML = html;
+    var box = host.querySelector('.choices');
+    CELLS.forEach(function (c) {
+      var b = document.createElement('button');
+      b.type = 'button';
+      b.textContent = c;
+      b.addEventListener('click', function () { pick(c); });
+      box.appendChild(b);
+    });
+  }
+
+  function draw() {
+    card();
+    var cv = G.canvas('cellcv'); if (!cv) return;
+    var fr = G.frame(cv.ctx, cv.w, cv.h, {
+      xmin: 0, xmax: 2, ymin: 0, ymax: 2,
+      margin: { left: 78, right: 12, top: 26, bottom: 30 }
+    });
+    fr.axes({ xticks: 0, yticks: 0, grid: false });
+
+    var tally = { TP: { n: 0, ok: 0 }, FN: { n: 0, ok: 0 },
+                  FP: { n: 0, ok: 0 }, TN: { n: 0, ok: 0 } };
+    seen.forEach(function (s) { tally[s.cell].n++; if (s.ok) tally[s.cell].ok++; });
+
+    var POS = { TP: [0, 1], FN: [1, 1], FP: [0, 0], TN: [1, 0] };
+    CELLS.forEach(function (c) {
+      var p = POS[c], x0 = p[0], y0 = p[1], t = tally[c];
+      var wrong = t.n - t.ok;
+      var col = t.n === 0 ? G.COL.muted : (wrong ? G.COL.rose : G.COL.green);
+      fr.rect(x0 + 0.03, y0 + 0.05, x0 + 0.97, y0 + 0.95,
+              { fill: col, alpha: t.n ? 0.13 : 0.05, stroke: col, width: 2 });
+      fr.text(x0 + 0.5, y0 + 0.74, c, { color: col, align: 'center',
+              font: '15px -apple-system, Segoe UI, Roboto, sans-serif' });
+      fr.text(x0 + 0.5, y0 + 0.47, String(t.n), { color: G.COL.ink, align: 'center',
+              font: '700 26px -apple-system, Segoe UI, Roboto, sans-serif' });
+      fr.text(x0 + 0.5, y0 + 0.29, NAMES[c], { color: G.COL.muted, align: 'center',
+              font: '11px -apple-system, Segoe UI, Roboto, sans-serif' });
+      fr.text(x0 + 0.5, y0 + 0.13,
+              t.n === 0 ? 'none yet' : t.ok + ' of ' + t.n + ' placed correctly',
+              { color: col, align: 'center',
+                font: '11px -apple-system, Segoe UI, Roboto, sans-serif' });
+    });
+
+    fr.text(0.5, 2.03, 'model said M', { color: G.COL.muted, align: 'center' });
+    fr.text(1.5, 2.03, 'model said C', { color: G.COL.muted, align: 'center' });
+    fr.text(-0.06, 1.5, 'truly M', { color: G.COL.muted, align: 'right' });
+    fr.text(-0.06, 0.5, 'truly C', { color: G.COL.muted, align: 'right' });
+
+    var right = seen.filter(function (s) { return s.ok; }).length;
+    var worst = null, worstN = 0;
+    CELLS.forEach(function (c) {
+      var bad = tally[c].n - tally[c].ok;
+      if (bad > worstN) { worstN = bad; worst = c; }
+    });
+
+    var msg = right + ' of ' + seen.length + ' placed correctly.\n';
+    if (!seen.length) {
+      msg += 'The top row is the twelve responses you labelled M. The left column is the\n' +
+             'ones the model flagged. TP and TN are the diagonal; the errors are the corners.';
+    } else if (worst) {
+      msg += 'Most often missed: ' + worst + ' (' + worstN + ' wrong). ' +
+             (worst === 'FN' || worst === 'FP'
+               ? 'Both error cells mention one M and one C —\nread the truth first, always, then the prediction.'
+               : 'Both agreement cells repeat the same letter twice.');
+    } else {
+      msg += 'No mistakes so far.';
+    }
+    if (seen.length === 12) {
+      var w = G.wilson(4, 6);
+      msg += '\n\nFinal grid: TP 4, FN 2, FP 4, TN 2 — what analyze.py prints for the demo data.\n' +
+             'Recall 4/6 = ' + G.pct(4 / 6) + ', 95% Wilson interval ' +
+             G.pct(w[0]) + ' to ' + G.pct(w[1]) + '. Twelve items tells you almost nothing,\n' +
+             'which is the point: these are demo numbers and never go in a write-up.';
+    }
+    G.say('cellout', msg);
+  }
+  draw();
+});
+</script>
+
+<div class="box example">
+  <span class="lbl">The pattern, once</span>
+  <p>Every one of the four lines is this shape, with two letters changed:</p>
+  <div class="cmd"><pre>tp = len(scored[(scored["ground_truth"] == M) &amp; (scored["prediction"] == M)])</pre></div>
+  <p>The brackets around each comparison are not optional. In pandas <code>&amp;</code> binds
+  more tightly than <code>==</code>, so without them Python tries to compute
+  <code>M &amp; scored["prediction"]</code> and raises a <code>TypeError</code> that reads as
+  if it were about something else entirely. Use <code>&amp;</code>, not <code>and</code>: the
+  latter asks for the truth value of a whole column and raises
+  <code>ValueError: The truth value of a Series is ambiguous</code>.</p>
+</div>
+
+<h2>5 · What "verified" means here</h2>
+
+<p>Run this from the repository root, not from <code>python/</code>:</p>
+
+<div class="cmd"><pre><span class="p">$ </span>pytest -q</pre></div>
+<div class="out">...................                                                      [100%]
+<b>19 passed</b> in 3.7s</div>
+
+<p>Nineteen tests at the time of writing <span class="status observed">observed</span>. Three
+of them matter for this page. <code>test_confusion_counts_land_in_the_right_boxes</code> builds
+a six-row frame whose answer you can check in your head — two TP, one FN, one FP, two TN — and
+asserts <code>compute_confusion</code> agrees. <code>test_unparseable_predictions_are_excluded_not_guessed</code>
+feeds it a <code>?</code> and checks that it is reported rather than quietly scored.
+And <code>test_confusion_agrees_with_sklearn</code> builds twenty rows and compares your four
+counts against <code>sklearn.metrics.confusion_matrix</code>.</p>
+
+<div class="box definition">
+  <span class="lbl">Two independent implementations agreeing</span>
+  <p>That last test, and the <code>MATCH ✓</code> line <code>analyze.py</code> prints, are the
+  only sense in which anything here is "verified". Your four pandas expressions and
+  scikit-learn's C implementation were written by different people at different times for
+  different reasons. If they produce the same four integers on the same data, the probability
+  that both are wrong <em>in the same way</em> is small.</p>
+  <p>Note the ordering convention, because it is a classic source of silent error.
+  scikit-learn returns its matrix in the order <code>[[TN, FP], [FN, TP]]</code> when you pass
+  <code>labels=[C, M]</code> — negative class first. The house convention on this site puts the
+  positive class first. Same numbers, opposite reading order. Swapping them is a mistake nobody
+  notices until precision and recall have been reported the wrong way round in a paper.</p>
+</div>
+
+<div class="box warning">
+  <span class="lbl">What <code>pytest -q</code> does not tell you</span>
+  <p>All nineteen tests pass on a completely untouched clone. They have to: the tests call
+  <code>compute_confusion()</code>, which falls back to <code>reference.count()</code>, which is
+  correct. A green test suite proves the pipeline is correct. It does not prove any of it is
+  yours.</p>
+  <p><strong>The green fallback line is the only thing that proves authorship</strong>, and it
+  is printed by the two scripts, not by pytest. Run both. Get both lines.</p>
+</div>
+
+<p>What you are aiming at, from a fresh run of each script:</p>
+
+<div class="out"><b>✓ Nothing fell back — this run was entirely your code.</b></div>
+
+<p>And what a partly finished run looks like, so you recognise it:</p>
+
+<div class="out">────────────────────────────────────────────────────────────
+<i>⚠  2 TODO(s) not done — the worked versions were used.</i>
+   The numbers above are real, but they aren't YOUR code's numbers yet.
+────────────────────────────────────────────────────────────
+   TODO 4a  misconception/run_experiment.py · run_condition()
+            → build the prompt with build_prompt(...)
+   TODO 4b  misconception/run_experiment.py · run_condition()
+            → send the prompt with ask(...)</div>
+
+<p>One thing that message gets wrong: it ends by pointing at
+<code>docs/03_TODO_CHECKLIST.md</code>, and the paths inside that file still say
+<code>src/</code>. The repository moved to <code>python/misconception/</code> and the checklist
+did not follow. Trust the code, then this site, then the checklist, in that order — and if you
+have five minutes, fixing those paths is a genuinely useful first pull request.</p>
+
+<h2>6 · Exercises</h2>
+
+<div class="exercise">
+  <div class="ex-head">Exercise 6.1 <span class="stars">★</span><span class="tag">by hand</span></div>
+  <div class="ex-body">
+    <p>Six items. Your label first, the model's verdict second:
+    (M, M), (M, C), (C, C), (M, M), (C, M), (C, C).</p>
+    <p>Fill in TP, FN, FP and TN, then compute recall and precision as fractions before you
+    convert them to decimals.</p>
+  </div>
+  <details><summary>Solution</summary><div class="solution">
+    <p>Take them one at a time. (M, M) is truth M and prediction M, so TP. (M, C) is a
+    misconception the model called correct, so FN. (C, C) is TN. (M, M) is another TP.
+    (C, M) is a false alarm on a correct answer, so FP. (C, C) is another TN.</p>
+    <p>TP = 2, FN = 1, FP = 1, TN = 2. They sum to 6, which is the number of items, so no row
+    has been double-counted or dropped.</p>
+    <p>Recall = 2/(2+1) = 2/3 ≈ 0.667. Precision = 2/(2+1) = 2/3 ≈ 0.667. They happen to be
+    equal here because FN and FP happen to be equal; that is a coincidence of this tiny
+    example, not a general fact, and the very next exercise breaks it.</p>
+    <p>These are exactly the numbers in
+    <code>test_confusion_counts_land_in_the_right_boxes</code> in
+    <code>python/tests/test_pipeline.py</code>. That test was built the same way you just did
+    it: work the answer out by hand where the answer is obvious, then check the code agrees.</p>
+  </div></details>
+</div>
+
+<div class="exercise">
+  <div class="ex-head">Exercise 6.2 <span class="stars">★★</span><span class="tag">code</span></div>
+  <div class="ex-body">
+    <p>Write the pandas expression that counts the <strong>false negatives</strong> in the
+    dataframe <code>scored</code>, exactly as it would appear on the <code>tp = ... FIX ME</code>
+    line in <code>compute_confusion()</code>. <code>M</code> and <code>C</code> are already in
+    scope. Then say, in one sentence, why the <code>C</code> is where it is.</p>
+  </div>
+  <details><summary>Solution</summary><div class="solution">
+    <div class="cmd"><pre>fn = len(scored[(scored["ground_truth"] == M) &amp; (scored["prediction"] == C)])</pre></div>
+    <p>A false negative is a response that <em>really does</em> contain a misconception — so
+    <code>ground_truth</code> is <code>M</code> — which the model called correct, so
+    <code>prediction</code> is <code>C</code>. The <code>C</code> is on the prediction side
+    because it is the model that was wrong, not your label.</p>
+    <p>Two things to check before you move on. The comparisons are each parenthesised, because
+    <code>&amp;</code> has higher precedence than <code>==</code> in Python and the unbracketed
+    version raises a <code>TypeError</code>. And it is <code>&amp;</code>, not <code>and</code>;
+    <code>and</code> would ask for the truth value of an entire Series and raise
+    <code>ValueError: The truth value of a Series is ambiguous</code>.</p>
+    <p>An equivalent form you will see in other people's code, and which is worth recognising:</p>
+    <div class="cmd"><pre>fn = int(((scored["ground_truth"] == M) &amp; (scored["prediction"] == C)).sum())</pre></div>
+    <p>A boolean Series summed counts its <code>True</code> values. Same answer; use whichever
+    you can read faster at midnight.</p>
+    <p>This is the count that goes on the bottom of the recall fraction, and recall is the
+    headline metric of this study, so of the four this is the one to get right first.</p>
+  </div></details>
+</div>
+
+<div class="exercise">
+  <div class="ex-head">Exercise 6.3 <span class="stars">★★</span><span class="tag">code</span></div>
+  <div class="ex-body">
+    <p>Write both TODO 4 lines as they should appear in <code>run_condition()</code>. Then
+    explain why using <code>ask</code> matters rather than importing <code>ask_llm</code> and
+    calling that.</p>
+  </div>
+  <details><summary>Solution</summary><div class="solution">
+    <div class="cmd"><pre>prompt = build_prompt(condition, item["response_text"], misconceptions)
+raw_reply = ask(prompt)</pre></div>
+    <p><code>build_prompt</code> is imported at the top of <code>run_experiment.py</code> from
+    <code>prompts</code>, and its signature is
+    <code>build_prompt(condition, response_text, misconception_list)</code>. All three arguments
+    are already to hand: <code>condition</code> and <code>misconceptions</code> are parameters of
+    <code>run_condition()</code>, and <code>item</code> is the current row of the responses
+    frame, whose text column is <code>response_text</code>.</p>
+    <p>Leave the <code>todo.pending(...)</code> lines underneath alone. Once <code>prompt</code>
+    is no longer <code>None</code>, <code>pending</code> returns it unchanged and never calls the
+    reference — the line becomes a no-op, and deleting it is optional tidying, not part of the
+    task.</p>
+    <p>On the second line: <code>ask</code> is set four lines above the loop to
+    <code>ask_llm_mock</code> when <code>--mock</code> was passed and <code>ask_llm</code>
+    otherwise. Calling <code>ask_llm</code> directly would give code that is correct in every way
+    except that <code>--mock</code> silently stops working, and you would be waiting on Ollama
+    while believing you were in mock mode. Indirection like this — one variable that decides
+    which implementation the rest of the function talks to — is worth recognising, because you
+    will meet it constantly and it is nearly always there to make testing possible.</p>
+  </div></details>
+</div>
+
+<div class="exercise">
+  <div class="ex-head">Exercise 6.4 <span class="stars">★★</span><span class="tag">thinking</span></div>
+  <div class="ex-body">
+    <p>Suppose you write <code>tp = len(scored[scored["prediction"] == M])</code> and get the
+    other three lines right. Run against the demo data, where the fake model produces TP 4,
+    FN 2, FP 4, TN 2 over twelve scored items. What number does that line produce, what does
+    the program do, and what exactly does the message tell you?</p>
+  </div>
+  <details><summary>Solution</summary><div class="solution">
+    <p>The line counts every row where the model said M, regardless of your label. On this data
+    that is the four real catches plus the four false alarms: 8. It is \(TP + FP\), the number
+    of alarms raised, which is the <em>denominator of precision</em>, not the numerator.</p>
+    <p>Then the sanity check runs: \(8 + 2 + 4 + 2 = 16\), but <code>len(scored)</code> is 12,
+    so <code>compute_confusion()</code> calls <code>sys.exit</code> and prints that your four
+    counts add up to 16 against 12 scored items, with the suggestion to check that you used
+    <code>&amp;</code> and not <code>|</code>.</p>
+    <p>What the message tells you precisely is that <strong>some row was counted twice</strong>
+    — the four false positives now appear in both <code>tp</code> and <code>fp</code>. What it
+    does not tell you is <em>which</em> line is at fault; four counts and one sum is not enough
+    information to localise the error. That is what the drill in section 4 is for.</p>
+    <p>Notice what would have happened without the check: recall would have been
+    \(8/(8+2) = 0.8\) instead of \(4/(4+2) \approx 0.667\), a number that is wrong, plausible,
+    and flattering. Cheap invariants that catch flattering errors are the most valuable kind.</p>
+  </div></details>
+</div>
+
+<div class="exercise">
+  <div class="ex-head">Exercise 6.5 <span class="stars">★★</span><span class="tag">code</span></div>
+  <div class="ex-body">
+    <p>Write a single pandas expression that produces all four counts at once from
+    <code>scored</code>, and read TP and FN out of it. Then give one reason not to use it in
+    <code>compute_confusion()</code>.</p>
+  </div>
+  <details><summary>Solution</summary><div class="solution">
+    <div class="cmd"><pre>ct = pd.crosstab(scored["ground_truth"], scored["prediction"])
+tp = ct.loc[M, M]
+fn = ct.loc[M, C]</pre></div>
+    <p>On the demo predictions this prints:</p>
+    <div class="out">prediction    C  M
+ground_truth
+C             2  4
+M             2  4</div>
+    <p>Rows are truth, columns are prediction, and the labels are sorted alphabetically, so
+    <code>C</code> comes before <code>M</code> in both directions. Reading TP off that table
+    means reading the bottom-right cell, which is not where the site's convention puts it.</p>
+    <p>And that is the reason not to use it here. If the model never says <code>M</code> on some
+    condition, the <code>M</code> column does not exist at all and <code>ct.loc[M, M]</code>
+    raises a <code>KeyError</code> — crosstab only creates columns for values it actually saw.
+    The four explicit counts return 0 in that case, which is the right answer. A "clever"
+    one-liner that is correct on typical data and explodes on the edge case is a bad trade in
+    analysis code, where the edge case is often the interesting result.</p>
+    <p>Once your four lines are written and cross-checked, using the library version is fine and
+    normal. Writing it out by hand once is what earns you the right to trust the one-liner.</p>
+  </div></details>
+</div>
+
+<div class="exercise">
+  <div class="ex-head">Exercise 6.6 <span class="stars">★★★</span><span class="tag">thinking</span></div>
+  <div class="ex-body">
+    <p>On a completely untouched clone, <code>pytest -q</code> reports nineteen passes. Explain
+    why, in terms of what <code>todo.pending()</code> does. Then answer the harder half: is that
+    a flaw in the test suite? If you think it is, describe a test that would fail on a fresh
+    clone and pass when the six markers are done, and say what that test would cost.</p>
+  </div>
+  <details><summary>Solution</summary><div class="solution">
+    <p><strong>Why it passes.</strong> The tests import <code>analyze</code> and call
+    <code>compute_confusion()</code>. Inside it, <code>tp</code> and the rest are still
+    <code>None</code>, so each <code>todo.pending()</code> call records the identifier in
+    <code>_fired</code> and returns <code>reference.count(...)</code>, which is correct. The
+    tests are testing the reference implementation and cannot tell the difference. The same is
+    true of <code>test_full_pipeline_runs_on_a_fresh_clone</code>, which is exactly the point of
+    that test: it exists to prove that a clone runs end to end before any work has been done.</p>
+    <p><strong>Is it a flaw?</strong> No, because the tests and the fallback report answer two
+    different questions. The tests ask <em>is this pipeline correct</em>. The report asks
+    <em>whose code is it</em>. Both questions are worth asking, and no single signal answers
+    both. A green suite plus a yellow warning block is a perfectly coherent state that means
+    "everything works, none of it is yours yet" — and being able to read that state is the
+    skill.</p>
+    <p><strong>A test that would tell them apart.</strong> Something like:</p>
+    <div class="cmd"><pre>def test_no_reference_fallbacks_remain():
+    todo.reset()
+    analyze.compute_confusion(_frame([("M", "M"), ("C", "C")]))
+    assert not todo.any_pending(), sorted(todo._fired)</pre></div>
+    <p>It would fail on a fresh clone with a message naming the unfinished markers, and pass
+    once the four lines are written. <code>todo.reset()</code> and <code>any_pending()</code>
+    already exist and the existing tests already use them.</p>
+    <p><strong>What it costs.</strong> A red test suite from the first minute of the project. A
+    beginner cannot then use "all tests pass" as a baseline meaning "my environment is sane",
+    which is the single most useful thing a test suite gives someone who has just installed
+    Python — and the reason the failure is surfaced as a yellow report at the end of a
+    successful run rather than as a test failure. That is a deliberate trade, not an oversight.
+    Being able to argue both sides of it is the answer; there is no single right one.</p>
+  </div></details>
+</div>
+
+<h2>7 · Verification</h2>
+
+<div class="box verify">
+  <span class="lbl">Before the check-in</span>
+  <ul>
+    <li><code>python3 misconception/run_experiment.py --mock --sample</code> ends with the
+    green <code>✓ Nothing fell back</code> line, not a yellow block.</li>
+    <li><code>python3 misconception/analyze.py</code> ends with the same green line.</li>
+    <li><code>analyze.py</code> prints <code>scikit-learn cross-check: MATCH ✓</code> for both
+    conditions.</li>
+    <li><code>pytest -q</code> from the repository root passes, and I can say why that is a
+    weaker signal than the green line.</li>
+    <li>Each of my four counting lines mentions both <code>ground_truth</code> and
+    <code>prediction</code>. I have checked all four.</li>
+    <li>I can say in one sentence what the only difference between prompt A and prompt B is.</li>
+    <li>My notes file has a written answer to the "all ten misconceptions, or just the relevant
+    one" question from TODO 3.</li>
+    <li>I have not reported a single number from this page anywhere. They are demo data.</li>
+  </ul>
+</div>
+
+<div class="box aside">
+  <span class="lbl">Going deeper (optional)</span>
+  <p>Once both lines are green, break something on purpose and watch what catches it. Swap the
+  <code>M</code> and <code>C</code> in your false-negative line so it counts (C, M) instead, and
+  rerun <code>analyze.py</code>. The four counts still sum to 12, so the sanity check stays
+  quiet — but scikit-learn disagrees and prints <code>MISMATCH ✗</code>, and recall comes out
+  wrong.</p>
+  <p>That is worth doing once, because it shows you which net catches which fish. The sum check
+  catches rows counted twice or not at all. The scikit-learn cross-check catches rows landing in
+  the wrong box. Neither one alone is enough, and no amount of staring at your own code
+  substitutes for a second implementation. Then put it back.</p>
+  <p>The other thing to try: fill in only three of TODO 5a–5d and run. The report names exactly
+  the one you left, which is the feedback loop this whole design exists to produce.</p>
+</div>
+
+<div class="pager"><a href="phase-1-design.html">← Phase 1 · The design</a><a href="phase-3-dataset.html">Phase 3 · Forty responses →</a></div>
+
+</main>
+
+<footer class="site">
+  <div class="wrap">
+    <strong>Wrong in a Particular Way</strong> · Phase 2 ·
+    <a href="../index.html">index</a> ·
+    <a href="../extras/glossary.html">glossary</a> ·
+    <a href="../extras/unstuck.html">stuck?</a>
+  </div>
+</footer>
+
+</body>
+</html>
