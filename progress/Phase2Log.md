@@ -1,4 +1,4 @@
-# Phase 2 — Six TODOs, on fake data   (9/01/26 - 9/04/26)
+# Phase 2 — Six TODOs, on fake data   (8/21/26 - 8/26/26)
 
 **Hours this week (roughly):** 10 
 
