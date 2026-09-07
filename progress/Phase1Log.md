@@ -1,4 +1,4 @@
-# Phase 1 — <The design, and why it is this shape>   (8/26/26-8/29/26)
+# Phase 1 — <The design, and why it is this shape>   (8/15/26-8/20/26)
 
 **5 hours:** 5
 
