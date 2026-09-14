@@ -30,6 +30,12 @@
 - Total planned model evaluations: 80
 - Majority-class baseline: 50%
 - Real experimental metrics: **pending completion of the run**
+- Baseline: TP=19, FP=1, FN=1, TN=19; accuracy=0.95, precision=0.95, recall=0.95, F1=0.95.
+- Misconception-aware: TP=19, FP=3, FN=1, TN=17; accuracy=0.90, precision=0.864, recall=0.95, F1=0.905.
+- Decoy: TP=4, FP=4, FN=2, TN=2; accuracy=0.50, precision=0.50, recall=0.667, F1=0.571.
+- Majority-class baseline: 50%.
+- Unparseable replies: 0 for all three conditions.
+- Scikit-learn cross-check: MATCH for all three conditions.
 
 ## Checks
 
@@ -45,6 +51,13 @@
 - Dataset was committed and the working tree was clean.
 - Git tag `phase-3-complete` was created.
 - Real-run results have not yet been analyzed.
+-  Both baseline and misconception-aware conditions completed successfully.
+- All 80 planned experimental evaluations completed.
+- No unparseable replies occurred.
+- Scikit-learn cross-check matched the custom metric calculations for all conditions.
+- The final run again confirmed: "Nothing fell back — this run was entirely your code."
+- Results were saved to `metrics.csv`.
+- Confusion-matrix and comparison figures were generated.
 
 ## Where I'm stuck
 
