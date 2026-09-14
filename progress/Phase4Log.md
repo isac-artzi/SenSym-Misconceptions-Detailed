@@ -1,6 +1,6 @@
 # Phase 4 — The real run, twice   (9/07/26 - )
 
-**Hours this week (roughly):** __
+**Hours this week (roughly):** 2
 
 ## What I worked out
 
